@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claim your key — DROPRATE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#14172b;--navy2:#181c33;--line:#242a4d;--gold:#ffc24b;--gold-deep:#e8941b;
+--white:#f2f4fc;--dim:#9aa1c4;--green:#4ade80;--red:#f87171}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;min-height:100vh}
+.wrap{max-width:560px;margin:0 auto;padding:0 24px}
+header{border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.06em;text-decoration:none;color:var(--white)}
+.nav a.back{color:var(--dim);font-size:.85rem;text-decoration:none}
+main{padding:64px 0}
+h1{font-size:1.9rem;margin-bottom:10px}
+.sub{color:var(--dim);font-size:.92rem;line-height:1.7;margin-bottom:30px}
+input{width:100%;background:var(--navy2);border:1px solid var(--line);border-radius:12px;
+padding:14px 16px;color:var(--white);font-family:ui-monospace,Menlo,monospace;font-size:.85rem;outline:none;margin-bottom:12px}
+input:focus{border-color:var(--gold)}
+button{width:100%;background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;border:none;
+border-radius:12px;padding:15px;font-family:'Poppins';font-weight:600;font-size:.95rem;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+.card{background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:26px;margin-top:26px}
+.game{color:var(--dim);font-size:.85rem;margin-bottom:8px}
+.code{font-family:ui-monospace,Menlo,monospace;font-size:1.3rem;font-weight:600;color:var(--green);
+word-break:break-all;background:var(--navy);border:1px dashed var(--line);border-radius:10px;padding:16px;cursor:pointer}
+.hint{color:var(--dim);font-size:.78rem;margin-top:12px;line-height:1.6}
+.err{color:var(--red);font-size:.85rem;margin-top:16px}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE</a>
+  <a class="back" href="/draws.html">Past draws</a>
+</div></header>
+
+<main class="wrap">
+  <h1>Claim your key</h1>
+  <p class="sub">Won a draw? Connect the winning wallet and sign one message to prove it's yours.
+     Your key is shown exactly once — copy it somewhere safe. Signing costs nothing and moves no tokens.</p>
+
+  <input id="draw" placeholder="Draw number (e.g. 12)" inputmode="numeric">
+  <button id="go">Connect wallet &amp; claim</button>
+  <div id="out"></div>
+</main>
+
+<script>
+(function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
+const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
+d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
+
+const $=(id)=>document.getElementById(id);
+$("go").addEventListener("click", claim);
+
+function b58encode(bytes){
+  const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let n=0n; for(const b of bytes) n=n*256n+BigInt(b);
+  let s=""; while(n>0n){s=A[Number(n%58n)]+s;n/=58n;}
+  for(const b of bytes){if(b===0)s="1"+s;else break;}
+  return s;
+}
+
+async function claim(){
+  const out=$("out"); out.innerHTML="";
+  const drawId=parseInt($("draw").value,10);
+  if(!Number.isInteger(drawId)){out.innerHTML='<div class="err">Enter the draw number from the winners list.</div>';return;}
+  const provider=window.solana||window.phantom?.solana;
+  if(!provider){out.innerHTML='<div class="err">No Solana wallet found — open this page in your wallet\'s browser (Phantom, Solflare) or install one.</div>';return;}
+  $("go").disabled=true;
+  try{
+    const conn=await provider.connect();
+    const wallet=conn.publicKey.toString();
+
+    const nres=await fetch(`/api/claim?wallet=${wallet}&draw_id=${drawId}`);
+    const ndata=await nres.json();
+    if(!nres.ok) throw new Error(ndata.error||"nonce request failed");
+
+    const enc=new TextEncoder().encode(ndata.message);
+    const signed=await provider.signMessage(enc,"utf8");
+    const sigBytes=signed.signature||signed; // provider variations
+    const signature=b58encode(sigBytes instanceof Uint8Array?sigBytes:new Uint8Array(sigBytes));
+
+    const cres=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({wallet,draw_id:drawId,nonce:ndata.nonce,signature})});
+    const cdata=await cres.json();
+    if(!cres.ok) throw new Error(cdata.error||"claim failed");
+
+    out.innerHTML=`<div class="card">
+      <div class="game">🎁 ${escapeHtml(cdata.game_title)}</div>
+      <div class="code" id="codebox" title="Tap to copy">${escapeHtml(cdata.code)}</div>
+      <p class="hint">Tap the code to copy. This was shown once — it will not appear again. Redeem it on the game's platform.</p>
+    </div>`;
+    $("codebox").addEventListener("click",()=>{
+      navigator.clipboard.writeText(cdata.code);
+      $("codebox").style.borderColor="var(--green)";
+    });
+  }catch(err){
+    out.innerHTML=`<div class="err">${escapeHtml(err.message)}</div>`;
+  }finally{
+    $("go").disabled=false;
+  }
+}
+function escapeHtml(s){const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;}
+</script>
+</body>
+</html>

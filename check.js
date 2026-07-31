@@ -1,0 +1,11 @@
+{
+  "name": "droprate",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/unit.test.js test/draw.test.js"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  }
+}

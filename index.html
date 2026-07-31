@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — DROPRATE</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#14172b;--navy2:#181c33;--line:#242a4d;--gold:#ffc24b;--gold-deep:#e8941b;
+--purple:#7c6cff;--white:#f2f4fc;--dim:#9aa1c4;--green:#4ade80;--red:#f87171}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;min-height:100vh}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px 90px}
+header{border-bottom:1px solid var(--line);margin-bottom:40px}
+.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.06em;color:var(--white);text-decoration:none}
+h1{font-size:1.6rem;margin:26px 0 30px}
+h2{font-size:.82rem;color:var(--gold);letter-spacing:.14em;text-transform:uppercase;margin:34px 0 14px}
+.card{background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:24px}
+input,textarea,select{width:100%;background:var(--navy);border:1px solid var(--line);border-radius:10px;
+padding:12px 14px;color:var(--white);font-family:ui-monospace,Menlo,monospace;font-size:.83rem;outline:none;margin-bottom:12px}
+input:focus,textarea:focus{border-color:var(--gold)}
+textarea{min-height:120px;resize:vertical}
+label{display:block;font-size:.72rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+button{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;border:none;
+border-radius:10px;padding:12px 22px;font-family:'Poppins';font-weight:600;font-size:.85rem;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+.stat{background:var(--navy2);border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center}
+.stat b{display:block;font-size:1.8rem;color:var(--gold)}
+.stat span{font-size:.68rem;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+.warn{background:rgba(248,113,113,.1);border:1px solid var(--red);border-radius:12px;padding:14px 18px;
+font-size:.85rem;color:var(--red);margin-top:14px}
+.list{font-size:.8rem;line-height:2;color:var(--dim)}
+.list b{color:var(--white);font-weight:500}
+.mono{font-family:ui-monospace,Menlo,monospace}
+.ok{color:var(--green);font-size:.82rem;margin-top:10px}
+.err{color:var(--red);font-size:.82rem;margin-top:10px}
+.status-claimed{color:var(--green)} .status-assigned{color:var(--gold)} .status-expired{color:var(--dim)}
+#panel{display:none}
+</style>
+</head>
+<body>
+<header><div class="wrap nav" style="padding-bottom:0">
+  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE · admin</a>
+</div></header>
+
+<div class="wrap">
+  <div id="auth" class="card" style="max-width:480px">
+    <label>Admin secret</label>
+    <input id="secret" type="password" placeholder="ADMIN_SECRET" autocomplete="off">
+    <button id="login">Open dashboard</button>
+    <p style="font-size:.72rem;color:var(--dim);margin-top:10px">Held in memory only — you'll re-enter it next visit.</p>
+    <div id="autherr"></div>
+  </div>
+
+  <div id="panel">
+    <h1>Dashboard</h1>
+
+    <div class="grid3" id="stats"></div>
+    <div id="stockwarn"></div>
+
+    <h2>Load mystery keys</h2>
+    <div class="card">
+      <label>One key per line — encrypted on arrival, added to the global pool</label>
+      <textarea id="keys" placeholder="XXXXX-XXXXX-XXXXX&#10;YYYYY-YYYYY-YYYYY&#10;..."></textarea>
+      <button id="addkeys">Add keys to pool</button>
+      <div id="keymsg"></div>
+    </div>
+
+    <h2>Schedule draws</h2>
+    <div class="card">
+      <div class="grid2">
+        <div><label>Start date</label><input id="startdate" type="date"></div>
+        <div><label>Days to schedule</label><input id="days" type="number" value="7" min="1" max="31"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Draw times (UTC, comma separated)</label><input id="times" value="14:00,19:00,23:00"></div>
+        <div><label>Winners per draw</label><input id="nwin" type="number" value="1" min="1" max="20"></div>
+      </div>
+      <label>Prize title (shown on the draws page)</label>
+      <input id="ptitle" value="Mystery game key">
+      <button id="schedule">Create <span id="drawcount">21</span> draws</button>
+      <div id="schedmsg"></div>
+    </div>
+
+    <h2>Special draw (named game)</h2>
+    <div class="card">
+      <div class="grid2">
+        <div><label>Game / prize title</label><input id="sp-title" placeholder="GTA V (Steam)"></div>
+        <div><label>Draw time (UTC)</label><input id="sp-when" type="datetime-local"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Winners</label><input id="sp-nwin" type="number" value="1" min="1" max="20"></div>
+        <div><label>&nbsp;</label><button id="sp-create" style="width:100%">Create special draw</button></div>
+      </div>
+      <label>Keys for THIS draw only (optional now, one per line — pinned keys are used before the mystery pool)</label>
+      <textarea id="sp-keys" style="min-height:70px" placeholder="XXXXX-XXXXX-XXXXX"></textarea>
+      <div id="sp-msg"></div>
+    </div>
+
+    <h2>Upcoming draws</h2>
+    <div class="card list" id="upcoming">—</div>
+
+    <h2>Recent winners</h2>
+    <div class="card list" id="winners">—</div>
+
+    <h2>Add exclusion</h2>
+    <div class="card">
+      <div class="grid2">
+        <div><label>Wallet</label><input id="exwallet" placeholder="Bonding curve / LP / team wallet"></div>
+        <div><label>Label</label><input id="exlabel" placeholder="pumpfun curve"></div>
+      </div>
+      <button id="addex">Exclude</button>
+      <div id="exmsg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
+const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
+d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
+
+let SECRET = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => { const d = document.createElement("div"); d.textContent = String(s); return d.innerHTML; };
+const short = (w) => w.length > 12 ? w.slice(0,4) + "…" + w.slice(-4) : w;
+const fmtT = (t) => new Date(t).toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+
+async function admin(body){
+  const res = await fetch("/api/admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SECRET}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "request failed");
+  return data;
+}
+
+$("login").addEventListener("click", async () => {
+  SECRET = $("secret").value.trim();
+  $("autherr").innerHTML = "";
+  try {
+    await refresh();
+    $("auth").style.display = "none";
+    $("panel").style.display = "block";
+  } catch (e) {
+    $("autherr").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+});
+$("secret").addEventListener("keydown", (e) => { if (e.key === "Enter") $("login").click(); });
+
+async function refresh(){
+  const s = await admin({ action: "stats" });
+  const upcoming = s.upcoming.length;
+  $("stats").innerHTML = `
+    <div class="stat"><b>${s.codes.available}</b><span>Keys in pool</span></div>
+    <div class="stat"><b>${upcoming}</b><span>Upcoming draws</span></div>
+    <div class="stat"><b>${s.codes.claimed}</b><span>Keys claimed</span></div>`;
+
+  const need = s.upcoming.reduce((t, d) => t + d.n_winners, 0);
+  $("stockwarn").innerHTML = s.codes.available < need
+    ? `<div class="warn">⚠ Pool has ${s.codes.available} keys but upcoming draws need ${need}. Load ${need - s.codes.available} more or draws will run unstocked.</div>`
+    : "";
+
+  $("upcoming").innerHTML = s.upcoming.length ? s.upcoming.map((d) =>
+    `<div>#${d.id} · <b>${fmtT(d.scheduled_at)}</b> · ${esc(d.prize_title)} · ${d.n_winners} winner${d.n_winners===1?"":"s"} · ${d.drand_round ? `round <span class="mono">${d.drand_round}</span>` : "committing…"}</div>`
+  ).join("") : "No draws scheduled.";
+
+  $("winners").innerHTML = s.recentWinners.length ? s.recentWinners.map((w) =>
+    `<div>Draw #${w.draw_id} · <span class="mono">${short(w.wallet)}</span> · <span class="status-${w.status}">${w.status}</span>${w.status==="assigned" ? ` · expires ${fmtT(w.expires_at)}` : ""}</div>`
+  ).join("") : "No winners yet.";
+}
+
+$("addkeys").addEventListener("click", async () => {
+  const codes = $("keys").value.split("\n").map((s) => s.trim()).filter(Boolean);
+  $("keymsg").innerHTML = "";
+  if (!codes.length) return;
+  $("addkeys").disabled = true;
+  try {
+    const r = await admin({ action: "add-codes", codes });
+    $("keymsg").innerHTML = `<div class="ok">Added ${r.added} keys to the pool.</div>`;
+    $("keys").value = "";
+    await refresh();
+  } catch (e) {
+    $("keymsg").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally { $("addkeys").disabled = false; }
+});
+
+function plannedCount(){
+  const days = parseInt($("days").value, 10) || 0;
+  const times = $("times").value.split(",").map((s) => s.trim()).filter(Boolean);
+  return days * times.length;
+}
+["days","times"].forEach((id) => $(id).addEventListener("input", () => $("drawcount").textContent = plannedCount()));
+
+$("schedule").addEventListener("click", async () => {
+  $("schedmsg").innerHTML = "";
+  const start = $("startdate").value;
+  if (!start) { $("schedmsg").innerHTML = '<div class="err">Pick a start date.</div>'; return; }
+  const days = parseInt($("days").value, 10);
+  const times = $("times").value.split(",").map((s) => s.trim()).filter(Boolean);
+  const bad = times.find((t) => !/^\d{1,2}:\d{2}$/.test(t));
+  if (bad) { $("schedmsg").innerHTML = `<div class="err">Bad time format: ${esc(bad)} — use HH:MM.</div>`; return; }
+  const draws = [];
+  for (let d = 0; d < days; d++) {
+    for (const t of times) {
+      const [hh, mm] = t.split(":").map(Number);
+      const dt = new Date(`${start}T00:00:00Z`);
+      dt.setUTCDate(dt.getUTCDate() + d);
+      dt.setUTCHours(hh, mm, 0, 0);
+      if (dt.getTime() > Date.now()) draws.push({ scheduled_at: dt.toISOString(), prize_title: $("ptitle").value, n_winners: parseInt($("nwin").value, 10) || 1 });
+    }
+  }
+  if (!draws.length) { $("schedmsg").innerHTML = '<div class="err">All planned times are in the past.</div>'; return; }
+  $("schedule").disabled = true;
+  try {
+    const r = await admin({ action: "create-draws-bulk", draws });
+    $("schedmsg").innerHTML = `<div class="ok">Created ${r.created.length} draws. They commit their drand rounds within 15 minutes.</div>`;
+    await refresh();
+  } catch (e) {
+    $("schedmsg").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally { $("schedule").disabled = false; }
+});
+
+$("sp-create").addEventListener("click", async () => {
+  $("sp-msg").innerHTML = "";
+  const title = $("sp-title").value.trim();
+  const when = $("sp-when").value;
+  if (!title || !when) { $("sp-msg").innerHTML = '<div class="err">Title and time required.</div>'; return; }
+  const iso = new Date(when + "Z").toISOString(); // input treated as UTC
+  if (new Date(iso).getTime() <= Date.now()) { $("sp-msg").innerHTML = '<div class="err">Time is in the past (times are UTC).</div>'; return; }
+  $("sp-create").disabled = true;
+  try {
+    const r = await admin({ action: "create-draw", scheduled_at: iso, prize_title: title, n_winners: parseInt($("sp-nwin").value, 10) || 1 });
+    const keys = $("sp-keys").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    let keyNote = "";
+    if (keys.length) {
+      await admin({ action: "add-codes", draw_id: r.draw.id, game_title: title, codes: keys });
+      keyNote = ` with ${keys.length} pinned key${keys.length === 1 ? "" : "s"}`;
+    }
+    $("sp-msg").innerHTML = `<div class="ok">Special draw #${r.draw.id} created${keyNote}. It commits its drand round within 15 minutes and appears on the public draws page immediately.</div>`;
+    $("sp-title").value = ""; $("sp-keys").value = "";
+    await refresh();
+  } catch (e) {
+    $("sp-msg").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally { $("sp-create").disabled = false; }
+});
+
+$("addex").addEventListener("click", async () => {
+  $("exmsg").innerHTML = "";
+  try {
+    await admin({ action: "add-exclusion", wallet: $("exwallet").value.trim(), label: $("exlabel").value.trim() });
+    $("exmsg").innerHTML = '<div class="ok">Excluded.</div>';
+    $("exwallet").value = ""; $("exlabel").value = "";
+  } catch (e) {
+    $("exmsg").innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+});
+</script>
+</body>
+</html>
