@@ -1,112 +1,146 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claim your key — DROPRATE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--navy:#14172b;--navy2:#181c33;--line:#242a4d;--gold:#ffc24b;--gold-deep:#e8941b;
---white:#f2f4fc;--dim:#9aa1c4;--green:#4ade80;--red:#f87171}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;min-height:100vh}
-.wrap{max-width:560px;margin:0 auto;padding:0 24px}
-header{border-bottom:1px solid var(--line)}
-.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
-.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.06em;text-decoration:none;color:var(--white)}
-.nav a.back{color:var(--dim);font-size:.85rem;text-decoration:none}
-main{padding:64px 0}
-h1{font-size:1.9rem;margin-bottom:10px}
-.sub{color:var(--dim);font-size:.92rem;line-height:1.7;margin-bottom:30px}
-input{width:100%;background:var(--navy2);border:1px solid var(--line);border-radius:12px;
-padding:14px 16px;color:var(--white);font-family:ui-monospace,Menlo,monospace;font-size:.85rem;outline:none;margin-bottom:12px}
-input:focus{border-color:var(--gold)}
-button{width:100%;background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;border:none;
-border-radius:12px;padding:15px;font-family:'Poppins';font-weight:600;font-size:.95rem;cursor:pointer}
-button:disabled{opacity:.5;cursor:wait}
-.card{background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:26px;margin-top:26px}
-.game{color:var(--dim);font-size:.85rem;margin-bottom:8px}
-.code{font-family:ui-monospace,Menlo,monospace;font-size:1.3rem;font-weight:600;color:var(--green);
-word-break:break-all;background:var(--navy);border:1px dashed var(--line);border-radius:10px;padding:16px;cursor:pointer}
-.hint{color:var(--dim);font-size:.78rem;margin-top:12px;line-height:1.6}
-.err{color:var(--red);font-size:.85rem;margin-top:16px}
-</style>
-</head>
-<body>
-<header><div class="wrap nav">
-  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE</a>
-  <a class="back" href="/draws.html">Past draws</a>
-</div></header>
+# DROPRATE
 
-<main class="wrap">
-  <h1>Claim your key</h1>
-  <p class="sub">Won a draw? Connect the winning wallet and sign one message to prove it's yours.
-     Your key is shown exactly once — copy it somewhere safe. Signing costs nothing and moves no tokens.</p>
+Hold $DROP, get tickets, win game keys. Landing page + snapshot service + eligibility checker.
 
-  <input id="draw" placeholder="Draw number (e.g. 12)" inputmode="numeric">
-  <button id="go">Connect wallet &amp; claim</button>
-  <div id="out"></div>
-</main>
+## What's in here
 
-<script>
-(function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
-const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
-d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
+```
+index.html              landing page (edit CONFIG block at top of its <script>)
+check.html              eligibility checker page
+api/snapshot-tick.js    scheduler endpoint — GitHub Actions hits this every 15 min
+api/check.js            eligibility lookup for the checker page
+api/snapshots.js        public snapshot list (transparency)
+lib/config.js           ALL tunables: 10k/ticket, 100 cap, 6h windows, K=4
+lib/snapshot.js         window math, random offset, Helius fetch, aggregation
+lib/merkle.js           snapshot merkle roots + inclusion proofs
+lib/db.js               Postgres schema + queries (auto-migrates on first tick)
+test/unit.test.js       run with: npm test
+.github/workflows/      the 15-min cron
+```
 
-const $=(id)=>document.getElementById(id);
-$("go").addEventListener("click", claim);
+## Deploy steps (one time)
 
-function b58encode(bytes){
-  const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  let n=0n; for(const b of bytes) n=n*256n+BigInt(b);
-  let s=""; while(n>0n){s=A[Number(n%58n)]+s;n/=58n;}
-  for(const b of bytes){if(b===0)s="1"+s;else break;}
-  return s;
-}
+1. **Push this folder to a new GitHub repo**, import it into Vercel as usual.
+2. **Add Vercel Postgres**: Vercel dashboard → your project → Storage → Create → Postgres.
+   This auto-adds the `POSTGRES_*` env vars. Tables create themselves on first tick.
+3. **Vercel env vars** (project → Settings → Environment Variables):
+   - `HELIUS_API_KEY` — from helius.dev
+   - `CRON_SECRET` — any long random string (generate one: `openssl rand -hex 32`)
+   - `DROP_MINT` — leave unset until the pump.fun token exists; the tick idles until set
+   - `ELIGIBILITY_START` — set to an ISO timestamp at graduation (e.g. `2026-08-20T00:00:00Z`);
+     snapshots before it never count toward eligibility
+4. **GitHub repo secrets** (repo → Settings → Secrets and variables → Actions):
+   - `SITE_URL` — your deployed URL, e.g. `https://droprate.vercel.app` (no trailing slash)
+   - `CRON_SECRET` — same value as in Vercel
+5. **Exclusion list**: after the token exists, insert the pump.fun bonding curve address
+   (and later the LP address) into the `exclusions` table via the Vercel Postgres query tab:
+   ```sql
+   INSERT INTO exclusions(wallet, label) VALUES ('CURVE_ADDRESS_HERE', 'pumpfun curve');
+   ```
 
-async function claim(){
-  const out=$("out"); out.innerHTML="";
-  const drawId=parseInt($("draw").value,10);
-  if(!Number.isInteger(drawId)){out.innerHTML='<div class="err">Enter the draw number from the winners list.</div>';return;}
-  const provider=window.solana||window.phantom?.solana;
-  if(!provider){out.innerHTML='<div class="err">No Solana wallet found — open this page in your wallet\'s browser (Phantom, Solflare) or install one.</div>';return;}
-  $("go").disabled=true;
-  try{
-    const conn=await provider.connect();
-    const wallet=conn.publicKey.toString();
+## At launch
 
-    const nres=await fetch(`/api/claim?wallet=${wallet}&draw_id=${drawId}`);
-    const ndata=await nres.json();
-    if(!nres.ok) throw new Error(ndata.error||"nonce request failed");
+- Edit the `CONFIG` block at the top of `index.html`'s script: launch timestamp, CA, pump.fun URL, socials. Push.
+- Set `DROP_MINT` and `ELIGIBILITY_START` in Vercel. Redeploy (or it picks up on next request).
+- Trigger a manual test tick: repo → Actions → snapshot-tick → Run workflow.
 
-    const enc=new TextEncoder().encode(ndata.message);
-    const signed=await provider.signMessage(enc,"utf8");
-    const sigBytes=signed.signature||signed; // provider variations
-    const signature=b58encode(sigBytes instanceof Uint8Array?sigBytes:new Uint8Array(sigBytes));
+## How the random snapshots work
 
-    const cres=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({wallet,draw_id:drawId,nonce:ndata.nonce,signature})});
-    const cdata=await cres.json();
-    if(!cres.ok) throw new Error(cdata.error||"claim failed");
+Every 15 minutes GitHub Actions pokes `/api/snapshot-tick`. On the first poke of each
+6-hour window, the server draws a CSPRNG random offset (5–350 min) and stores it in the
+DB — never returned in any response. Once the offset time passes, the next poke takes
+the snapshot: fetch all holders via Helius, drop exclusions, combine balances per owner,
+compute tickets (`floor(balance / 10,000)`, capped at 100), and publish the merkle root.
+The actual `taken_at` time becomes public only after the fact.
 
-    out.innerHTML=`<div class="card">
-      <div class="game">🎁 ${escapeHtml(cdata.game_title)}</div>
-      <div class="code" id="codebox" title="Tap to copy">${escapeHtml(cdata.code)}</div>
-      <p class="hint">Tap the code to copy. This was shown once — it will not appear again. Redeem it on the game's platform.</p>
-    </div>`;
-    $("codebox").addEventListener("click",()=>{
-      navigator.clipboard.writeText(cdata.code);
-      $("codebox").style.borderColor="var(--green)";
-    });
-  }catch(err){
-    out.innerHTML=`<div class="err">${escapeHtml(err.message)}</div>`;
-  }finally{
-    $("go").disabled=false;
-  }
-}
-function escapeHtml(s){const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;}
-</script>
-</body>
-</html>
+Eligibility = present with ≥1 ticket in the last 4 consecutive taken snapshots (~24h).
+
+## Tests
+
+```
+npm test
+```
+Covers: ticket floor/cap math, per-owner aggregation, exclusions, window boundaries,
+offset bounds, due-time logic, merkle determinism and inclusion proofs.
+
+## Raffle engine, free entry, claims (built)
+
+New pieces:
+```
+api/draw-tick.js         commits future drand rounds, runs due draws, expires+redraws
+api/draws.js             public draw list with seeds/winners
+api/free-entry.js        free entry lane (1 ticket, one per wallet per draw)
+api/claim.js             nonce + signature-verified one-time code delivery
+api/snapshot-entries.js  public snapshot data (needed for third-party verification)
+api/free-entries.js      public free-entry list per draw
+draws.html               upcoming draws + free entry form + completed draw receipts
+claim.html               winner claim page (Phantom/Solflare signMessage)
+lib/draw.js              drand round math + deterministic weighted selection
+lib/vault.js             AES-256-GCM code vault + ed25519 signature verify (zero deps)
+scripts/verify-draw.js   anyone reproduces any draw: node scripts/verify-draw.js <site> <id>
+```
+
+### Randomness: drand
+
+Each draw commits to a **future drand round number** (public 3-second randomness
+beacon run by Cloudflare/EPFL/League of Entropy) the moment it's scheduled. The
+randomness for that round does not exist until draw time, so nobody — including us —
+can know or influence it. At draw time the server fetches the round from **three
+independent relays and requires agreement**. Anyone can fetch the same round from
+drand directly and re-run `scripts/verify-draw.js` to reproduce the winners.
+(Switchboard VRF on Solana remains a documented upgrade path if on-chain seeds are
+ever wanted.)
+
+### Additional env vars
+
+- `ADMIN_SECRET` — long random string for the admin API
+- `CODE_VAULT_KEY` — 64 hex chars: `openssl rand -hex 32`. **Back this up** — codes
+  are unrecoverable without it.
+- `TURNSTILE_SECRET` (optional) — Cloudflare Turnstile for the free-entry form;
+  without it a honeypot field is used.
+
+### Running draws — the easy way: /admin.html
+
+Open `https://YOURSITE/admin.html`, paste your `ADMIN_SECRET` (kept in memory only),
+and you get:
+- **Load mystery keys**: paste a week's worth, one per line — encrypted on arrival
+  into a global pool. Draws pull from the pool automatically; no per-draw stocking.
+- **Schedule draws**: pick a start date, days, times (default 3/day) → one click
+  creates the whole week. Draws commit their drand rounds within 15 minutes.
+- **Stock warning**: the dashboard tells you when the pool has fewer keys than
+  upcoming draws need.
+- Upcoming draws, recent winners with claim status, and exclusion management.
+
+Mystery keys are the default: `game_title` is optional everywhere, winners see
+"Mystery game key" until they redeem. Codes CAN still be pinned to a specific draw
+(pass `draw_id` in add-codes) for special named-prize events — pinned codes are
+used before pool codes.
+
+### Running a draw (curl alternative)
+
+Create a draw (announce the prize BEFORE the randomness exists — this is the commitment):
+```bash
+curl -X POST https://YOURSITE/api/admin -H "Authorization: Bearer $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"create-draw","scheduled_at":"2026-08-20T18:00:00Z","prize_title":"Hollow Knight: Silksong (Steam)","n_winners":1}'
+```
+Stock its codes:
+```bash
+curl -X POST https://YOURSITE/api/admin -H "Authorization: Bearer $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"add-codes","codes":["XXXXX-XXXXX-XXXXX","YYYYY-YYYYY-YYYYY"]}'   # global mystery pool
+```
+Add an exclusion (do the pump.fun curve address before the first snapshot):
+```bash
+curl -X POST https://YOURSITE/api/admin -H "Authorization: Bearer $ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"add-exclusion","wallet":"CURVE_ADDRESS","label":"pumpfun curve"}'
+```
+The GitHub Actions tick handles the rest automatically: commitment, running the draw
+at its scheduled time, and 7-day expiry redraws.
+
+### Eligibility timing
+
+Eligibility runs from the very first snapshot — the mint never changes at graduation,
+so as long as the curve address is excluded, day-one holders count immediately.
+First draws become possible once 4 snapshots exist (~24h after the cron starts).
