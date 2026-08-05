@@ -42,7 +42,16 @@ header{position:sticky;top:0;z-index:20;background:rgba(20,23,43,.88);backdrop-f
 .nav-links{display:flex;gap:24px;font-size:.84rem;color:var(--dim)}
 .nav-links a{text-decoration:none;transition:color .2s}
 .nav-links a:hover{color:var(--gold)}
-@media(max-width:700px){.nav-links{display:none}}
+.menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:10px;
+color:var(--gold);font-size:1.3rem;padding:4px 12px;cursor:pointer;line-height:1.4}
+@media(max-width:700px){
+  .nav-links{display:none;position:absolute;top:64px;left:0;right:0;
+    background:var(--navy2);border-bottom:1px solid var(--line);
+    flex-direction:column;gap:0;padding:8px 0;z-index:30}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:14px 24px;border-top:1px solid var(--line);font-size:.95rem}
+  .menu-btn{display:block}
+}
 
 .ticker{background:var(--gold);color:#231a05;font-weight:600;font-size:.74rem;letter-spacing:.12em;
 overflow:hidden;white-space:nowrap;padding:7px 0;position:relative;z-index:19}
@@ -195,7 +204,8 @@ footer{border-top:1px solid var(--line);padding:40px 0;position:relative;z-index
       </svg>
       DROP<span class="rate">RATE</span>
     </a>
-    <nav class="nav-links">
+    <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
+    <nav class="nav-links" id="nav-links">
       <a href="#how">How it works</a>
       <a href="#loot">Loot table</a>
       <a href="#verify">Receipts</a>
@@ -397,12 +407,15 @@ const CONFIG = {
   launchAt: "2026-08-15T18:00:00Z",   // launch timestamp (UTC)
   contract: "",                        // paste CA at launch, empty = TBA
   buyUrl:   "https://pump.fun",        // pump.fun coin URL at launch
-  xUrl:     "https://x.com/",          // your X profile
+  xUrl:     "https://x.com/DroprateGames",          // your X profile
   tgUrl:    "https://t.me/",           // your Telegram
 };
 /* ======================================================= */
 /* Everything below is progressive enhancement — the page is complete without it. */
 
+document.getElementById("menu-btn").addEventListener("click", () => {
+  document.getElementById("nav-links").classList.toggle("open");
+});
 document.getElementById("buy-link").href = CONFIG.buyUrl;
 document.getElementById("x-link").href   = CONFIG.xUrl;
 document.getElementById("tg-link").href  = CONFIG.tgUrl;
