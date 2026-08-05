@@ -52,9 +52,7 @@ border-radius:10px;padding:11px 20px;font-family:'Poppins';font-weight:600;font-
 
 <main class="wrap">
   <h1>Draws</h1>
-  <p class="sub">Every draw commits to a future <a href="https://drand.love" target="_blank" rel="noopener" style="color:var(--gold)">drand</a> randomness
-     round before it exists. Once it runs, the seed, snapshot, and winners are all published — and anyone can
-     re-run the open-source verifier to reproduce the result.</p>
+  <p class="sub">Every draw is locked in before it runs — the winner is picked by public randomness that nobody controls, not even us. When a draw completes, the result and its proof are published right here for anyone to check.</p>
 
   <h2>Upcoming</h2>
   <div id="upcoming"><p class="empty">Loading…</p></div>
@@ -82,7 +80,7 @@ async function load(){
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
-        <div class="meta">${d.drand_round?`Committed to drand round <b>${d.drand_round}</b> — randomness doesn't exist yet.`:"Commitment pending."}
+       <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}
           · ${d.n_winners} winner${d.n_winners===1?"":"s"}</div>
         <div class="freeform">
           <input placeholder="Wallet address (free entry — no purchase necessary)" data-w="${d.id}">
