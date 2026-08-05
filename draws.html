@@ -97,7 +97,7 @@ async function load(){
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
         <div class="meta">
           Winners: ${d.winners.map(w=>`<span class="win ${w.status==="expired"?"expired":""}">${short(w.wallet)}</span>`).join(" · ")||"—"}<br>
-          drand round <b>${d.drand_round}</b> · seed <b>${(d.seed||"").slice(0,16)}…</b> · snapshot root <b>${(d.merkle_root||"").slice(0,16)}…</b><br>
+          Proof: round <b>${d.drand_round}</b> · seed <b>${(d.seed||"").slice(0,16)}…</b> · snapshot root <b>${(d.merkle_root||"").slice(0,16)}…</b><br>
           Verify: <b>node scripts/verify-draw.js ${location.origin} ${d.id}</b>
         </div>
       </div>`).join("") : '<p class="empty">No completed draws yet.</p>';
