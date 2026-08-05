@@ -262,7 +262,7 @@ footer{border-top:1px solid var(--line);padding:40px 0;position:relative;z-index
     <div class="cbox"><b id="cd-m">--</b><span>Min</span></div>
     <div class="cbox"><b id="cd-s">--</b><span>Sec</span></div>
   </div>
-  <div class="count-label" id="count-label">Until the first drop falls</div>
+  <div class="count-label" id="count-label">Until the next drop falls</div>
 
   <div class="cta-row">
     <a class="btn btn-gold" id="buy-link" href="https://pump.fun" target="_blank" rel="noopener">Buy $DROP</a>
@@ -434,22 +434,39 @@ const caBox = document.getElementById("ca");
 caBox.addEventListener("click", copyCA);
 caBox.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") copyCA(); });
 
+/* countdown — targets the next scheduled draw */
+let nextDrawAt = null;
+async function loadNextDraw(){
+  try {
+    const r = await fetch("/api/draws");
+    const { draws } = await r.json();
+    const up = (draws || [])
+      .filter(d => d.status !== "drawn" && new Date(d.scheduled_at) > new Date())
+      .sort((a,b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+    nextDrawAt = up.length ? new Date(up[0].scheduled_at) : null;
+    tick();
+  } catch { nextDrawAt = null; }
+}
 function tick(){
-  const diff = new Date(CONFIG.launchAt) - Date.now();
   const el = id => document.getElementById(id);
-  if (diff <= 0){
-    el("cd-d").textContent = "0"; el("cd-h").textContent = "0";
-    el("cd-m").textContent = "0"; el("cd-s").textContent = "0";
-    document.getElementById("count-label").textContent = "We are live — the drops are falling";
+  if (!nextDrawAt){
+    el("cd-d").textContent = "--"; el("cd-h").textContent = "--";
+    el("cd-m").textContent = "--"; el("cd-s").textContent = "--";
+    document.getElementById("count-label").textContent = "Next drop scheduling…";
     return;
   }
+  const diff = nextDrawAt - Date.now();
+  if (diff <= 0){ loadNextDraw(); return; }
   const s = Math.floor(diff/1000);
   el("cd-d").textContent = Math.floor(s/86400);
   el("cd-h").textContent = String(Math.floor(s%86400/3600)).padStart(2,"0");
   el("cd-m").textContent = String(Math.floor(s%3600/60)).padStart(2,"0");
   el("cd-s").textContent = String(s%60).padStart(2,"0");
+  document.getElementById("count-label").textContent = "Until the next drop falls";
 }
-tick(); setInterval(tick, 1000);
+loadNextDraw();
+setInterval(tick, 1000);
+setInterval(loadNextDraw, 60_000);
 
 /* live claimed-keys counter — fails silently to the static value */
 (function claimedCounter(){
