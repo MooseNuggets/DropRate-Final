@@ -107,6 +107,13 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
       <div id="sp-msg"></div>
     </div>
 
+    <h2>Key vault</h2>
+    <div class="card">
+      <div class="grid3" id="vault-counts" style="margin-bottom:14px"></div>
+      <div class="list" id="vault" style="max-height:340px;overflow-y:auto">—</div>
+      <p style="font-size:.68rem;color:var(--dim);margin-top:10px">Key contents stay encrypted — even here. This ledger shows lifecycle only.</p>
+    </div>
+
     <h2>Upcoming draws</h2>
     <div class="card list" id="upcoming">—</div>
 
@@ -176,6 +183,29 @@ async function refresh(){
   $("upcoming").innerHTML = s.upcoming.length ? s.upcoming.map((d) =>
     `<div>#${d.id} · <b>${fmtT(d.scheduled_at)}</b> · ${esc(d.prize_title)} · ${d.n_winners} winner${d.n_winners===1?"":"s"} · ${d.drand_round ? `round <span class="mono">${d.drand_round}</span>` : "committing…"}</div>`
   ).join("") : "No draws scheduled.";
+
+  try {
+    const v = await admin({ action: "keys" });
+    const c = v.counts;
+    $("vault-counts").innerHTML = `
+      <div class="stat"><b style="color:#4ec9ff">${c.available||0}</b><span>In pool</span></div>
+      <div class="stat"><b style="color:var(--gold)">${c.assigned||0}</b><span>Awaiting claim</span></div>
+      <div class="stat"><b style="color:#4ade80">${c.claimed||0}</b><span>Claimed</span></div>`;
+    $("vault").innerHTML = v.keys.length ? v.keys.map((k) => {
+      const badge = k.status === "claimed" ? '<span class="status-claimed">CLAIMED</span>'
+        : k.status === "assigned" ? '<span class="status-assigned">AWAITING CLAIM</span>'
+        : k.status === "void" ? '<span class="status-expired">VOID</span>'
+        : '<span style="color:#4ec9ff">IN POOL</span>';
+      const title = k.game_title ? esc(k.game_title) : "Mystery";
+      const pin = k.draw_id ? ` · pinned #${k.draw_id}` : "";
+      const who = k.winner_wallet
+        ? ` · <span class="mono">${short(k.winner_wallet)}</span>` +
+          (k.claimed_at ? ` · ${fmtT(k.claimed_at)}`
+            : k.expires_at ? ` · expires ${fmtT(k.expires_at)}` : "")
+        : "";
+      return `<div>KEY #${k.id} · <b>${title}</b>${pin} · ${badge}${who}</div>`;
+    }).join("") : "Vault is empty — load keys above.";
+  } catch (e) { $("vault").innerHTML = "Could not load vault."; }
 
   $("winners").innerHTML = s.recentWinners.length ? s.recentWinners.map((w) =>
     `<div>Draw #${w.draw_id} · <span class="mono">${short(w.wallet)}</span> · <span class="status-${w.status}">${w.status}</span>${w.status==="assigned" ? ` · expires ${fmtT(w.expires_at)}` : ""}</div>`
