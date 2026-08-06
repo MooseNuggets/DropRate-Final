@@ -103,12 +103,16 @@ function render(d, out){
     statusHtml = `<div class="status ok">You're in the next draw</div>
       <div class="big">${fmt(d.tickets)} ticket${d.tickets===1?"":"s"}</div>
       <p class="muted">${fmt(d.tokens_per_ticket)} $DROP per ticket, capped at ${fmt(d.ticket_cap)} tickets per wallet.</p>`;
+  } else if (d.reason === "sold-recently") {
+    statusHtml = `<div class="status no">Cooldown — a sell was detected</div>
+      <p class="muted">Selling any amount (or moving tokens out) pauses eligibility.
+      Hold without selling and you'll automatically re-qualify once your clean streak covers the cooldown window.</p>`;
   } else if (d.reason === "warming-up") {
     statusHtml = `<div class="status warm">Warming up</div>
       <p class="muted">Not enough snapshots have run yet — ${d.required} consecutive snapshots are needed. Keep holding.</p>`;
   } else {
     statusHtml = `<div class="status no">Not eligible yet</div>
-      <p class="muted">You need 10,000+ $DROP held through ${d.required} consecutive snapshots (~4h).
+      <p class="muted">You need 10,000+ $DROP held through ${d.required} consecutive snapshots (~24h).
       Keep your balance in place and you'll qualify automatically.</p>`;
   }
 
