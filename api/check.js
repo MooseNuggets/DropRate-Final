@@ -1,5 +1,6 @@
 import { CONFIG } from "../lib/config.js";
 import { lastTakenSnapshots, walletInSnapshots } from "../lib/db.js";
+import { loadEligibility } from "../lib/eligibility.js";
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -27,20 +28,27 @@ export default async function handler(req, res) {
         merkle_root: s.merkle_root,
         present: !!hit,
         tickets: hit ? hit.tickets : 0,
-        balance: hit ? Number(BigInt(hit.balance_raw.split(".")[0]) / 10n ** BigInt(CONFIG.DECIMALS)) : 0,
+        balance: hit ? Number(BigInt(String(hit.balance_raw).split(".")[0]) / 10n ** BigInt(CONFIG.DECIMALS)) : 0,
       };
     });
 
-    const presentAll = detail.every((d) => d.present);
+    const { results } = await loadEligibility();
+    const ev = results.get(wallet);
     const enoughSnaps = snaps.length >= CONFIG.K_CONSECUTIVE;
-    const currentTickets = detail[0]?.tickets ?? 0;
+    const eligible = !!(ev && ev.eligible && enoughSnaps);
+
+    let reason = "ok";
+    if (!enoughSnaps) reason = "warming-up";
+    else if (!ev || !ev.streakOk) reason = "missed-snapshot";
+    else if (ev.soldRecently) reason = "sold-recently";
 
     return res.status(200).json({
       wallet,
-      eligible: presentAll && enoughSnaps,
-      reason: !enoughSnaps ? "warming-up" : presentAll ? "ok" : "missed-snapshot",
+      eligible,
+      reason,
       required: CONFIG.K_CONSECUTIVE,
-      tickets: presentAll && enoughSnaps ? currentTickets : 0,
+      sell_lookback: CONFIG.SELL_LOOKBACK,
+      tickets: eligible ? ev.tickets : 0,
       ticket_cap: CONFIG.TICKET_CAP,
       tokens_per_ticket: CONFIG.TOKENS_PER_TICKET,
       snapshots: detail,
