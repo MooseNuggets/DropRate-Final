@@ -49,6 +49,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, created });
     }
 
+    if (action === "keys") {
+      const r = await sql`
+        SELECT c.id, c.game_title, c.status, c.draw_id,
+               w.wallet AS winner_wallet, w.claimed_at, w.expires_at, w.draw_id AS won_in_draw
+        FROM codes c
+        LEFT JOIN winners w ON w.code_id = c.id AND w.status IN ('assigned','claimed')
+        ORDER BY c.id`;
+      const rows = r.rows;
+      const counts = { available: 0, assigned: 0, claimed: 0, void: 0 };
+      rows.forEach((k) => { counts[k.status] = (counts[k.status] || 0) + 1; });
+      return res.status(200).json({ keys: rows, counts });
+    }
+
     if (action === "stats") {
       const codes = await sql`
         SELECT status, count(*)::int AS n FROM codes GROUP BY status`;
