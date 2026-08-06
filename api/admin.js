@@ -1,5 +1,5 @@
 import { sql, migrate } from "../lib/db.js";
-import { encryptCode } from "../lib/vault.js";
+import { encryptCode, decryptCode } from "../lib/vault.js";
 
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.ADMIN_SECRET}`) {
@@ -60,6 +60,19 @@ export default async function handler(req, res) {
       const counts = { available: 0, assigned: 0, claimed: 0, void: 0 };
       rows.forEach((k) => { counts[k.status] = (counts[k.status] || 0) + 1; });
       return res.status(200).json({ keys: rows, counts });
+    }
+
+    if (action === "reveal") {
+      // Plaintext is ONLY ever decrypted for keys a winner has already claimed.
+      // Sealed (available/assigned) keys cannot be revealed — by design, to anyone.
+      const id = Number(req.body.id);
+      const r = await sql`
+        SELECT code_encrypted, status FROM codes WHERE id = ${id}`;
+      if (!r.rows.length) return res.status(404).json({ error: "no such key" });
+      if (r.rows[0].status !== "claimed") {
+        return res.status(403).json({ error: "sealed — only claimed keys can be revealed" });
+      }
+      return res.status(200).json({ id, code: decryptCode(r.rows[0].code_encrypted, process.env.CODE_VAULT_KEY) });
     }
 
     if (action === "stats") {
