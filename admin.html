@@ -203,8 +203,22 @@ async function refresh(){
           (k.claimed_at ? ` · ${fmtT(k.claimed_at)}`
             : k.expires_at ? ` · expires ${fmtT(k.expires_at)}` : "")
         : "";
-      return `<div>KEY #${k.id} · <b>${title}</b>${pin} · ${badge}${who}</div>`;
+      const reveal = k.status === "claimed"
+        ? ` · <a href="#" class="reveal-key" data-id="${k.id}" style="color:#4ec9ff;text-decoration:none">reveal</a><span class="mono" id="rev-${k.id}"></span>`
+        : "";
+      return `<div>KEY #${k.id} · <b>${title}</b>${pin} · ${badge}${who}${reveal}</div>`;
     }).join("") : "Vault is empty — load keys above.";
+    document.querySelectorAll(".reveal-key").forEach((el) => el.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      const id = el.dataset.id;
+      const out = document.getElementById("rev-" + id);
+      try {
+        const r = await admin({ action: "reveal", id: Number(id) });
+        out.textContent = " → " + r.code;
+        out.style.color = "#4ade80";
+        el.remove();
+      } catch (e2) { out.textContent = " " + e2.message; out.style.color = "#f87171"; }
+    }));
   } catch (e) { $("vault").innerHTML = "Could not load vault."; }
 
   $("winners").innerHTML = s.recentWinners.length ? s.recentWinners.map((w) =>
