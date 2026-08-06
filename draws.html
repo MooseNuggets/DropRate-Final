@@ -42,6 +42,16 @@ border-radius:10px;padding:11px 20px;font-family:'Poppins';font-weight:600;font-
 .ok{color:var(--green);font-size:.8rem;margin-top:8px}
 .err{color:var(--red);font-size:.8rem;margin-top:8px}
 .empty{color:var(--dim);font-size:.88rem}
+details.fold{margin-bottom:14px}
+details.fold>summary{cursor:pointer;list-style:none;background:var(--navy2);border:1px solid var(--line);
+border-radius:14px;padding:16px 22px;font-size:.88rem;font-weight:600;color:var(--gold);
+display:flex;justify-content:space-between;align-items:center;transition:border-color .2s}
+details.fold>summary:hover{border-color:var(--gold)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"▾";transition:transform .2s}
+details.fold[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+details.fold[open]>summary::after{transform:rotate(180deg)}
+details.fold>.fold-body{border:1px solid var(--line);border-top:none;border-radius:0 0 14px 14px;padding:14px 14px 0}
 </style>
 </head>
 <body>
@@ -52,7 +62,9 @@ border-radius:10px;padding:11px 20px;font-family:'Poppins';font-weight:600;font-
 
 <main class="wrap">
   <h1>Draws</h1>
-  <p class="sub">Every draw is locked in before it runs — the winner is picked by public randomness that nobody controls, not even us. When a draw completes, the result and its proof are published right here for anyone to check.</p>
+  <p class="sub">Every draw is locked in before it runs — the winner is picked by
+     <a href="https://drand.love" target="_blank" rel="noopener" style="color:var(--gold)">public randomness</a>
+     that nobody controls, not even us. When a draw completes, the result and its proof are published right here for anyone to check.</p>
 
   <h2>Upcoming</h2>
   <div id="upcoming"><p class="empty">Loading…</p></div>
@@ -76,11 +88,11 @@ async function load(){
     const up=draws.filter(d=>d.status!=="drawn").sort((a,b)=>new Date(a.scheduled_at)-new Date(b.scheduled_at));
     const done=draws.filter(d=>d.status==="drawn");
 
-    document.getElementById("upcoming").innerHTML = up.length ? up.map(d=>`
+    const upCard = (d)=>`
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
-       <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}
+        <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}
           · ${d.n_winners} winner${d.n_winners===1?"":"s"}</div>
         <div class="freeform">
           <input placeholder="Wallet address (free entry — no purchase necessary)" data-w="${d.id}">
@@ -89,9 +101,14 @@ async function load(){
         </div>
         <div class="note">One free entry per wallet per draw — worth 1 ticket, same odds per ticket as holders.</div>
         <div data-msg="${d.id}"></div>
-      </div>`).join("") : '<p class="empty">No draws scheduled yet — first draws go up at launch.</p>';
+      </div>`;
+    document.getElementById("upcoming").innerHTML = up.length
+      ? upCard(up[0]) + (up.length > 1
+          ? `<details class="fold"><summary>${up.length-1} more upcoming draw${up.length-1===1?"":"s"}</summary><div class="fold-body">${up.slice(1).map(upCard).join("")}</div></details>`
+          : "")
+      : '<p class="empty">No draws scheduled yet — first draws go up at launch.</p>';
 
-    document.getElementById("done").innerHTML = done.length ? done.map(d=>`
+    const doneCard = (d)=>`
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
@@ -100,7 +117,10 @@ async function load(){
           Proof: round <b>${d.drand_round}</b> · seed <b>${(d.seed||"").slice(0,16)}…</b> · snapshot root <b>${(d.merkle_root||"").slice(0,16)}…</b><br>
           Verify: <b>node scripts/verify-draw.js ${location.origin} ${d.id}</b>
         </div>
-      </div>`).join("") : '<p class="empty">No completed draws yet.</p>';
+      </div>`;
+    document.getElementById("done").innerHTML = done.length
+      ? `<details class="fold"><summary>${done.length} completed draw${done.length===1?"":"s"} — results &amp; proofs</summary><div class="fold-body">${done.map(doneCard).join("")}</div></details>`
+      : '<p class="empty">No completed draws yet.</p>';
 
     document.querySelectorAll("[data-enter]").forEach(btn=>btn.addEventListener("click",()=>enter(btn.dataset.enter)));
   }catch(e){
