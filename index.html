@@ -264,6 +264,44 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
 
 ::selection{background:var(--gold);color:#231a05}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+/* ---------- mobile breathing room ---------- */
+@media(max-width:640px){
+  .wrap{padding:0 18px}
+  .hero{padding:40px 0 56px}
+  .hero-grid{gap:34px}
+  .sysbar{gap:8px;margin-bottom:24px}
+  .chip{padding:7px 12px;font-size:.62rem;letter-spacing:.1em}
+  h1{font-size:clamp(2.5rem,13vw,3.4rem)}
+  .tagline{font-size:.82rem;letter-spacing:.04em}
+  .sub{font-size:.9rem;line-height:1.7}
+  .count{gap:8px;margin-top:28px}
+  .cbox{min-width:0;flex:1;padding:12px 4px}
+  .cbox b{font-size:1.5rem}
+  .cbox span{font-size:.56rem;letter-spacing:.16em}
+  .cta-row{flex-direction:column;gap:10px;margin-top:26px}
+  .btn{width:100%;justify-content:center;padding:14px 20px}
+  .ca{margin-top:24px;padding:10px 12px;width:100%;justify-content:space-between}
+  .ca code{font-size:.62rem}
+  .reticle{width:240px;height:262px}
+  .reticle .drop svg{width:168px;height:210px}
+  .console{width:100%;max-width:360px}
+  section{padding:56px 0}
+  h2{font-size:1.35rem}
+  .steps{gap:14px;margin-top:32px}
+  .step{padding:24px 20px}
+  .hud{gap:12px;margin-top:32px}
+  .hudbox{padding:18px 12px}
+  .hudbox b{font-size:1.7rem}
+  .loot-flex{gap:24px}
+  .qdrop{width:130px}
+  .qdrop .qmark{font-size:3.2rem;padding-top:22px}
+  .lt-row{padding:13px 14px;gap:10px}
+  .lt-row .tier{flex:0 0 92px;font-size:.66rem}
+  .lt-row .desc{font-size:.76rem}
+  .receipt{padding:24px 18px 20px}
+  .ritem{font-size:.68rem;gap:10px}
+  .ticker{font-size:.64rem}
+}
 @media (prefers-reduced-motion: reduce){
   .bg-drop,.reticle .drop,.reticle .glow,.reticle .ring,.btn-gold::after,.ticker-track,.chip .dot{animation:none!important}
   .bg-drop{display:none}
