@@ -1,6 +1,6 @@
-import { CONFIG } from "../lib/config.js";
 import { sql, migrate, lastTakenSnapshots } from "../lib/db.js";
 import { roundAt, fetchRandomness, selectWinners, buildPool, payableWallet } from "../lib/draw.js";
+import { loadEligibility } from "../lib/eligibility.js";
 
 const CLAIM_DAYS = 7;
 
@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     const log = [];
 
     // 1) COMMIT: any scheduled draw gets its future drand round pinned immediately.
+    //    The commitment (round number) is public before the randomness exists.
     const toCommit = await sql`SELECT * FROM draws WHERE status = 'scheduled'`;
     for (const d of toCommit.rows) {
       const round = roundAt(Math.floor(new Date(d.scheduled_at).getTime() / 1000));
@@ -24,7 +25,8 @@ export default async function handler(req, res) {
     const due = await sql`
       SELECT * FROM draws WHERE status = 'committed' AND scheduled_at <= now()`;
     for (const d of due.rows) {
-      // With no snapshots yet (pre-token), the draw runs on free entries alone.
+      // Holder entries come from the latest snapshot; with no snapshots yet
+      // (pre-token, or pre-warmup) the draw still runs on free entries alone.
       const snaps = await lastTakenSnapshots(1);
       const snap = snaps[0] ?? null;
 
@@ -32,9 +34,10 @@ export default async function handler(req, res) {
 
       let eligible = [];
       if (snap) {
-        const entriesQ = await sql`
-          SELECT wallet, tickets FROM snapshot_entries WHERE snapshot_id = ${snap.id}`;
-        eligible = await filterEligible(entriesQ.rows, snap.id);
+        const { results } = await loadEligibility();
+        eligible = [...results.entries()]
+          .filter(([, r]) => r.eligible && r.tickets >= 1)
+          .map(([wallet, r]) => ({ wallet, tickets: r.tickets }));
       }
       const freeQ = await sql`
         SELECT id, wallet FROM free_entries WHERE draw_id = ${d.id}`;
@@ -61,7 +64,7 @@ export default async function handler(req, res) {
       log.push({ draw: d.id, action: "drawn", winners: winners.map((w) => payableWallet(w.wallet)) });
     }
 
-    // 3) EXPIRE + REDRAW: unclaimed past deadline
+    // 3) EXPIRE + REDRAW: unclaimed past deadline → code back to pool, next deterministic winner
     const expired = await sql`
       SELECT w.*, d.seed, d.n_winners, d.next_index, d.snapshot_id
       FROM winners w JOIN draws d ON d.id = w.draw_id
@@ -72,9 +75,10 @@ export default async function handler(req, res) {
 
       let eligible = [];
       if (w.snapshot_id) {
-        const entriesQ = await sql`
-          SELECT wallet, tickets FROM snapshot_entries WHERE snapshot_id = ${w.snapshot_id}`;
-        eligible = await filterEligible(entriesQ.rows, w.snapshot_id);
+        const { results } = await loadEligibility();
+        eligible = [...results.entries()]
+          .filter(([, r]) => r.eligible && r.tickets >= 1)
+          .map(([wallet, r]) => ({ wallet, tickets: r.tickets }));
       }
       const freeQ = await sql`SELECT id, wallet FROM free_entries WHERE draw_id = ${w.draw_id}`;
       const pool = buildPool(eligible, freeQ.rows);
@@ -107,18 +111,4 @@ export default async function handler(req, res) {
     console.error(err);
     res.status(500).json({ error: String(err.message || err) });
   }
-}
-
-// Eligibility: wallet must appear in the last K consecutive snapshots.
-async function filterEligible(entries, latestSnapshotId) {
-  const snaps = await lastTakenSnapshots(CONFIG.K_CONSECUTIVE);
-  if (snaps.length < CONFIG.K_CONSECUTIVE) return [];
-  const ids = snaps.map((s) => s.id);
-  const r = await sql.query(
-    `SELECT wallet FROM snapshot_entries WHERE snapshot_id = ANY($1::int[])
-     GROUP BY wallet HAVING count(*) = $2`,
-    [ids, ids.length]
-  );
-  const ok = new Set(r.rows.map((x) => x.wallet));
-  return entries.filter((e) => ok.has(e.wallet));
 }
