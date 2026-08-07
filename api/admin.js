@@ -75,6 +75,60 @@ export default async function handler(req, res) {
       return res.status(200).json({ id, code: decryptCode(r.rows[0].code_encrypted, process.env.CODE_VAULT_KEY) });
     }
 
+    if (action === "audit-dupes") {
+      // Decrypts server-side ONLY to compare — plaintext never leaves the server.
+      const r = await sql`
+        SELECT id, status, draw_id FROM codes WHERE status != 'void' ORDER BY id`;
+      const enc = await sql`
+        SELECT id, code_encrypted FROM codes WHERE status != 'void'`;
+      const plain = new Map(enc.rows.map((c) => {
+        try { return [c.id, decryptCode(c.code_encrypted, process.env.CODE_VAULT_KEY)]; }
+        catch { return [c.id, "__DECRYPT_FAIL_" + c.id]; }
+      }));
+      const groups = new Map();
+      for (const row of r.rows) {
+        const p = plain.get(row.id);
+        if (!groups.has(p)) groups.set(p, []);
+        groups.get(p).push({ id: row.id, status: row.status, draw_id: row.draw_id });
+      }
+      const dupes = [...groups.values()].filter((g) => g.length > 1);
+      return res.status(200).json({ dupe_groups: dupes, checked: r.rows.length });
+    }
+
+    if (action === "void-key") {
+      const id = Number(req.body.id);
+      const r = await sql`SELECT status FROM codes WHERE id = ${id}`;
+      if (!r.rows.length) return res.status(404).json({ error: "no such key" });
+      if (r.rows[0].status !== "available") {
+        return res.status(400).json({ error: "only pool (available) keys can be voided — use swap for assigned keys" });
+      }
+      await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
+      return res.status(200).json({ ok: true, voided: id });
+    }
+
+    if (action === "swap-key") {
+      // Replace an ASSIGNED key with a fresh one — winner, draw, and timing untouched.
+      const codeId = Number(req.body.code_id);
+      const cur = await sql`SELECT id, status, draw_id FROM codes WHERE id = ${codeId}`;
+      if (!cur.rows.length) return res.status(404).json({ error: "no such key" });
+      if (cur.rows[0].status !== "assigned") {
+        return res.status(400).json({ error: "only assigned (awaiting-claim) keys can be swapped" });
+      }
+      const win = await sql`
+        SELECT id, draw_id FROM winners WHERE code_id = ${codeId} AND status = 'assigned'`;
+      if (!win.rows.length) return res.status(409).json({ error: "no active winner holds this key" });
+      const repl = await sql`
+        SELECT id FROM codes WHERE status = 'available'
+          AND (draw_id = ${win.rows[0].draw_id} OR draw_id IS NULL)
+        ORDER BY draw_id ASC NULLS LAST, id ASC LIMIT 1`;
+      if (!repl.rows.length) return res.status(409).json({ error: "no replacement key in pool — load one first" });
+      const newId = repl.rows[0].id;
+      await sql`UPDATE codes SET status = 'void' WHERE id = ${codeId}`;
+      await sql`UPDATE codes SET status = 'assigned' WHERE id = ${newId}`;
+      await sql`UPDATE winners SET code_id = ${newId} WHERE id = ${win.rows[0].id}`;
+      return res.status(200).json({ ok: true, voided: codeId, assigned: newId, winner_id: win.rows[0].id });
+    }
+
     if (action === "stats") {
       const codes = await sql`
         SELECT status, count(*)::int AS n FROM codes GROUP BY status`;
