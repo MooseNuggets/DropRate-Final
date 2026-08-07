@@ -587,7 +587,7 @@ let nextDrawAt = null, nextDrawId = null;
 async function loadNextDraw(){
   try {
     const r = await fetch("/api/draws");
-    const { draws } = await r.json();
+    const { draws, live_holders } = await r.json();
     const up = (draws || [])
       .filter(d => d.status !== "drawn" && new Date(d.scheduled_at) > new Date())
       .sort((a,b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
@@ -597,8 +597,10 @@ async function loadNextDraw(){
       up.length ? (up[0].prize_title || "Mystery game key") : "Scheduling…";
     if (up.length) {
       const n = up[0].live_free || 0;
+      const hh = live_holders || 0;
+      const holderTxt = hh > 0 ? `💎 ${hh} holders auto-entered` : "holders auto-entered";
       document.getElementById("next-count").textContent =
-        n > 0 ? `🎟 ${n} free ${n===1?"entry":"entries"} so far — holders auto-entered` : "Be the first free entry 🎟";
+        n > 0 ? `🎟 ${n} free ${n===1?"entry":"entries"} · ${holderTxt}` : `Be the first free entry 🎟 · ${holderTxt}`;
     }
     const done = (draws || []).filter(d => d.status === "drawn" && d.winners && d.winners.length)
       .sort((a,b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
