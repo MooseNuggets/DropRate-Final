@@ -12,6 +12,12 @@ export default async function handler(req, res) {
       FROM draws d LEFT JOIN snapshots s ON s.id = d.snapshot_id
       ORDER BY d.scheduled_at DESC LIMIT 60`;
     const ids = draws.rows.map((d) => d.id);
+    let liveHolders = 0, liveTickets = 0;
+    try {
+      const { results } = await loadEligibility();
+      for (const [, r] of results) if (r.eligible && r.tickets >= 1) { liveHolders++; liveTickets += r.tickets; }
+    } catch (e) { console.error("eligibility:", e); }
+
     let winners = [];
     if (ids.length) {
       const w = await sql.query(
@@ -22,6 +28,8 @@ export default async function handler(req, res) {
       winners = w.rows;
     }
     res.status(200).json({
+      live_holders: liveHolders,
+      live_tickets: liveTickets,
       draws: draws.rows.map((d) => ({
         ...d,
         winners: winners.filter((w) => w.draw_id === d.id)
