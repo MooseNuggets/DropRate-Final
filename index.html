@@ -406,6 +406,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
             <button class="go" id="entry-go">Enter</button>
           </div>
           <div class="msg" id="entry-msg"></div>
+          <div class="fine" id="next-count"></div>
           <div class="fine">Free entry · no purchase · 1 ticket. Holders are entered automatically.</div>
         </div>
         <div class="sec">
@@ -594,6 +595,11 @@ async function loadNextDraw(){
     nextDrawId = up.length ? up[0].id : null;
     document.getElementById("next-prize").textContent =
       up.length ? (up[0].prize_title || "Mystery game key") : "Scheduling…";
+    if (up.length) {
+      const n = up[0].live_free || 0;
+      document.getElementById("next-count").textContent =
+        n > 0 ? `🎟 ${n} free ${n===1?"entry":"entries"} so far — holders auto-entered` : "Be the first free entry 🎟";
+    }
     const done = (draws || []).filter(d => d.status === "drawn" && d.winners && d.winners.length)
       .sort((a,b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
     if (done.length) {
