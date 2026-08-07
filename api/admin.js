@@ -69,8 +69,8 @@ export default async function handler(req, res) {
       const r = await sql`
         SELECT code_encrypted, status FROM codes WHERE id = ${id}`;
       if (!r.rows.length) return res.status(404).json({ error: "no such key" });
-      if (r.rows[0].status !== "claimed") {
-        return res.status(403).json({ error: "sealed — only claimed keys can be revealed" });
+      if (!["claimed", "assigned"].includes(r.rows[0].status)) {
+        return res.status(403).json({ error: "sealed — pool keys can't be revealed until won" });
       }
       return res.status(200).json({ id, code: decryptCode(r.rows[0].code_encrypted, process.env.CODE_VAULT_KEY) });
     }
