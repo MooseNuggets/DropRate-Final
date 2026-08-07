@@ -1,4 +1,5 @@
 import { CONFIG } from "../lib/config.js";
+import { sql } from "../lib/db.js";
 import { lastTakenSnapshots, walletInSnapshots } from "../lib/db.js";
 import { loadEligibility } from "../lib/eligibility.js";
 
@@ -42,6 +43,12 @@ export default async function handler(req, res) {
     else if (!ev || !ev.streakOk) reason = "missed-snapshot";
     else if (ev.soldRecently) reason = "sold-recently";
 
+    const feQ = await sql`
+      SELECT f.draw_id, d.prize_title, d.scheduled_at
+      FROM free_entries f JOIN draws d ON d.id = f.draw_id
+      WHERE f.wallet = ${wallet} AND d.status != 'drawn' AND d.scheduled_at > now()
+      ORDER BY d.scheduled_at`;
+
     return res.status(200).json({
       wallet,
       eligible,
@@ -52,6 +59,7 @@ export default async function handler(req, res) {
       ticket_cap: CONFIG.TICKET_CAP,
       tokens_per_ticket: CONFIG.TOKENS_PER_TICKET,
       snapshots: detail,
+      free_entries: feQ.rows,
     });
   } catch (err) {
     console.error(err);
