@@ -1,4 +1,5 @@
 import { sql, migrate } from "../lib/db.js";
+import { loadEligibility } from "../lib/eligibility.js";
 
 export default async function handler(req, res) {
   try {
