@@ -42,6 +42,12 @@ border-radius:10px;padding:11px 20px;font-family:'Poppins';font-weight:600;font-
 .ok{color:var(--green);font-size:.8rem;margin-top:8px}
 .err{color:var(--red);font-size:.8rem;margin-top:8px}
 .empty{color:var(--dim);font-size:.88rem}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.pills span{display:inline-flex;align-items:center;gap:5px;background:rgba(13,16,32,.6);
+border:1px solid var(--line);padding:5px 12px;border-radius:8px;font-size:.76rem;
+color:var(--dim);white-space:nowrap}
+.pills b{color:var(--ice);font-weight:600}
+.pills .p-gold{border-color:rgba(255,194,75,.4)} .pills .p-gold b{color:var(--gold)}
 details.fold{margin-bottom:14px}
 details.fold>summary{cursor:pointer;list-style:none;background:var(--navy2);border:1px solid var(--line);
 border-radius:14px;padding:16px 22px;font-size:.88rem;font-weight:600;color:var(--gold);
@@ -96,10 +102,12 @@ async function load(){
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
-        <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}
-          · ${d.n_winners} winner${d.n_winners===1?"":"s"}
-          · 🎟 <b>${d.live_free||0}</b> free ${(d.live_free||0)===1?"entry":"entries"}
-          · 💎 <b>${liveHolders}</b> holders auto-entered${liveTickets?` (${liveTickets.toLocaleString()} tickets)`:""}</div>
+        <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}</div>
+        <div class="pills">
+          <span>🏆 <b>${d.n_winners}</b> winner${d.n_winners===1?"":"s"}</span>
+          <span>🎟 <b>${d.live_free||0}</b> free ${(d.live_free||0)===1?"entry":"entries"}</span>
+          <span class="p-gold">💎 <b>${liveHolders}</b> holders · <b>${liveTickets.toLocaleString()}</b> tickets</span>
+        </div>
         <div class="freeform">
           <input placeholder="Wallet address (free entry — no purchase necessary)" data-w="${d.id}">
           <input class="hp" name="website" tabindex="-1" autocomplete="off" data-hp="${d.id}">
