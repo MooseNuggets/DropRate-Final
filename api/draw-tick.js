@@ -57,9 +57,12 @@ export default async function handler(req, res) {
           INSERT INTO winners(draw_id, pool_identity, wallet, sel_index, code_id, expires_at)
           VALUES (${d.id}, ${w.wallet}, ${payableWallet(w.wallet)}, ${w.index}, ${codeId}, ${expires})`;
       }
+      const poolTickets = pool.reduce((s, e) => s + e.tickets, 0);
       await sql`
         UPDATE draws SET status = 'drawn', seed = ${seed},
-        snapshot_id = ${snap ? snap.id : null}, next_index = ${nextIndex} WHERE id = ${d.id}`;
+        snapshot_id = ${snap ? snap.id : null}, next_index = ${nextIndex},
+        pool_holders = ${eligible.length}, pool_tickets = ${poolTickets},
+        pool_free = ${freeQ.rows.length} WHERE id = ${d.id}`;
       if (!pool.length) log.push({ draw: d.id, note: "no entries — drawn with zero winners" });
       log.push({ draw: d.id, action: "drawn", winners: winners.map((w) => payableWallet(w.wallet)) });
     }
