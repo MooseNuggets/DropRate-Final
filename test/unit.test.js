@@ -46,9 +46,9 @@ test("aggregation: exclusion list removes wallets", () => {
   assert.deepEqual(entries.map((e) => e.wallet), ["holder"]);
 });
 
-test("scheduler: window start floors to 6h boundary", () => {
+test("scheduler: window start floors to 1h boundary", () => {
   const w = windowStart(new Date("2026-07-27T17:59:00Z"));
-  assert.equal(w.toISOString(), "2026-07-27T12:00:00.000Z");
+  assert.equal(w.toISOString(), "2026-07-27T17:00:00.000Z");
   const w2 = windowStart(new Date("2026-07-27T18:00:00Z"));
   assert.equal(w2.toISOString(), "2026-07-27T18:00:00.000Z");
 });
