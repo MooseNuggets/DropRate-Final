@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DROPRATE — Mystery game keys drop for holders</title>
-<meta name="description" content="Hold $DROP, get tickets, win sealed mystery game keys. Three provably random draws every day.">
+<title>DROPRATE — Hold $DROP, win free Steam game keys. 3 draws daily.</title>
+<meta name="description" content="DROPRATE is a Solana token that pays holders in games. Hold 10k+ $DROP, get auto-entered in 3 provably fair draws a day, win sealed mystery game keys. Free entry open to everyone.">
 <meta property="og:title" content="DROPRATE">
 <meta property="og:description" content="Every drop is a mystery. Even to us. 3 provably random game-key draws daily for $DROP holders.">
 <meta property="og:image" content="/assets/banner.png">
@@ -115,7 +115,7 @@ animation:scan 4.5s ease-in-out infinite;top:10%}
 border:1px solid var(--cyan);color:var(--cyan);font-size:.62rem;letter-spacing:.26em;padding:3px 12px;
 font-family:'JetBrains Mono',monospace}
 
-h1{font-family:'Chakra Petch',sans-serif;font-size:clamp(2.9rem,7vw,5.4rem);font-weight:700;letter-spacing:.04em;line-height:.98}
+h1{font-family:'Chakra Petch',sans-serif;font-size:clamp(2.2rem,5.4vw,4rem);font-weight:700;letter-spacing:.03em;line-height:1.05}
 h1 .rate{background:linear-gradient(180deg,var(--gold-hi),var(--gold) 45%,var(--gold-deep));
 -webkit-background-clip:text;background-clip:text;color:transparent}
 h1{transition:text-shadow .15s}
@@ -271,7 +271,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
   .hero-grid{gap:34px}
   .sysbar{gap:8px;margin-bottom:24px}
   .chip{padding:7px 12px;font-size:.62rem;letter-spacing:.1em}
-  h1{font-size:clamp(2.5rem,13vw,3.4rem)}
+  h1{font-size:clamp(1.9rem,9.5vw,2.6rem)}
   .tagline{font-size:.82rem;letter-spacing:.04em}
   .sub{font-size:.9rem;line-height:1.7}
   .count{gap:8px;margin-top:28px}
@@ -319,7 +319,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
         <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
         <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
       </svg>
-      DROP<span class="rate">RATE</span>
+      <span>DROP<span class="rate">RATE</span></span>
     </a>
     <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
     <nav class="nav-links" id="nav-links">
@@ -348,11 +348,12 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
         <div class="chip"><span class="dot dot-gold"></span>KEYS CLAIMED <b id="claimed-n">0</b></div>
         <div class="chip"><span class="dot dot-violet"></span>HOLDERS <b id="holders-n">—</b></div>
       </div>
-      <h1>DROP<span class="rate">RATE</span></h1>
-      <div class="tagline">Every drop is a mystery. <span class="q">Even to us.</span></div>
-      <p class="sub">Hold <b>$DROP</b>, collect tickets, win <b>sealed game keys</b> — three provably random
-         draws a day. The keys are encrypted before we can read them. Nobody knows what's inside
-         until a winner redeems. That's not a bug. That's the whole game.</p>
+      <h1>Hold $DROP.<br>Win <span class="rate">game keys.</span></h1>
+      <div class="tagline">Sealed game keys · 3 draws daily · <span class="q">free entry for everyone</span></div>
+      <p class="sub"><b>DROPRATE is a Solana token that pays its holders in games.</b> Hold 10,000+ $DROP
+         and you're automatically entered in every draw — no staking, no forms. Winners unseal
+         encrypted <b>mystery keys</b>: nobody knows what's inside until you claim.
+         Every drop is a mystery. Even to us.</p>
       <div class="count" id="countdown">
         <div class="cbox"><b id="cd-d">--</b><span>Days</span></div>
         <div class="cbox"><b id="cd-h">--</b><span>Hours</span></div>
@@ -540,7 +541,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     <div>
       <a class="brand disp" href="/" style="font-size:.9rem">
         <svg width="19" height="23" viewBox="0 0 100 116" aria-hidden="true"><path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="#ffc24b"/></svg>
-        DROP<span class="rate">RATE</span>
+        <span>DROP<span class="rate">RATE</span></span>
       </a>
       <div class="tag">Built different. Verifiably.</div>
     </div>
