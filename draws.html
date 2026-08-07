@@ -96,7 +96,8 @@ async function load(){
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
           <span class="when">Draw #${d.id} · ${fmtT(d.scheduled_at)}</span></div>
         <div class="meta">${d.drand_round?`🔒 <b>Draw locked</b> — winner picked by public randomness, tamper-proof.`:"🔒 Locking in…"}
-          · ${d.n_winners} winner${d.n_winners===1?"":"s"}</div>
+          · ${d.n_winners} winner${d.n_winners===1?"":"s"}
+          · 🎟 <b>${d.live_free||0}</b> free ${(d.live_free||0)===1?"entry":"entries"} — holders auto-entered</div>
         <div class="freeform">
           <input placeholder="Wallet address (free entry — no purchase necessary)" data-w="${d.id}">
           <input class="hp" name="website" tabindex="-1" autocomplete="off" data-hp="${d.id}">
