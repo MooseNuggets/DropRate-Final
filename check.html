@@ -31,7 +31,10 @@ button:disabled{opacity:.5;cursor:wait}
 #result{margin-top:28px}
 .card{background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:26px;margin-bottom:14px}
 .status{font-size:1.15rem;font-weight:700;margin-bottom:6px}
-.status.ok{color:var(--green)} .status.no{color:var(--red)} .status.warm{color:var(--gold)}
+.status.ok{color:var(--green)} .fe-box{margin-top:12px;padding:10px 14px;border:1px dashed var(--gold);border-radius:10px;
+font-size:.8rem;color:var(--dim);line-height:1.6}
+.fe-box b{color:var(--gold)}
+.status.no{color:var(--red)} .status.warm{color:var(--gold)}
 .big{font-size:2.4rem;font-weight:700;color:var(--gold)}
 .muted{color:var(--dim);font-size:.85rem;line-height:1.6}
 .snaps{display:flex;gap:10px;margin-top:18px}
@@ -125,7 +128,14 @@ function render(d, out){
        <span>${new Date(s.taken_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric"})}</span>
      </div>`).join("");
 
-  out.innerHTML = `<div class="card">${statusHtml}
+  let feHtml = "";
+  if (d.free_entries && d.free_entries.length) {
+    feHtml = `<div class="fe-box">🎟 <b>Free entries active:</b> ` +
+      d.free_entries.map((f) =>
+        `Draw #${f.draw_id} (${escapeHtml(f.prize_title || "Mystery key")} · ${new Date(f.scheduled_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`
+      ).join(" · ") + `</div>`;
+  }
+  out.innerHTML = `<div class="card">${statusHtml}${feHtml}
     ${snaps ? `<div class="snaps">${snaps}</div>
     <p class="muted" style="margin-top:14px">Last ${d.snapshots.length} snapshots — tickets recorded at each.</p>` : ""}
   </div>`;
