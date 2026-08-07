@@ -5,7 +5,9 @@ export default async function handler(req, res) {
     await migrate();
     const draws = await sql`
       SELECT d.id, d.scheduled_at, d.prize_title, d.n_winners, d.drand_round,
-             d.seed, d.status, d.snapshot_id, s.merkle_root
+             d.seed, d.status, d.snapshot_id, s.merkle_root,
+             d.pool_holders, d.pool_tickets, d.pool_free,
+             (SELECT count(*)::int FROM free_entries f WHERE f.draw_id = d.id) AS live_free
       FROM draws d LEFT JOIN snapshots s ON s.id = d.snapshot_id
       ORDER BY d.scheduled_at DESC LIMIT 60`;
     const ids = draws.rows.map((d) => d.id);
