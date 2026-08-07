@@ -110,6 +110,8 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
     <h2>Key vault</h2>
     <div class="card">
       <div class="grid3" id="vault-counts" style="margin-bottom:14px"></div>
+      <button id="audit-btn" style="margin-bottom:12px">Audit duplicates</button>
+      <div class="list" id="audit-out"></div>
       <div class="list" id="vault" style="max-height:340px;overflow-y:auto">—</div>
       <p style="font-size:.68rem;color:var(--dim);margin-top:10px">Key contents stay encrypted — even here. This ledger shows lifecycle only.</p>
     </div>
@@ -205,9 +207,26 @@ async function refresh(){
         : "";
       const reveal = k.status === "claimed"
         ? ` · <a href="#" class="reveal-key" data-id="${k.id}" style="color:#4ec9ff;text-decoration:none">reveal</a><span class="mono" id="rev-${k.id}"></span>`
+        : k.status === "available"
+        ? ` · <a href="#" class="void-key" data-id="${k.id}" style="color:#f87171;text-decoration:none">void</a>`
+        : k.status === "assigned"
+        ? ` · <a href="#" class="reveal-key" data-id="${k.id}" style="color:#4ec9ff;text-decoration:none">reveal</a><span class="mono" id="rev-${k.id}"></span> · <a href="#" class="swap-key" data-id="${k.id}" style="color:#8b7bff;text-decoration:none">swap</a>`
         : "";
       return `<div>KEY #${k.id} · <b>${title}</b>${pin} · ${badge}${who}${reveal}</div>`;
     }).join("") : "Vault is empty — load keys above.";
+    document.querySelectorAll(".void-key").forEach((el) => el.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      if (!confirm("Void key #" + el.dataset.id + "? It leaves the pool permanently.")) return;
+      try { await admin({ action: "void-key", id: Number(el.dataset.id) }); await refresh(); }
+      catch (e2) { alert(e2.message); }
+    }));
+    document.querySelectorAll(".swap-key").forEach((el) => el.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      if (!confirm("Swap key #" + el.dataset.id + "? Old key is voided, winner gets the next pool key. Draw untouched.")) return;
+      try { const r = await admin({ action: "swap-key", code_id: Number(el.dataset.id) });
+        alert("Swapped: #" + r.voided + " voided → winner now holds #" + r.assigned); await refresh(); }
+      catch (e2) { alert(e2.message); }
+    }));
     document.querySelectorAll(".reveal-key").forEach((el) => el.addEventListener("click", async (ev) => {
       ev.preventDefault();
       const id = el.dataset.id;
@@ -225,6 +244,19 @@ async function refresh(){
     `<div>Draw #${w.draw_id} · <span class="mono">${short(w.wallet)}</span> · <span class="status-${w.status}">${w.status}</span>${w.status==="assigned" ? ` · expires ${fmtT(w.expires_at)}` : ""}</div>`
   ).join("") : "No winners yet.";
 }
+
+$("audit-btn").addEventListener("click", async () => {
+  const out = $("audit-out");
+  out.innerHTML = "Auditing…";
+  try {
+    const r = await admin({ action: "audit-dupes" });
+    if (!r.dupe_groups.length) { out.innerHTML = `<div class="ok">No duplicates — ${r.checked} keys checked, all unique.</div>`; return; }
+    out.innerHTML = r.dupe_groups.map((g, i) =>
+      `<div class="err" style="margin-bottom:6px">DUPE GROUP ${i+1}: ` +
+      g.map((k) => `key #${k.id} (${k.status}${k.draw_id ? ", pinned #" + k.draw_id : ""})`).join(" = ") +
+      ` — keep one, void/swap the rest below</div>`).join("");
+  } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+});
 
 $("addkeys").addEventListener("click", async () => {
   const codes = $("keys").value.split("\n").map((s) => s.trim()).filter(Boolean);
