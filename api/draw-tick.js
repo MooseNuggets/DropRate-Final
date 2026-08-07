@@ -1,6 +1,7 @@
 import { sql, migrate, lastTakenSnapshots } from "../lib/db.js";
 import { roundAt, fetchRandomness, selectWinners, buildPool, payableWallet } from "../lib/draw.js";
 import { loadEligibility } from "../lib/eligibility.js";
+import { announceDrawnDraws } from "../lib/announce.js";
 
 const CLAIM_DAYS = 7;
 
@@ -108,6 +109,11 @@ export default async function handler(req, res) {
         log.push({ draw: w.draw_id, action: "redrawn", winner: payableWallet(r.wallet) });
       }
     }
+
+    try {
+      const announced = await announceDrawnDraws(sql);
+      log.push(...announced);
+    } catch (err) { console.error("announce stage:", err); }
 
     res.status(200).json({ ok: true, log });
   } catch (err) {
