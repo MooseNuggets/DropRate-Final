@@ -1,4 +1,5 @@
 import { sql, migrate } from "../lib/db.js";
+import { loadEligibility } from "../lib/eligibility.js";
 import { parseCommand, formatNextDrop, helpMessage, sendTo } from "../lib/bot.js";
 
 export default async function handler(req, res) {
@@ -24,15 +25,28 @@ export default async function handler(req, res) {
       case "nextdrop": {
         await migrate();
         const dq = await sql`
-          SELECT scheduled_at, prize_title FROM draws
+          SELECT id, scheduled_at, prize_title FROM draws
           WHERE status <> 'drawn' AND scheduled_at > now()
           ORDER BY scheduled_at ASC LIMIT 1`;
-        const hq = await sql`
-          SELECT holder_count FROM snapshots WHERE status = 'taken'
-          ORDER BY window_start DESC LIMIT 1`;
-        reply = formatNextDrop(dq.rows[0] || null, {
-          holders: hq.rows[0]?.holder_count ?? undefined,
-        });
+        const next = dq.rows[0] || null;
+
+        let holderTickets = 0;
+        let freeTickets = 0;
+        if (next) {
+          try {
+            const { results } = await loadEligibility();
+            for (const [, r] of results) {
+              if (r.eligible && r.tickets >= 1) holderTickets += r.tickets;
+            }
+          } catch (e) {
+            console.error("nextdrop eligibility:", e);
+          }
+          const fq = await sql`
+            SELECT count(*)::int AS n FROM free_entries WHERE draw_id = ${next.id}`;
+          freeTickets = fq.rows[0]?.n ?? 0;
+        }
+
+        reply = formatNextDrop(next, { holderTickets, freeTickets });
         break;
       }
       case "start":
