@@ -227,24 +227,42 @@ async function api(body){
 }
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);}
 
-// ---------- wallet (Solflare / Phantom) ----------
-function findWallet(){
-  if(window.solflare&&window.solflare.isSolflare) return window.solflare;
-  if(window.phantom&&window.phantom.solana) return window.phantom.solana;
-  if(window.solana) return window.solana;
-  return null;
+// ---------- wallet (picker: Phantom / Solflare) ----------
+function detectWallets(){
+  const list=[];
+  if(window.phantom&&window.phantom.solana&&window.phantom.solana.isPhantom) list.push({name:'Phantom',provider:window.phantom.solana});
+  else if(window.solana&&window.solana.isPhantom) list.push({name:'Phantom',provider:window.solana});
+  if(window.solflare&&window.solflare.isSolflare) list.push({name:'Solflare',provider:window.solflare});
+  if(!list.length&&window.solana) list.push({name:'Wallet',provider:window.solana});
+  return list;
 }
-async function connectWallet(){
-  const w=findWallet();
-  if(!w){ toast('No Solana wallet found — install Solflare or Phantom.'); return; }
+async function useWallet(provider){
   try{
-    const res=await w.connect();
-    wallet=w;
-    OWNER=(w.publicKey||(res&&res.publicKey)).toString();
+    const res=await provider.connect();
+    wallet=provider;
+    OWNER=(provider.publicKey||(res&&res.publicKey)).toString();
     $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4);
     toast('Wallet connected.');
     refreshCTA();
   }catch(e){ toast('Connection cancelled.'); }
+}
+function connectWallet(){
+  const list=detectWallets();
+  if(!list.length){ toast('No Solana wallet found — install Phantom or Solflare.'); return; }
+  if(list.length===1){ useWallet(list[0].provider); return; }
+  let ov=document.getElementById('wpick'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='wpick';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(2,4,12,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:50';
+  ov.innerHTML='<div style="background:#0c1024;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px;min-width:260px">'
+    +'<div style="font-family:var(--mono,monospace);letter-spacing:.12em;text-transform:uppercase;font-size:12px;color:#8b93b3;margin-bottom:14px">Choose a wallet</div>'
+    +list.map((w,i)=>`<button data-i="${i}" style="display:block;width:100%;text-align:left;margin:8px 0;padding:12px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.12);background:#121734;color:#fff;font:inherit;cursor:pointer">${w.name}</button>`).join('')
+    +'<button data-close="1" style="display:block;width:100%;margin-top:6px;padding:9px;border:none;background:none;color:#8b93b3;font:inherit;cursor:pointer">cancel</button></div>';
+  ov.addEventListener('click',e=>{
+    if(e.target===ov||e.target.dataset.close){ ov.remove(); return; }
+    const b=e.target.closest('button[data-i]');
+    if(b){ const w=list[Number(b.dataset.i)]; ov.remove(); useWallet(w.provider); }
+  });
+  document.body.appendChild(ov);
 }
 
 // ---------- chest glyph ----------
@@ -477,7 +495,7 @@ async function handleGate(a){
 // ---------- boot ----------
 $('walletBtn').addEventListener('click',connectWallet);
 syncStage();
-(async()=>{ const w=findWallet(); if(w&&w.isConnected&&w.publicKey){ wallet=w; OWNER=w.publicKey.toString(); $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4); refreshCTA(); } })();
+(async()=>{ const w=detectWallets().find(x=>x.provider.isConnected&&x.provider.publicKey); if(w){ wallet=w.provider; OWNER=w.provider.publicKey.toString(); $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4); refreshCTA(); } })();
 
 </script>
 </body>
