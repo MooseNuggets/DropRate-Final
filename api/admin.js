@@ -161,6 +161,66 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ---- GACHA: load keys into the crate pool ----------------------------
+    if (action === "gacha-load-keys") {
+      await migrateGacha();
+      // Accept a pasted batch (text) and/or a structured keys[] array.
+      let rows = [];
+      if (typeof req.body.text === "string" && req.body.text.trim()) {
+        rows = parseBatch(req.body.text).map((r) => ({
+          code: r.code, gameName: r.gameName, appInput: r.gameName,
+          costCents: r.costCents, error: r.error,
+        }));
+      }
+      if (Array.isArray(req.body.keys)) {
+        rows = rows.concat(req.body.keys.map((k) => ({
+          code: k.code,
+          appInput: k.appInput ?? k.game ?? null,
+          gameName: k.gameName ?? k.game ?? null,
+          msrpCents: k.msrpCents,
+          costCents: k.costCents ?? k.cost,
+          tierOverride: k.tierOverride ?? k.tier,
+        })));
+      }
+      const defaultTier = req.body.tierOverride || req.body.defaultTier || null;
+      const added = { common: 0, rare: 0, epic: 0, legendary: 0 };
+      const failures = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.error) { failures.push({ i, code: row.code, error: row.error }); continue; }
+        try {
+          const rec = await prepareKey({
+            code: row.code, appInput: row.appInput, gameName: row.gameName,
+            msrpCents: row.msrpCents, costCents: row.costCents,
+            tierOverride: row.tierOverride || defaultTier,
+          }, { vaultKey: process.env.CODE_VAULT_KEY });
+          await sql`
+            INSERT INTO crate_keys(rarity, game_title, appid, image, msrp_cents, cost_cents, code_encrypted, status)
+            VALUES (${rec.rarity}, ${rec.game_title}, ${rec.appid}, ${rec.image},
+                    ${rec.msrp_cents}, ${rec.cost_cents}, ${rec.code_encrypted}, 'available')`;
+          added[rec.rarity] = (added[rec.rarity] || 0) + 1;
+        } catch (e) {
+          failures.push({ i, code: row.code, error: String(e.message || e) });
+        }
+      }
+      const stock = await bucketCounts();
+      return res.status(200).json({ ok: true, added, failures, stock });
+    }
+
+    // ---- GACHA: current stock per rarity --------------------------------
+    if (action === "gacha-stock") {
+      await migrateGacha();
+      return res.status(200).json({ ok: true, stock: await bucketCounts() });
+    }
+
+    // ---- GACHA: void a bad pool key -------------------------------------
+    if (action === "gacha-void-key") {
+      await migrateGacha();
+      const id = Number(req.body.id);
+      const r = await sql`UPDATE crate_keys SET status = 'void' WHERE id = ${id} AND status = 'available' RETURNING id`;
+      if (!r.rows.length) return res.status(400).json({ error: "key not found or not available" });
+      return res.status(200).json({ ok: true, voided: id });
+    }
     res.status(400).json({ error: "unknown action" });
   } catch (err) {
     console.error(err);
