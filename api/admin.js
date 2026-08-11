@@ -1,5 +1,7 @@
 import { sql, migrate } from "../lib/db.js";
 import { encryptCode, decryptCode } from "../lib/vault.js";
+import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
+import { prepareKey, parseBatch } from "../lib/loader.js";
 
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.ADMIN_SECRET}`) {
