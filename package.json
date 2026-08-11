@@ -7,5 +7,9 @@
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0"
+    "@solana/web3.js": "^1.95.4",
+"@solana/spl-token": "^0.4.9",
+"@solana/pay": "^0.2.6",
+"bs58": "^6.0.0"
   }
 }
