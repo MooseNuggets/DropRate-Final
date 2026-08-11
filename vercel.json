@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/free-entries", "destination": "/api/free-entry" }
+  ]
+}
