@@ -125,6 +125,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, state: "committing", round, readyAt: roundReadyAt(round) });
     }
 
+    // ---- BUILDPAY: server-build the 4-way split tx for the buyer to sign ---
+    if (b.action === "buildpay") {
+      const qy = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
+      const pull = qy.rows[0];
+      if (!pull) return res.status(404).json({ error: "no such pull" });
+      gateOrDie(pull.owner);
+      if (pull.state !== "awaiting_payment") return res.status(409).json({ error: `not awaiting payment (${pull.state})` });
+      if (!b.payer) return res.status(400).json({ error: "payer required" });
+
+      const s = splitPayment(pull.amount_quoted_raw);
+      const { buildSplitPaymentTx } = await import("../lib/solana.js");
+      const built = await buildSplitPaymentTx(b.payer, pull.reference, {
+        treasuryRaw: s.treasuryRaw.toString(), burnRaw: s.burnRaw.toString(),
+        lpRaw: s.lpRaw.toString(), marketingRaw: s.marketingRaw.toString(),
+      });
+      return res.status(200).json({ ok: true, pullId: pull.id, amountRaw: pull.amount_quoted_raw, ...built });
+    }
+
     // ---- RESOLVE ---------------------------------------------------------
     if (b.action === "resolve") {
       const q = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
