@@ -131,6 +131,21 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
       <button id="addex">Exclude</button>
       <div id="exmsg"></div>
     </div>
+    <h2>Gacha crate keys</h2>
+    <div class="card">
+      <p style="color:#98A1C6;font-size:13px;margin-top:0">One key per line — <code>CODE | Game name</code>. Tier auto-sets from the Steam price. Optional cost: <code>CODE | Game | 12.99</code>.</p>
+      <textarea id="gk-input" rows="8" placeholder="ABCD-EFGH-IJKL | Hades&#10;MNOP-QRST-UVWX | Elden Ring" style="width:100%"></textarea>
+      <div style="margin-top:8px">
+        <button id="gk-load">Load keys</button>
+        <button id="gk-refresh">Refresh stock</button>
+      </div>
+      <div id="gk-msg" style="margin-top:8px;color:#98A1C6;font-size:13px"></div>
+      <div style="margin-top:6px;font-size:13px">Stock — <b id="gk-stock">click refresh</b></div>
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:14px 0">
+      <p style="color:#98A1C6;font-size:12px;margin:0 0 6px">Danger zone — wipes ALL gacha keys, pulls & history (never the raffle). Type WIPE to enable.</p>
+      <input id="gk-wipe" placeholder="type WIPE" style="max-width:150px">
+      <button id="gk-wipebtn">Wipe gacha data</button>
+    </div>
   </div>
 </div>
 
@@ -343,6 +358,37 @@ $("addex").addEventListener("click", async () => {
     $("exmsg").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }
 });
+  async function gkLoad(){
+  const raw=$('gk-input').value.trim(), msg=$('gk-msg');
+  if(!raw){ msg.textContent='Paste some keys first.'; return; }
+  const lines=raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const CHUNK=12, added={common:0,rare:0,epic:0,legendary:0}, failures=[];
+  for(let i=0;i<lines.length;i+=CHUNK){
+    msg.textContent=`Loading ${i+1}–${Math.min(i+CHUNK,lines.length)} of ${lines.length}…`;
+    try{
+      const j=await admin({action:'gacha-load-keys',text:lines.slice(i,i+CHUNK).join('\n')});
+      for(const k in added) added[k]+=(j.added&&j.added[k])||0;
+      if(j.failures) for(const f of j.failures) failures.push(f);
+    }catch(e){ failures.push({error:e.message}); }
+  }
+  const total=added.common+added.rare+added.epic+added.legendary;
+  msg.textContent=`Done · added ${total} (C${added.common}/R${added.rare}/E${added.epic}/L${added.legendary}) · ${failures.length} failed`;
+  if(failures.length) console.log('gacha load failures:',failures);
+  gkStock();
+}
+async function gkStock(){
+  try{ const j=await admin({action:'gacha-stock'}), s=j.stock||{};
+    $('gk-stock').textContent=`common ${s.common||0} · rare ${s.rare||0} · epic ${s.epic||0} · legendary ${s.legendary||0}`;
+  }catch(e){ $('gk-stock').textContent='error: '+e.message; }
+}
+async function gkWipe(){
+  if($('gk-wipe').value.trim()!=='WIPE'){ $('gk-msg').textContent='Type WIPE to confirm.'; return; }
+  try{ await admin({action:'gacha-reset',confirm:'WIPE'}); $('gk-wipe').value=''; $('gk-msg').textContent='Gacha data wiped.'; gkStock(); }
+  catch(e){ $('gk-msg').textContent='Wipe failed: '+e.message; }
+}
+if($('gk-load')) $('gk-load').onclick=gkLoad;
+if($('gk-refresh')) $('gk-refresh').onclick=gkStock;
+if($('gk-wipebtn')) $('gk-wipebtn').onclick=gkWipe;
 </script>
 </body>
 </html>
