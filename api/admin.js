@@ -221,6 +221,16 @@ export default async function handler(req, res) {
       if (!r.rows.length) return res.status(400).json({ error: "key not found or not available" });
       return res.status(200).json({ ok: true, voided: id });
     }
+    // ---- GACHA: wipe ALL gacha data (keys + pulls + history) -------------
+    if (action === "gacha-reset") {
+      await migrateGacha();
+      if (req.body.confirm !== "WIPE") return res.status(400).json({ error: "pass confirm:'WIPE' to reset" });
+      await sql`DELETE FROM settlements`;
+      await sql`DELETE FROM pulls`;
+      await sql`DELETE FROM pity`;
+      await sql`DELETE FROM crate_keys`;
+      return res.status(200).json({ ok: true, wiped: true });
+    }
     res.status(400).json({ error: "unknown action" });
   } catch (err) {
     console.error(err);
