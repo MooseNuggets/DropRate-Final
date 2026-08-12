@@ -185,7 +185,7 @@
   </div>
 
   <div class="panels">
-    <div class="panel"><h3 id="oddsTitle">Common crate · published odds</h3><div class="odds" id="odds"></div></div>
+    <div class="panel"><h3 id="oddsTitle">Common crate odds</h3><div class="odds" id="odds"></div></div>
     <div class="panel"><h3>Every key has a drop rate</h3>
       <p class="lore">The table's <span class="g">public</span> — we don't hide it. A pull lands, you see the <b>game</b> and its real Steam price, but not the key. Keep it and the key's yours forever. Don't? Sell it back for 70%. <span class="g">GL;HF.</span></p>
       <p class="lore" style="margin-top:12px;font-size:12.5px;border-top:1px solid var(--line);padding-top:12px">Every crate splits on-chain to public wallets — <span class="g">70%</span> treasury · <span class="g">10%</span> 🔥 burn (incinerator) · <span class="g">10%</span> LP · <span class="g">10%</span> marketing.</p></div>
@@ -299,7 +299,7 @@ $('rail').addEventListener('click',e=>{const el=e.target.closest('.crate');if(!e
   selected=el.dataset.c;document.querySelectorAll('.crate').forEach(c=>c.classList.toggle('sel',c.dataset.c===selected));syncStage();});
 
 function renderOdds(){
-  const c=CRATES[selected];$('oddsTitle').textContent=`${selected} crate · published odds`;
+  const c=CRATES[selected];$('oddsTitle').textContent=`${selected} crate odds`;
   $('odds').innerHTML=RARITIES.map((r,i)=>{const pct=c.odds[i]*100;
     return `<div class="odd" style="--rc2:${RCOLOR[r]}"><span class="n">${r}</span><span class="bar"><span style="width:${Math.max(pct,0.6)}%"></span></span><span class="p">${pct%1===0?pct:pct.toFixed(1)}%</span></div>`;
   }).join('')+`<div class="odd" style="--rc2:var(--muted)"><span class="n" style="color:var(--muted)">pity</span><span style="grid-column:2/4;font-family:var(--mono);font-size:11px;color:var(--muted)">guaranteed ${c.floor}+ within ${PITY} pulls</span></div>`;
@@ -316,7 +316,7 @@ function syncStage(){
   $('reelwrap').classList.remove('on');$('marker').style.opacity=0;
   $('stageInner').classList.remove('center');
   $('stageInner').innerHTML=`<div class="cta"><button class="rip" id="rip">${OWNER?`OPEN CRATE — $${c.price}`:'CONNECT WALLET TO OPEN'}</button>
-    <div class="fair">provably fair · <b>drand</b>-verified · odds published above</div></div>`;
+    <div class="fair">provably fair · <b>drand</b>-verified · odds published below</div></div>`;
   $('status').innerHTML='idle · commit → <b>drand</b> → reveal';
   renderOdds();
   refreshCTA();
