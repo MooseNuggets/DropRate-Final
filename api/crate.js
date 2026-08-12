@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "../lib/db.js";
 import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
-import { CRATES, buybackRaw, CLAIM_WINDOW_SEC } from "../lib/gacha.js";
+import { CRATES, buybackRaw, CLAIM_WINDOW_SEC, tokensForCrate } from "../lib/gacha.js";
 import { commitRound, roundReadyAt, canOpen, resolveRarity, claimDeadlineSec, withinClaimWindow } from "../lib/crate.js";
 import { quoteCrate, splitPayment, validateTransfer, verifySplitLegs } from "../lib/payment.js";
 import { fetchRandomness } from "../lib/draw.js";
