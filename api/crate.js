@@ -37,7 +37,9 @@ async function fetchPaidTransfer(reference, expected) {
   const found = await findPaymentByReference(reference);
   if (!found) return null; // not on-chain yet -> client retries
   const atas = await resolveSplitAtas();
-  const split = verifySplitLegs(found.legs, { ...atas, totalRaw: expected.amountRaw });
+  const split = verifySplitLegs(found.legs, found.burnedRaw, {
+      treasury: atas.treasury, lp: atas.lp, marketing: atas.marketing, totalRaw: expected.amountRaw,
+    });
   return {
     mint: process.env.DROP_MINT,
     destination: atas.treasury,
