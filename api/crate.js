@@ -197,13 +197,34 @@ export default async function handler(req, res) {
       });
     }
 
-    // ---- SWEEP (cron) ----------------------------------------------------
+// ---- SWEEP: finalize expired pulls + retry any stuck refunds (cron) ---
     if (b.action === "sweep") {
       if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
         return res.status(401).json({ error: "unauthorized" });
       }
+      // sealed + past deadline -> kept (sell-back closes; key still claimable)
       const r = await sql`UPDATE pulls SET state = 'kept' WHERE state = 'sealed' AND decision_deadline < now()`;
-      return res.status(200).json({ ok: true, finalized: r.rowCount ?? 0 });
+
+      // Self-healing refunds: any refund settlement still 'pending' after 2 minutes
+      // (the immediate dispatch failed — e.g. treasury briefly out of SOL, RPC blip)
+      // gets retried here. The 2-minute floor avoids racing a live sell-back request.
+      let refundsSent = 0, refundsFailed = 0;
+      const pend = await sql`
+        SELECT s.id, s.amount_raw, p.owner
+        FROM settlements s JOIN pulls p ON p.id = s.pull_id
+        WHERE s.type = 'refund' AND s.status = 'pending' AND s.created_at < now() - interval '2 minutes'
+        ORDER BY s.id ASC LIMIT 25`;
+      for (const row of pend.rows) {
+        try {
+          const sig = await dispatchRefund(row.owner, String(row.amount_raw));
+          await sql`UPDATE settlements SET status = 'sent', sig = ${sig}, sent_at = now() WHERE id = ${row.id}`;
+          refundsSent++;
+        } catch (e) {
+          console.error("sweep refund retry failed:", e.message);
+          refundsFailed++;
+        }
+      }
+      return res.status(200).json({ ok: true, finalized: r.rowCount ?? 0, refundsSent, refundsFailed });
     }
 
     // ---- reveal / sellback ----------------------------------------------
