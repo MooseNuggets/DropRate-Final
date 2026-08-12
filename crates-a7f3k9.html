@@ -31,6 +31,25 @@
   .wallet{font-family:var(--display);font-weight:700;font-size:12.5px;border:0;padding:10px 16px;border-radius:10px;color:#12152b;cursor:pointer;
     background:linear-gradient(180deg,var(--gold-2),var(--gold));box-shadow:0 10px 24px -12px var(--gold);transition:transform .12s,filter .2s}
   .wallet:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .wins-btn{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);cursor:pointer;
+    border:1px solid var(--line-2);background:rgba(255,255,255,.04);padding:10px 14px;border-radius:10px;transition:.15s}
+  .wins-btn:hover{border-color:var(--gold);color:var(--gold-2)}
+  .winsov{position:fixed;inset:0;background:rgba(2,4,12,.74);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .winspanel{background:#0c1024;border:1px solid var(--line-2);border-radius:18px;width:min(780px,96vw);max-height:86vh;overflow:auto;padding:22px}
+  .winshead{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .winshead h3{margin:0;font-family:var(--display);font-size:20px}
+  .winsx{background:none;border:0;color:var(--muted);font-size:24px;cursor:pointer;line-height:1}
+  .wingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .wincard{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.02)}
+  .wincover{height:96px;display:grid;place-items:center;font-weight:700;font-size:24px;color:#0c1024;background:linear-gradient(140deg,var(--rc),color-mix(in srgb,var(--rc) 38%,#0a0e1e))}
+  .wincover img{width:100%;height:100%;object-fit:cover}
+  .winbody{padding:11px 12px}
+  .wintag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--rc)}
+  .wintitle{font-weight:700;font-size:14px;margin:3px 0 2px;line-height:1.15}
+  .winmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .wincode{margin-top:8px;font-family:var(--mono);font-size:11px;background:#070a18;border:1px dashed var(--line-2);border-radius:8px;padding:8px;color:var(--gold-2);word-break:break-all;cursor:pointer}
+  .winstat{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .winempty{color:var(--muted);text-align:center;padding:44px 0;font-family:var(--mono);font-size:13px}
   .hero{padding:36px 0 6px} .kicker{color:var(--spark)}
   h1{font-size:clamp(30px,5vw,50px);line-height:1.02;margin:12px 0 8px;font-weight:800;letter-spacing:-.005em;font-family:var(--display)}
   .brand .word,.rip,.gtitle,.crate .price{font-family:var(--display)}
@@ -162,7 +181,10 @@
       <span class="word">DROP<b>RATE</b></span>
     </div>
     <nav><span class="mono">How it works</span><span class="mono active">Crates</span><span class="mono">Loot table</span><span class="mono">Draws</span></nav>
-    <button class="wallet" id="walletBtn" style="cursor:pointer;font:inherit">Connect Wallet</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="wins-btn" id="winsBtn">My Wins</button>
+      <button class="wallet" id="walletBtn" style="cursor:pointer;font:inherit">Connect Wallet</button>
+    </div>
   </header>
 
   <section class="hero">
@@ -506,6 +528,68 @@ async function updateDropPrices(){
     }
   }catch{}
 }
+// ---------- My Wins (signed history) ----------
+const RC_HEX={common:'var(--c-common)',rare:'var(--c-rare)',epic:'var(--c-epic)',legendary:'var(--c-legendary)'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function signMsg(msg){
+  const enc=new TextEncoder().encode(msg);
+  const res=await wallet.signMessage(enc,'utf8');
+  const sig=(res&&res.signature)?res.signature:res;
+  const bytes=sig instanceof Uint8Array?sig:new Uint8Array(sig);
+  let s=''; for(const b of bytes) s+=String.fromCharCode(b);
+  return btoa(s);
+}
+function closeWins(){ const o=document.getElementById('winsov'); if(o) o.remove(); }
+function winsShell(inner){
+  let o=document.getElementById('winsov'); if(o) o.remove();
+  o=document.createElement('div'); o.className='winsov'; o.id='winsov';
+  o.innerHTML=`<div class="winspanel"><div class="winshead"><h3>My Wins</h3><button class="winsx" data-x="1">×</button></div><div id="winsbody">${inner}</div></div>`;
+  o.addEventListener('click',e=>{
+    if(e.target===o||e.target.dataset.x){ closeWins(); return; }
+    const c=e.target.closest('.wincode');
+    if(c&&c.dataset.code){ if(navigator.clipboard) navigator.clipboard.writeText(c.dataset.code); toast('Key copied.'); }
+  });
+  document.body.appendChild(o);
+}
+async function openWins(){
+  if(!OWNER||!wallet){ toast('Connect your wallet first.'); connectWallet(); return; }
+  const ts=Math.floor(Date.now()/1000);
+  const msg=`DROPRATE history wallet:${OWNER} ts:${ts}`;
+  let sigB64;
+  try{ sigB64=await signMsg(msg); }catch(e){ toast('Signature cancelled.'); return; }
+  winsShell('<div class="winempty">loading your wins…</div>');
+  try{
+    const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'history',owner:OWNER,message:msg,signature:sigB64})});
+    const j=await r.json();
+    const body=document.getElementById('winsbody'); if(!body) return;
+    if(j.error){ body.innerHTML='<div class="winempty">'+esc(j.error)+'</div>'; return; }
+    renderWins(j.items||[]);
+  }catch(e){ const b=document.getElementById('winsbody'); if(b) b.innerHTML='<div class="winempty">network error</div>'; }
+}
+function renderWins(items){
+  const body=document.getElementById('winsbody'); if(!body) return;
+  if(!items.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
+  const money=c=>c!=null?('$'+(c/100).toFixed(2)):'';
+  const dt=d=>{ try{ return new Date(d).toLocaleDateString(); }catch{ return ''; } };
+  body.innerHTML='<div class="wingrid">'+items.map(it=>{
+    const rc=RC_HEX[it.rarity]||'var(--muted)';
+    const title=esc(it.game||'Mystery game');
+    const ini=((it.game||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase())||'?';
+    const cover=it.image?`<img src="${esc(it.image)}" alt="">`:esc(ini);
+    let foot;
+    if(it.code) foot=`<div class="wincode" data-code="${esc(it.code)}" title="click to copy">${esc(it.code)}</div>`;
+    else if(it.state==='sold_back') foot='<div class="winstat">↺ sold back · refunded</div>';
+    else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
+    else foot='<div class="winstat">key pending</div>';
+    return `<div class="wincard" style="--rc:${rc}"><div class="wincover">${cover}</div><div class="winbody">
+      <div class="wintag">${esc(it.rarity)} · ${esc(it.crate)}</div>
+      <div class="wintitle">${title}</div>
+      <div class="winmeta">${money(it.msrp_cents)}${it.date?(' · '+esc(dt(it.date))):''}</div>
+      ${foot}</div></div>`;
+  }).join('')+'</div>';
+}
+
+$('winsBtn').addEventListener('click',openWins);
 $('walletBtn').addEventListener('click',connectWallet);
 syncStage();
 updateDropPrices(); setInterval(updateDropPrices,25000);
