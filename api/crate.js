@@ -14,7 +14,7 @@ import { CRATES, buybackRaw, CLAIM_WINDOW_SEC, tokensForCrate } from "../lib/gac
 import { commitRound, roundReadyAt, canOpen, resolveRarity, claimDeadlineSec, withinClaimWindow } from "../lib/crate.js";
 import { quoteCrate, splitPayment, validateTransfer, verifySplitLegs } from "../lib/payment.js";
 import { fetchRandomness } from "../lib/draw.js";
-import { decryptCode } from "../lib/vault.js";
+import { decryptCode, verifyWalletSignature } from "../lib/vault.js";
 import { currentDropUsd } from "../lib/oracle.js";
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -253,6 +253,40 @@ export default async function handler(req, res) {
       return res.status(200).json(q.rows[0]);
     }
 
+   // ---- HISTORY: a wallet's own pulls, gated by a wallet SIGNATURE ---------
+    if (b.action === "history") {
+      const { owner, message, signature } = b;
+      if (!owner || !message || !signature) return res.status(400).json({ error: "owner, message, signature required" });
+      if (!message.includes(`wallet:${owner}`)) return res.status(401).json({ error: "message/wallet mismatch" });
+      const m = /ts:(\d+)/.exec(message);
+      const ts = m ? Number(m[1]) : 0;
+      if (!ts || Math.abs(Date.now() / 1000 - ts) > 300) return res.status(401).json({ error: "signature expired — retry" });
+      let ok = false;
+      try { ok = verifyWalletSignature(message, String(signature), owner); } catch { ok = false; }
+      if (!ok) return res.status(401).json({ error: "signature verification failed" });
+
+      const rows = await sql`
+        SELECT p.id, p.crate, p.rarity, p.state, p.resolved_at, p.created_at, p.refund_raw,
+               k.game_title, k.image, k.msrp_cents, k.code_encrypted
+        FROM pulls p LEFT JOIN crate_keys k ON k.id = p.key_id
+        WHERE p.owner = ${owner} AND p.state IN ('revealed','kept','sold_back','owed')
+        ORDER BY COALESCE(p.resolved_at, p.created_at) DESC, p.id DESC
+        LIMIT 200`;
+      const items = rows.rows.map((r) => {
+        const owned = r.state === "revealed" || r.state === "kept";
+        let code = null;
+        if (owned && r.code_encrypted) { try { code = decryptCode(r.code_encrypted, process.env.CODE_VAULT_KEY); } catch { code = null; } }
+        return {
+          id: r.id, crate: r.crate, rarity: r.rarity, state: r.state,
+          game: r.game_title, image: r.image, msrp_cents: r.msrp_cents,
+          date: r.resolved_at || r.created_at,
+          refund_raw: r.refund_raw ? String(r.refund_raw) : null,
+          code,
+        };
+      });
+      return res.status(200).json({ ok: true, items });
+    }
+    
     return res.status(400).json({ error: `unknown action ${b.action}` });
   } catch (err) {
     if (err && err.http) return res.status(err.http).json({ error: String(err.message) });
