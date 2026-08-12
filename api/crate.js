@@ -253,7 +253,7 @@ export default async function handler(req, res) {
       return res.status(200).json(q.rows[0]);
     }
 
-   // ---- HISTORY: a wallet's own pulls, gated by a wallet SIGNATURE ---------
+ // ---- HISTORY: a wallet's own pulls, gated by a wallet SIGNATURE ---------
     if (b.action === "history") {
       const { owner, message, signature } = b;
       if (!owner || !message || !signature) return res.status(400).json({ error: "owner, message, signature required" });
@@ -267,13 +267,18 @@ export default async function handler(req, res) {
 
       const rows = await sql`
         SELECT p.id, p.crate, p.rarity, p.state, p.resolved_at, p.created_at, p.refund_raw,
-               k.game_title, k.image, k.msrp_cents, k.code_encrypted
+               k.game_title, k.image, k.msrp_cents, k.code_encrypted, k.status AS key_status
         FROM pulls p LEFT JOIN crate_keys k ON k.id = p.key_id
         WHERE p.owner = ${owner} AND p.state IN ('revealed','kept','sold_back','owed')
         ORDER BY COALESCE(p.resolved_at, p.created_at) DESC, p.id DESC
         LIMIT 200`;
       const items = rows.rows.map((r) => {
-        const owned = r.state === "revealed" || r.state === "kept";
+        // A code is returned ONLY for a key the wallet still owns: the pull must be
+        // revealed/kept AND the key must still be theirs (status sealed/revealed).
+        // A sold-back key (state 'sold_back', key returned to 'available') NEVER
+        // shows a code — both locks must pass.
+        const owned = (r.state === "revealed" || r.state === "kept") &&
+                      (r.key_status === "sealed" || r.key_status === "revealed");
         let code = null;
         if (owned && r.code_encrypted) { try { code = decryptCode(r.code_encrypted, process.env.CODE_VAULT_KEY); } catch { code = null; } }
         return {
