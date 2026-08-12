@@ -60,6 +60,16 @@ export default async function handler(req, res) {
     await migrateGacha();
     const b = req.body ?? {};
 
+   // ---- PRICE: public live $DROP price + per-crate token amounts ---------
+    if (b.action === "price") {
+      const dropUsd = await currentDropUsd();
+      const crates = {};
+      for (const [k, c] of Object.entries(CRATES)) {
+        crates[k] = { usdCents: c.priceUsdCents, dropRaw: tokensForCrate(c.priceUsdCents, dropUsd, DECIMALS).toString() };
+      }
+      return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, crates });
+    }
+    
     // ---- OPEN ------------------------------------------------------------
     if (b.action === "open") {
       const crate = CRATES[b.crate];
