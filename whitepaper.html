@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DropRate — Whitepaper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
+    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --font:"Poppins",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+    --display:"Chakra Petch",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 600px at 50% -12%, #22284d 0%, transparent 60%),
+      radial-gradient(800px 500px at 88% 12%, rgba(139,125,240,.12), transparent 55%),
+      linear-gradient(180deg,#0E1330 0%, var(--navy-0) 70%);
+    background-attachment:fixed; color:var(--ink); font-family:var(--font); line-height:1.62;
+    -webkit-font-smoothing:antialiased; min-height:100vh;}
+  .site-nav{border-bottom:1px solid var(--line)}
+  .wrap-nav{max-width:880px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; gap:20px}
+  .site-nav .brand{display:flex; align-items:center; gap:11px; text-decoration:none; color:inherit}
+  .site-nav .word{font-family:var(--display); font-weight:700; font-size:22px}
+  .site-nav .word b{color:var(--gold)}
+  .site-nav nav{display:flex; gap:22px; margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase}
+  .site-nav nav a{color:var(--muted); text-decoration:none; transition:color .2s}
+  .site-nav nav a:hover{color:var(--ink)}
+  .site-nav nav a.active{color:var(--gold-2)}
+  .menu-btn{display:none; background:none; border:0; color:var(--ink); font-size:24px; line-height:1; cursor:pointer; padding:4px 6px; margin-left:auto}
+  @media(max-width:700px){
+    .menu-btn{display:block}
+    .wrap-nav{position:relative; flex-wrap:wrap}
+    .site-nav nav{display:none; position:absolute; top:100%; right:0; left:0; margin:6px 0 0; flex-direction:column; gap:0; background:#0c1024; border:1px solid var(--line-2); border-radius:12px; padding:6px 0; z-index:70}
+    .site-nav nav.open{display:flex}
+    .site-nav nav a{padding:12px 18px; font-size:13px}
+  }
+  .page{max-width:880px; margin:0 auto; padding:0 24px 90px}
+  .docs-hero{padding:40px 0 6px}
+  .docs-hero h1{font-family:var(--display); font-size:clamp(30px,5vw,44px); font-weight:700; margin:0 0 8px}
+  .docs-hero .sub{color:var(--muted); font-size:15px; max-width:600px}
+  .doc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin:26px 0}
+  .doc-card{display:block; text-decoration:none; color:inherit; background:linear-gradient(180deg,var(--navy-2),var(--navy-1)); border:1px solid var(--line); border-radius:16px; padding:22px; transition:transform .12s,border-color .2s}
+  a.doc-card:hover{transform:translateY(-2px); border-color:var(--gold)}
+  .doc-kicker{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
+  .doc-card h3{font-family:var(--display); font-size:20px; font-weight:700; margin:8px 0 6px}
+  .doc-card p{color:var(--muted); font-size:13.5px; margin:0 0 14px; line-height:1.5}
+  .doc-go{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-2)}
+  .doc-card.disabled{opacity:.6}
+  .doc-soon{display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line-2); border-radius:999px; padding:3px 10px}
+  article{padding-top:22px}
+  article h1{font-family:var(--display); font-size:clamp(30px,5.2vw,46px); line-height:1.05; font-weight:700; letter-spacing:-.01em; margin:14px 0 10px}
+  article h2{font-family:var(--display); font-size:26px; font-weight:700; margin:52px 0 14px; padding-top:16px; border-top:1px solid var(--line); letter-spacing:.01em}
+  article h3{font-family:var(--display); font-size:18.5px; font-weight:600; color:var(--gold-2); margin:30px 0 8px}
+  article p{margin:12px 0; color:#DDE1F2}
+  article strong{color:var(--ink); font-weight:600}
+  article em{color:var(--muted)}
+  article a{color:var(--gold-2); text-decoration:none; border-bottom:1px solid rgba(252,208,91,.35)}
+  article a:hover{border-bottom-color:var(--gold-2)}
+  article ul,article ol{margin:12px 0; padding-left:22px}
+  article li{margin:7px 0; color:#DDE1F2} article li::marker{color:var(--gold)}
+  hr{border:0; border-top:1px solid var(--line); margin:30px 0}
+  code{font-family:var(--mono); font-size:.86em; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:6px; padding:1.5px 6px; color:var(--gold-2); word-break:break-word}
+  pre{background:#070a18; border:1px solid var(--line-2); border-radius:12px; padding:14px 16px; overflow:auto}
+  pre code{background:none; border:0; padding:0; color:var(--ink)}
+  blockquote{margin:16px 0; padding:12px 18px; border-left:3px solid var(--gold); background:rgba(246,172,41,.06); border-radius:0 10px 10px 0; color:#E7EAF7}
+  blockquote p{margin:6px 0; color:#E7EAF7}
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14.5px}
+  th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line-2); background:rgba(255,255,255,.02)}
+  tbody tr:hover{background:rgba(255,255,255,.02)}
+  td code{font-size:.8em}
+  footer.wp-foot{margin-top:46px; padding-top:18px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--muted); text-align:center}
+  @media(max-width:600px){ .page{padding:0 16px 64px} article h1{font-size:28px} article h2{font-size:22px} table{font-size:13px} th,td{padding:8px 9px} }
+</style>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="wrap-nav">
+      <a class="brand" href="/"><svg width="30" height="34" viewBox="0 0 100 116" aria-hidden="true">
+        <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+      </svg><span class="word">DROP<b>RATE</b></span></a>
+      <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+      <nav id="nav-links">
+        <a href="/#how">How it works</a>
+        <a href="/#loot">Loot table</a>
+        <a href="/draws.html">Draws</a>
+        <a href="/crates.html">Crates</a>
+        <a class="active" href="/docs.html">Docs</a>
+      </nav>
+    </div>
+  </header>
+<div class="page">
+  <article>
+<h1 id="droprate-drop-whitepaper">DropRate ($DROP) — Whitepaper</h1>
+<p><strong>A Solana token that pays its holders in games.</strong></p>
+<p><em>Version 1.0 · August 2026</em></p>
+<hr />
+<h2 id="1-abstract">1. Abstract</h2>
+<p>DropRate is a Solana token, <strong>$DROP</strong>, built around a single idea: holding it should pay you in real games. There are no staking contracts, no lockups, and no forms. If you hold $DROP, you are automatically entered into recurring prize draws for real, redeemable game keys. If you want to press your luck directly, you can open <strong>crates</strong> — a published-odds, provably-fair gacha that pays out the same kind of prizes.</p>
+<p>Two things make DropRate different from the usual "hold and hope" token. First, <strong>every prize is a real game key</strong> — a downloadable game you actually own, not a jpeg, not a points balance. (Keys are sourced and redeemed through Steam today; the model isn't locked to any single store.) Second, <strong>the fairness is verifiable</strong>: draw winners and crate pulls are both resolved from <a href="https://drand.love">drand</a>, a public randomness beacon, using values that are committed <em>before</em> the randomness exists. Anyone can re-run the math and confirm a result was not tampered with.</p>
+<p>This paper documents how all of it actually works — the token, the draws, the crate system, the money flows, and the security model — at the level of the real implementation.</p>
+<hr />
+<h2 id="2-at-a-glance">2. At a glance</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Token</strong></td>
+<td>$DROP, SPL Token-2022 on Solana</td>
+</tr>
+<tr>
+<td><strong>Supply</strong></td>
+<td>1,000,000,000 at launch · deflationary via on-chain burns, balanced by liquidity</td>
+</tr>
+<tr>
+<td><strong>Mint / contract</strong></td>
+<td><code>3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump</code></td>
+</tr>
+<tr>
+<td><strong>Launch</strong></td>
+<td>pump.fun · August 5, 2026</td>
+</tr>
+<tr>
+<td><strong>Prizes</strong></td>
+<td>Real, redeemable game keys (Steam today)</td>
+</tr>
+<tr>
+<td><strong>Two ways to win</strong></td>
+<td>Free <strong>Draws</strong> (hold to enter) · paid <strong>Crates</strong> (open to win)</td>
+</tr>
+<tr>
+<td><strong>Fairness</strong></td>
+<td>drand-verified, commit-before-reveal, publicly reproducible</td>
+</tr>
+<tr>
+<td><strong>Ticket</strong></td>
+<td>10,000 $DROP = 1 draw ticket · capped at 100 tickets/wallet</td>
+</tr>
+<tr>
+<td><strong>Crate prices</strong></td>
+<td>$5 / $15 / $25 / $40, priced in USD, paid in $DROP</td>
+</tr>
+<tr>
+<td><strong>Every crate spend</strong></td>
+<td>70% treasury · 10% burned on-chain · 10% liquidity · 10% marketing</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-the-drop-token">3. The $DROP token</h2>
+<p>$DROP is a <strong>Token-2022</strong> mint on Solana. The backend does not hard-code this — it reads the mint account's owning program at runtime and adapts to whichever token program owns it — but in production $DROP is Token-2022, and every transfer and burn the system builds uses that program and the mint's real decimals (6).</p>
+<ul>
+<li><strong>Launch supply:</strong> 1,000,000,000 $DROP, minted at a <strong>pump.fun</strong> launch.</li>
+<li><strong>Deflationary, but balanced:</strong> every crate opened permanently burns $DROP on-chain (see §7.2), so total supply sits below the launch figure and keeps shrinking with usage. That deflation is deliberately <em>counterbalanced</em> by the liquidity leg, which returns tokens to circulation as tradeable liquidity (see §7.4). The aim is measured, sustainable scarcity with a deep market — not a supply choke.</li>
+<li><strong>Mint address:</strong> <code>3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump</code></li>
+<li><strong>Decimals:</strong> 6</li>
+<li><strong>Launch:</strong> pump.fun, August 5, 2026</li>
+</ul>
+<p><strong>Excluded wallets.</strong> Infrastructure addresses — the bonding-curve/launch wallet, liquidity pool, and team wallet — are held in an exclusions list and are removed before any draw ticketing. They cannot win.</p>
+<p><strong>Where crate revenue goes.</strong> Every dollar spent on a crate is split at the moment of purchase, in a single transaction, four ways (see §7): most funds the prize treasury, a slice is permanently burned, a slice deepens liquidity, and a slice funds marketing. The destinations are fixed, public wallets:</p>
+<ul>
+<li>Treasury (70%): <code>3emX6hoj9vTUJGW8pTEqgkibrbntovDRQ9mwAPLVKkJc</code></li>
+<li>Liquidity (10%): <code>9pUcpFwV7dNMw6vcHctQoUUdKjWZ8EFtx4bJ32H4qg5c</code></li>
+<li>Marketing (10%): <code>9vt6sPLCFPRQnbDJ9dqrDgWBXw2EepNnqvLvfN3Vc3bP</code></li>
+<li>Burn (10%): no wallet — tokens are destroyed on-chain (see §7.2).</li>
+</ul>
+<p>All three are fresh, public, on-chain-viewable wallets. The burn has no destination by design: burned tokens are removed from supply, never parked in a wallet anyone controls. The liquidity wallet is more than a holding address — it runs the project's flywheel (see §7.4).</p>
+<hr />
+<h2 id="4-two-ways-to-win">4. Two ways to win</h2>
+<p>DropRate has two independent prize engines that share the same prize pool of real game keys and the same fairness backbone.</p>
+<p><strong>Draws</strong> are free and passive. Hold at least 10,000 $DROP and you are automatically entered in every draw — no clicking, no gas, no sign-up. Sell, and you lose your standing. This is the reward for holding.</p>
+<p><strong>Crates</strong> are active and paid. Buy a crate in $DROP and open it immediately for a chance at a game whose value scales with the crate tier, with published odds. Don't like what you pulled? Sell it back within a short window for 70% of what you paid.</p>
+<p>Both resolve from the same public randomness beacon, and both hand out the same kind of prize: an encrypted, redeemable game key.</p>
+<hr />
+<h2 id="5-draws-the-raffle">5. Draws (the raffle)</h2>
+<h3 id="51-in-plain-english">5.1 In plain English</h3>
+<p>Hold $DROP, get tickets, win games. The more you hold, the more tickets you have — up to a cap, so whales can't run the table. Selling drops you out. Draws happen on a schedule the team commits to in advance, and each winner is picked by public randomness nobody can predict or fake. Winners get a real key to claim.</p>
+<h3 id="52-eligibility-and-tickets">5.2 Eligibility and tickets</h3>
+<ul>
+<li><strong>1 ticket per 10,000 $DROP held.</strong> Tickets are computed by integer floor division on the raw on-chain balance.</li>
+<li><strong>Whale cap: 100 tickets per wallet.</strong> Holding beyond 1,000,000 $DROP earns no additional tickets. This keeps a single large holder from dominating the pool.</li>
+<li><strong>Minimum to enter: 1 ticket</strong> (10,000 $DROP).</li>
+<li><strong>Persistence requirement:</strong> a wallet must appear with at least 1 ticket in the <strong>last 4 consecutive snapshots</strong> to be eligible for a draw. Flash-buying right before a draw does not work; you have to actually be holding across the window.</li>
+</ul>
+<h3 id="53-snapshots-the-part-you-cant-game">5.3 Snapshots — the part you can't game</h3>
+<p>Eligibility is measured by <strong>snapshots</strong>: point-in-time reads of every holder's balance. The system takes one snapshot per window, but it fires at a <strong>cryptographically random minute inside that window</strong> and never announces when in advance. You cannot top up your bag one minute before a known snapshot, because the snapshot time itself is unpredictable.</p>
+<ul>
+<li>Snapshot window: <strong>1 hour</strong> (current production cadence).</li>
+<li>Fires at a random offset (between minutes 3 and 55) chosen with a secure RNG.</li>
+<li>Each snapshot records every eligible holder, their balance, and their tickets, and commits them to a <strong>Merkle root</strong> (leaf = <code>sha256("wallet:tickets")</code>). That root is stored with the snapshot, so the holder set at any snapshot is tamper-evident and individual inclusion can be proven later.</li>
+</ul>
+<h3 id="54-diamond-hands-sell-detection">5.4 Diamond hands: sell-detection</h3>
+<p>Holding is the whole point, so the system actively watches for selling across a rolling <strong>12-snapshot</strong> lookback. A wallet stays eligible only if, across that window, its balance never <em>decreases</em> between snapshots and it never exits and re-enters. Sell any meaningful amount and you drop out of eligibility until you re-establish a clean holding streak.</p>
+<p><strong>The important nuance — spending on crates is not selling.</strong> The eligibility engine tracks an <strong>adjusted balance</strong>: your on-chain balance <em>plus</em> everything you've ever spent on crates. Because crate spending is added back in, buying crates can never make you look like a seller and never costs you your draw standing. Only actually transferring tokens out of your wallet counts as a sell. (This is backward-compatible: with no crate activity the math is identical to a pure holdings check.)</p>
+<h3 id="55-free-entry">5.5 Free entry</h3>
+<p>You don't have to hold to play. Anyone can submit <strong>one free entry per wallet per draw</strong>, worth 1 ticket. Free entries run through anti-abuse (a hidden honeypot field and optional Cloudflare Turnstile), are deduplicated per wallet per draw, and sit in the same pool as held-ticket entries. This keeps the door open for everyone while holders still get proportional weight.</p>
+<h3 id="56-how-a-winner-is-chosen">5.6 How a winner is chosen</h3>
+<p>Each draw is resolved in two committed steps:</p>
+<ol>
+<li><strong>Commit.</strong> When a scheduled draw's time approaches, the system pins the exact <strong>future drand round</strong> it will use and marks the draw committed. The round number is public <em>before</em> that round's randomness exists — so the seed is fixed in advance and can't be shopped for.</li>
+<li><strong>Reveal.</strong> Once the scheduled time passes, the system fetches that round's randomness (cross-checked across multiple independent drand relays) and selects winners deterministically:</li>
+</ol>
+<blockquote>
+<p>For each winner slot <em>i</em>: <code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code> → walk the ticket-weighted pool to that index → that wallet wins. The winner is then removed from the pool (all its tickets leave) and the next slot is drawn. One win per wallet per draw.</p>
+</blockquote>
+<p>Selection is <strong>weighted by tickets, without replacement</strong>, and is fully deterministic from the public seed — meaning anyone with the seed and the published holder set can reproduce the exact winners (see §10).</p>
+<h3 id="57-claiming-a-prize">5.7 Claiming a prize</h3>
+<ul>
+<li>Winners have <strong>7 days</strong> to claim before the prize expires.</li>
+<li>Claiming requires an <strong>ed25519 wallet signature</strong> over a one-time challenge (<code>DROPRATE claim draw:&lt;id&gt; wallet:&lt;wallet&gt; nonce:&lt;nonce&gt;</code>), with a 10-minute nonce, proving you control the winning wallet.</li>
+<li>The key is stored <strong>AES-256-GCM encrypted</strong> and only decrypted and returned to you once, at claim time.</li>
+<li>If a winner lets the 7 days lapse, the prize's key is returned to the available pool and the <strong>next deterministic winner</strong> from the same seed is drawn — no prize is wasted, and the redraw is as verifiable as the original.</li>
+</ul>
+<blockquote>
+<p><strong>On draw cadence:</strong> the frequency of draws is set by the team, which schedules each draw and commits its time in advance; DropRate currently runs three draws per day. The <em>snapshot</em> cadence (hourly, random-offset) is automated and is what actually protects eligibility.</p>
+</blockquote>
+<hr />
+<h2 id="6-crates-the-gacha">6. Crates (the gacha)</h2>
+<h3 id="61-in-plain-english">6.1 In plain English</h3>
+<p>Buy a crate, open it, get a game — instantly, with odds published right on the page. Bigger crates mean better games and better odds. Every pull is provably fair: it's resolved by the same public randomness beacon as the draws, from values locked in before the randomness exists. Pull something you don't want? You've got a few minutes to sell it back for 70%.</p>
+<h3 id="62-crate-tiers-prices-and-odds">6.2 Crate tiers, prices, and odds</h3>
+<p>Crates are priced in USD and paid in $DROP at the live rate. The odds are fixed in code and validated to sum to 100% on every deploy.</p>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Price</th>
+<th>Common</th>
+<th>Rare</th>
+<th>Epic</th>
+<th>Legendary</th>
+<th>Pity floor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Common</strong></td>
+<td>$5</td>
+<td>90%</td>
+<td>8%</td>
+<td>1.8%</td>
+<td>0.2%</td>
+<td>Rare</td>
+</tr>
+<tr>
+<td><strong>Rare</strong></td>
+<td>$15</td>
+<td>40%</td>
+<td>45%</td>
+<td>12%</td>
+<td>3%</td>
+<td>Epic</td>
+</tr>
+<tr>
+<td><strong>Epic</strong></td>
+<td>$25</td>
+<td>20%</td>
+<td>38%</td>
+<td>32%</td>
+<td>10%</td>
+<td>Epic</td>
+</tr>
+<tr>
+<td><strong>Legendary</strong></td>
+<td>$40</td>
+<td>0%</td>
+<td>10%</td>
+<td>50%</td>
+<td>40%</td>
+<td>Legendary</td>
+</tr>
+</tbody>
+</table>
+<p>A prize's rarity maps to the game's <strong>list price (MSRP)</strong>, not its current sale price:</p>
+<ul>
+<li><strong>Common:</strong> under $15</li>
+<li><strong>Rare:</strong> $15 – $24.98</li>
+<li><strong>Epic:</strong> $24.99 – $49.98</li>
+<li><strong>Legendary:</strong> $49.99 and up</li>
+</ul>
+<p>No crate may ever be priced above a $70 ceiling, enforced at load time.</p>
+<h3 id="63-pity-no-infinite-cold-streaks">6.3 Pity — no infinite cold streaks</h3>
+<p>Every crate has a <strong>pity floor</strong>: a rarity it will guarantee if you go cold. Within any window of <strong>10 pulls</strong>, you are guaranteed at least one result at or above that crate's floor. Practically: a Rare crate can't leave you stuck in commons forever, and a Legendary crate's floor <em>is</em> Legendary. Pity is tracked per player and applied automatically.</p>
+<h3 id="64-provably-fair-how-a-pull-is-resolved">6.4 Provably fair — how a pull is resolved</h3>
+<ol>
+<li><strong>Commit.</strong> When your payment confirms, the system pins a <strong>future drand round</strong> plus a unique per-pull nonce. Both are fixed before that round's randomness exists.</li>
+<li><strong>Reveal.</strong> ~6 seconds later, the round's randomness is fetched and combined with your nonce:</li>
+</ol>
+<blockquote>
+<p><code>u = (top 52 bits of sha256("seed:nonce")) / 2^52</code> → a uniform number in [0,1) → mapped through the crate's odds table (inverse-CDF) to a rarity.</p>
+</blockquote>
+<ol start="3">
+<li><strong>Reproduce.</strong> The result is a pure function of public inputs <code>(crate, seed, nonce, pity-misses)</code>. The site's <code>verify</code> endpoint returns exactly those values so anyone can recompute the rarity and confirm it (see §10). Nothing about the outcome depends on hidden state.</li>
+</ol>
+<h3 id="65-the-reveal-gate-see-the-game-then-decide">6.5 The reveal gate — see the game, then decide</h3>
+<p>When a pull resolves, you're shown <strong>the game and its store price — but not the key yet</strong>. You then have a <strong>4-minute research window</strong> to decide:</p>
+<ul>
+<li><strong>Keep</strong> — claim the key. It's yours; it decrypts and is shown to you once.</li>
+<li><strong>Sell back</strong> — return it for <strong>70% of the $DROP you paid</strong>, sent back to your wallet immediately from the treasury. Only available inside the window.</li>
+<li><strong>Do nothing</strong> — when the window closes, the pull auto-keeps. The key is yours to claim anytime; sell-back closes.</li>
+</ul>
+<p>Sell-back is denominated in <strong>tokens, not dollars</strong> — you get back 70% of the $DROP amount you actually paid.</p>
+<h3 id="66-out-of-stock-and-the-owed-system">6.6 Out of stock, and the "owed" system</h3>
+<p>Prizes are finite. The system won't sell you a crate it can't honor: a crate is only openable if <strong>every materially-offered rarity</strong> (its pity floor, plus any rarity with odds of 1% or more) has at least one key in stock. Immaterial long-tail odds don't block a crate — e.g. a $5 Common crate keeps selling even when Legendaries are out, because its Legendary odds (0.2%) are below the 1% materiality line.</p>
+<p>If a bucket happens to empty in the seconds between resolving and claiming, the pull becomes an <strong>"owed"</strong> IOU for that rarity, automatically fulfilled on the next restock. You never lose a won prize to a race condition.</p>
+<h3 id="67-the-key-vault-and-the-sold-back-lock">6.7 The key vault and the sold-back lock</h3>
+<p>Keys are stored <strong>AES-256-GCM encrypted</strong> and only decrypted for their rightful owner. Sold-back keys rotate straight back into the mystery pool — a key you sold back can be won by someone else later.</p>
+<p>That reuse is safe because of a strict <strong>two-condition ownership gate</strong>: a key's plaintext is only ever returned if the pull is in a <code>revealed</code>/<code>kept</code> state <strong>and</strong> the key is still bound to that pull. A sold-back key fails both conditions, so even though its ciphertext gets reused for the next winner, its previous holder can never see it again. Database-level uniqueness guarantees one key backs at most one live pull at a time, and one payment can back at most one pull (replay protection).</p>
+<hr />
+<h2 id="7-payments-and-the-split-at-source">7. Payments and the split at source</h2>
+<h3 id="71-one-transaction-four-destinations">7.1 One transaction, four destinations</h3>
+<p>Every crate purchase is a <strong>single buyer-signed transaction</strong> that splits the payment at the source into four legs with no dust lost:</p>
+<ul>
+<li><strong>70% → Treasury</strong> — funds prizes and sell-back buybacks.</li>
+<li><strong>10% → Burned</strong> — permanently destroyed (see below).</li>
+<li><strong>10% → Liquidity</strong> — feeds the liquidity flywheel (see §7.4).</li>
+<li><strong>10% → Marketing</strong> — growth.</li>
+</ul>
+<p>The treasury leg takes the exact remainder after the other three are floored, so the four always re-sum to precisely what you paid. Each leg's destination is a fixed, public wallet you can watch on-chain.</p>
+<h3 id="72-a-real-burn-not-a-dead-wallet">7.2 A real burn, not a dead wallet</h3>
+<p>The 10% burn is a genuine on-chain <strong><code>burnChecked</code></strong> — the tokens are destroyed and <strong>total supply actually decreases</strong>. It is <em>not</em> a transfer to a burn address that quietly holds them. The confirmation step verifies the burn happened on-chain before crediting a pull. Because $DROP is Token-2022, the burn (and every transfer leg) is built against the correct token program and the mint's real decimals, detected automatically.</p>
+<p>Every crate opened is therefore permanently deflationary on supply.</p>
+<h3 id="73-usd-pricing-paid-in-drop">7.3 USD pricing, paid in $DROP</h3>
+<p>Crates are priced in USD but paid in $DROP. At quote time the system converts:</p>
+<blockquote>
+<p>tokens = round( (price in USD ÷ live $DROP price) × 10⁶ )</p>
+</blockquote>
+<p>and <strong>locks that amount for 2 minutes</strong>. You approve the exact token amount in your own wallet; an expired quote is rejected and re-quoted. Price drift between quote and payment can't break or exploit an order.</p>
+<h3 id="74-the-liquidity-flywheel">7.4 The liquidity flywheel</h3>
+<p>The liquidity leg isn't a passive parking spot — it's the engine that makes DropRate self-sustaining.</p>
+<p>The 10% that flows to the liquidity wallet is deployed into <strong>concentrated liquidity positions</strong> for $DROP. That does two jobs at once: it deepens the market and tightens spreads for everyone trading $DROP, and it <strong>earns trading fees</strong>, largely in USDC.</p>
+<p>That USDC is where the loop closes. Fee revenue from the liquidity positions is used to <strong>buy prize inventory</strong> — the game keys that fill the draws and crates — and to <strong>fund the team</strong>. So the economics run as a cycle rather than a one-way spend:</p>
+<blockquote>
+<p>Crate opened → 10% deepens liquidity → liquidity earns USDC fees → USDC buys more prizes and sustains operations → a richer prize pool drives more activity → repeat.</p>
+</blockquote>
+<p>Every crate that gets opened strengthens the pool that funds the next wave of prizes. The treasury (70%) directly backs prizes and buybacks; the liquidity flywheel is a second, <em>compounding</em> source of prize funding layered on top of it — and because the fees accrue in USDC, that funding doesn't depend on selling $DROP.</p>
+<p><strong>How the fees are allocated — prizes first.</strong> Liquidity fees are variable by nature: concentrated-liquidity positions only earn while price is trading through their active range, so fee income rises and falls with both volume <em>and</em> price. Because none of it is a dependable fixed amount, the USDC is allocated by a <strong>waterfall</strong>, not a flat cut:</p>
+<ol>
+<li><strong>Inventory first.</strong> Fees top the prize inventory up to a healthy buffer — enough keys to comfortably cover expected payouts — before anything else is taken.</li>
+<li><strong>Then split the surplus.</strong> Only fees beyond that buffer are shared, roughly <strong>70% back into inventory and 30% to the team</strong>.</li>
+</ol>
+<p>In lean weeks the buffer absorbs the fees and the team leans on its other income; in strong weeks the team shares the overflow. Prizes are funded before the founder, every time.</p>
+<p>There's a monetary-policy angle here too. The burn (§7.2) steadily removes tokens from existence, while the liquidity leg pushes tokens <em>back</em> into circulation as tradeable float. The two are meant to pull against each other: the burn builds scarcity, the liquidity keeps the market deep and the circulating supply healthy. The result is <strong>measured, sustainable deflation</strong> — scarcity that compounds over time without starving the market of liquidity or lurching into a supply crunch.</p>
+<h3 id="75-the-treasury-as-reserve">7.5 The treasury as reserve</h3>
+<p>The treasury (70%) is the project's primary reserve, and its first duty is always <strong>prize solvency</strong> — funding draws, crates, and the 70% sell-back buybacks. Prizes come first, full stop.</p>
+<p>Beyond that floor, the treasury doubles as a flexible reserve for the other three functions. When it holds a comfortable <strong>surplus</strong> above its prize and buyback obligations, the team may move some of that surplus out to <strong>deepen liquidity, fund marketing, or add to the burn</strong> — reinforcing whichever lever the project needs at the time. This only ever happens from genuine abundance: the treasury is never drawn down to a level that could put prize payouts at risk. These movements are discretionary and separate from the automatic at-source split above — the 70/10/10/10 on every purchase is fixed; treasury redistribution is an occasional, surplus-only action layered on top of it.</p>
+<h3 id="76-how-the-team-is-funded">7.6 How the team is funded</h3>
+<p>The team takes <strong>no allocation from the token supply</strong> and nothing off the top of purchases. Team compensation comes from two variable, volume-linked streams:</p>
+<ul>
+<li>Its share of any <strong>liquidity-fee surplus</strong> — the 30% cut that's only taken <em>after</em> inventory is topped up (§7.4).</li>
+<li><strong>pump.fun creator rewards</strong> — the token creator's share of trading fees on the $DROP market.</li>
+</ul>
+<p>Both rise and fall with activity, neither is a fixed draw, and neither is ever paid ahead of prizes. The team is funded by the same thing that funds the prizes — usage — which keeps incentives pointed the same direction as holders'.</p>
+<hr />
+<h2 id="8-the-price-oracle">8. The price oracle</h2>
+<p>Pricing crates in USD means the system needs a trustworthy live $DROP price. It gets one, defensively:</p>
+<ul>
+<li><strong>Source:</strong> Jupiter's public price API.</li>
+<li><strong>Median:</strong> where multiple sources are available, it takes the median (robust to a single bad feed).</li>
+<li><strong>TWAP guard:</strong> it compares the current spot price to a <strong>time-weighted average</strong> over a lookback window (default 30 minutes). If spot deviates from the average by more than a set bound (default 15%), the quote is <strong>rejected</strong> as potentially manipulated — a flash-pump can't be used to distort crate pricing.</li>
+<li><strong>Conservative pricing:</strong> quotes use the <em>higher</em> of spot and the average, so a momentary dip can't be exploited to buy crates cheap.</li>
+</ul>
+<p>Both guard parameters — the TWAP window and the deviation bound — are operator-tunable. They are deliberately run loose during volatile early trading and tightened as the market stabilizes, trading off manipulation resistance against not blocking sales during genuine rallies.</p>
+<hr />
+<h2 id="9-security-and-trust-model">9. Security and trust model</h2>
+<p>DropRate's guarantee is "don't trust, verify." Here's the full picture, honestly stated.</p>
+<ul>
+<li><strong>Public randomness (drand).</strong> Both draws and crate pulls draw from drand's <strong>quicknet</strong> beacon (3-second rounds, run by the League of Entropy). The round is always committed <em>before</em> its randomness exists. The backend fetches each value from <strong>multiple independent relays and requires them to agree</strong> before using it. <em>(The current model checks cross-relay agreement; verifying the beacon's BLS signature directly is a candidate future hardening.)</em></li>
+<li><strong>Commit-before-reveal, everywhere.</strong> Draw seeds and crate seeds are both pinned in advance. There is no point at which the operator learns the randomness before the outcome is fixed.</li>
+<li><strong>Encrypted keys.</strong> All game keys are stored AES-256-GCM encrypted and only ever decrypted for a verified owner.</li>
+<li><strong>Signed ownership.</strong> Claiming a draw prize or viewing crate history requires an ed25519 signature from the wallet in question, over a fresh, time-bounded challenge (10-minute nonce for claims; 300-second freshness for history). You can't read someone else's keys.</li>
+<li><strong>Replay and double-spend protection.</strong> Database uniqueness constraints ensure one payment signature maps to exactly one pull, and one key backs exactly one live pull.</li>
+<li><strong>Kill switch.</strong> A single flag (<code>GACHA_ENABLED</code>) can freeze all crate activity instantly — the site stays up, purchases stop — used as an emergency brake.</li>
+<li><strong>Staged rollout controls.</strong> An allowlist can restrict the crate system to specific wallets during testing; public launch clears it.</li>
+<li><strong>Operational auth.</strong> Administrative actions and scheduled jobs (snapshots, draws, sweeps) are protected by separate bearer secrets.</li>
+</ul>
+<hr />
+<h2 id="10-verify-it-yourself">10. Verify it yourself</h2>
+<p>Nothing here asks for blind trust.</p>
+<p><strong>A draw</strong> is reproducible from three public things: the committed drand round, the snapshot holder set (with its Merkle root), and the deterministic selection rule (<code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code>, without replacement). Fetch the drand value for the committed round, rebuild the ticket-weighted pool from the published holders, and you will land on the exact same winners.</p>
+<p><strong>A crate pull</strong> is reproducible from the values the <code>verify</code> endpoint returns for it: the crate, the drand round, the seed, your nonce, and your pity state. Compute <code>u = (top 52 bits of sha256("seed:nonce")) / 2^52</code>, map it through that crate's published odds, and you'll get the same rarity the site gave you.</p>
+<p>Because the seed comes from a round that was named <em>before</em> it existed, no one — including the team — could have known or steered either result.</p>
+<hr />
+<h2 id="11-team">11. Team</h2>
+<p>DropRate is built and operated by a <strong>single anonymous developer</strong>. The team is intentionally lean and pseudonymous. That's a deliberate choice: the project is designed so its guarantees rest on <strong>verifiable mechanics</strong> — public randomness, on-chain burns, reproducible results — rather than on who is behind it. You don't have to trust the builder; you can check the chain. <code>[TODO: add socials/contact here if you want them public.]</code></p>
+<hr />
+<h2 id="12-risks-and-disclaimer">12. Risks and disclaimer</h2>
+<p>This document is for informational purposes only. It is not financial, investment, legal, tax, or accounting advice, and it is not a recommendation to buy, sell, or hold any asset. Nothing here is an offer to sell, or a solicitation of an offer to buy, any security, token, or financial instrument in any jurisdiction.</p>
+<p><strong>$DROP is a speculative digital asset.</strong> Its price can be extremely volatile and may go to zero. You could lose some or all of the value of any $DROP you acquire. Never commit funds you cannot afford to lose entirely. $DROP is not a share, equity, deposit, or debt instrument; holding it grants no ownership, dividend, or profit-sharing right, and no expectation of profit should be derived from the efforts of the team or any other party.</p>
+<p><strong>Crates and draws are entertainment.</strong> Opening a crate is a paid activity with a randomized outcome, offered for entertainment. Outcomes are determined by public randomness as described in this paper; no outcome is guaranteed, and past results do not indicate future results. Prize inventory, odds, tiers, prices, splits, windows, and every other parameter described here may change, and any feature may be paused, modified, or discontinued at any time.</p>
+<p><strong>Legal eligibility is your responsibility.</strong> You must be of the age of majority in your jurisdiction (at least 18) and legally permitted to hold digital assets and to take part in randomized-reward or prize activities where you live. Paid random-reward mechanics are regulated or prohibited in some places. DropRate makes no representation that the token, the draws, or the crates are lawful in your location. Do not participate where doing so would be unlawful; you are solely responsible for compliance with all laws that apply to you, including any tax reporting on winnings or gains.</p>
+<p><strong>Prizes are third-party products.</strong> Game keys are issued by third parties and are subject to those third parties' terms, availability, and regional restrictions. DropRate is not affiliated with, endorsed by, or sponsored by Valve, Steam, or any game publisher or platform. Redemption, activation, and use of any key are governed by the relevant platform's and publisher's terms.</p>
+<p><strong>No warranties.</strong> Everything described here is provided "as is," without warranties of any kind. Smart contracts and third-party infrastructure — including Solana, drand, price feeds, and storefronts — and the DropRate application itself may contain bugs, fail, or be exploited. To the maximum extent permitted by law, the DropRate team disclaims all liability for any loss or damage arising from use of the token or the platform.</p>
+<p><strong>Forward-looking statements.</strong> Any statements about future plans, features, or performance are aspirational, not promises, and are subject to change without notice.</p>
+<p>By acquiring $DROP or using DropRate, you acknowledge that you have read, understood, and accepted this notice.</p>
+<hr />
+<h2 id="appendix-a-system-constants">Appendix A — System constants</h2>
+<p>Every meaningful tunable, as implemented. Values marked <em>(tunable)</em> are set via configuration and may change.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decimals</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Tokens per ticket</td>
+<td>10,000 $DROP</td>
+</tr>
+<tr>
+<td>Whale cap</td>
+<td>100 tickets (1,000,000 $DROP)</td>
+</tr>
+<tr>
+<td>Minimum to enter</td>
+<td>1 ticket (10,000 $DROP)</td>
+</tr>
+<tr>
+<td>Consecutive-snapshot requirement</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Snapshot window</td>
+<td>1 hour, random offset <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Sell-detection lookback</td>
+<td>12 snapshots <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Winner key claim window</td>
+<td>7 days</td>
+</tr>
+<tr>
+<td>Randomness</td>
+<td>drand quicknet, 3-second rounds</td>
+</tr>
+<tr>
+<td>Winner selection</td>
+<td>HMAC-SHA256(seed, "drawId:i") mod totalTickets, no replacement</td>
+</tr>
+<tr>
+<td>Key encryption</td>
+<td>AES-256-GCM</td>
+</tr>
+<tr>
+<td>Crate prices</td>
+<td>$5 / $15 / $25 / $40</td>
+</tr>
+<tr>
+<td>Common odds</td>
+<td>90 / 8 / 1.8 / 0.2 %</td>
+</tr>
+<tr>
+<td>Rare odds</td>
+<td>40 / 45 / 12 / 3 %</td>
+</tr>
+<tr>
+<td>Epic odds</td>
+<td>20 / 38 / 32 / 10 %</td>
+</tr>
+<tr>
+<td>Legendary odds</td>
+<td>0 / 10 / 50 / 40 %</td>
+</tr>
+<tr>
+<td>Pity</td>
+<td>guaranteed floor within 10 pulls</td>
+</tr>
+<tr>
+<td>Rarity by MSRP</td>
+<td>&lt;$15 / $15–24.98 / $24.99–49.98 / $49.99+</td>
+</tr>
+<tr>
+<td>Crate price ceiling</td>
+<td>$70</td>
+</tr>
+<tr>
+<td>Sell-back</td>
+<td>70% of $DROP paid</td>
+</tr>
+<tr>
+<td>Reveal / research window</td>
+<td>4 minutes</td>
+</tr>
+<tr>
+<td>Out-of-stock materiality</td>
+<td>1% odds</td>
+</tr>
+<tr>
+<td>Payment split</td>
+<td>70% treasury / 10% burn / 10% LP / 10% marketing</td>
+</tr>
+<tr>
+<td>Burn</td>
+<td>real on-chain <code>burnChecked</code> (supply reduction)</td>
+</tr>
+<tr>
+<td>Quote lock</td>
+<td>2 minutes</td>
+</tr>
+<tr>
+<td>Price TWAP window</td>
+<td>30 min <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Price deviation guard</td>
+<td>15% <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Conservative price</td>
+<td>max(spot, TWAP)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>DropRate ($DROP) · droprate.xyz</em></p>
+  </article>
+  <footer class="wp-foot">DropRate ($DROP) · droprate.xyz · contract 3Ayrp…Spump</footer>
+</div>
+<script>
+(function(){var mb=document.getElementById("menuBtn"),nv=document.getElementById("nav-links");if(!mb||!nv)return;
+mb.addEventListener("click",function(e){e.stopPropagation();var o=nv.classList.toggle("open");mb.setAttribute("aria-expanded",o);});
+nv.addEventListener("click",function(){nv.classList.remove("open");});
+document.addEventListener("click",function(){nv.classList.remove("open");});})();
+</script>
+</body>
+</html>
