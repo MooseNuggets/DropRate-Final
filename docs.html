@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DropRate — Docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
+    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --font:"Poppins",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+    --display:"Chakra Petch",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 600px at 50% -12%, #22284d 0%, transparent 60%),
+      radial-gradient(800px 500px at 88% 12%, rgba(139,125,240,.12), transparent 55%),
+      linear-gradient(180deg,#0E1330 0%, var(--navy-0) 70%);
+    background-attachment:fixed; color:var(--ink); font-family:var(--font); line-height:1.62;
+    -webkit-font-smoothing:antialiased; min-height:100vh;}
+  .site-nav{border-bottom:1px solid var(--line)}
+  .wrap-nav{max-width:880px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; gap:20px}
+  .site-nav .brand{display:flex; align-items:center; gap:11px; text-decoration:none; color:inherit}
+  .site-nav .word{font-family:var(--display); font-weight:700; font-size:22px}
+  .site-nav .word b{color:var(--gold)}
+  .site-nav nav{display:flex; gap:22px; margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase}
+  .site-nav nav a{color:var(--muted); text-decoration:none; transition:color .2s}
+  .site-nav nav a:hover{color:var(--ink)}
+  .site-nav nav a.active{color:var(--gold-2)}
+  .menu-btn{display:none; background:none; border:0; color:var(--ink); font-size:24px; line-height:1; cursor:pointer; padding:4px 6px; margin-left:auto}
+  @media(max-width:700px){
+    .menu-btn{display:block}
+    .wrap-nav{position:relative; flex-wrap:wrap}
+    .site-nav nav{display:none; position:absolute; top:100%; right:0; left:0; margin:6px 0 0; flex-direction:column; gap:0; background:#0c1024; border:1px solid var(--line-2); border-radius:12px; padding:6px 0; z-index:70}
+    .site-nav nav.open{display:flex}
+    .site-nav nav a{padding:12px 18px; font-size:13px}
+  }
+  .page{max-width:880px; margin:0 auto; padding:0 24px 90px}
+  .docs-hero{padding:40px 0 6px}
+  .docs-hero h1{font-family:var(--display); font-size:clamp(30px,5vw,44px); font-weight:700; margin:0 0 8px}
+  .docs-hero .sub{color:var(--muted); font-size:15px; max-width:600px}
+  .doc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin:26px 0}
+  .doc-card{display:block; text-decoration:none; color:inherit; background:linear-gradient(180deg,var(--navy-2),var(--navy-1)); border:1px solid var(--line); border-radius:16px; padding:22px; transition:transform .12s,border-color .2s}
+  a.doc-card:hover{transform:translateY(-2px); border-color:var(--gold)}
+  .doc-kicker{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
+  .doc-card h3{font-family:var(--display); font-size:20px; font-weight:700; margin:8px 0 6px}
+  .doc-card p{color:var(--muted); font-size:13.5px; margin:0 0 14px; line-height:1.5}
+  .doc-go{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-2)}
+  .doc-card.disabled{opacity:.6}
+  .doc-soon{display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line-2); border-radius:999px; padding:3px 10px}
+  article{padding-top:22px}
+  article h1{font-family:var(--display); font-size:clamp(30px,5.2vw,46px); line-height:1.05; font-weight:700; letter-spacing:-.01em; margin:14px 0 10px}
+  article h2{font-family:var(--display); font-size:26px; font-weight:700; margin:52px 0 14px; padding-top:16px; border-top:1px solid var(--line); letter-spacing:.01em}
+  article h3{font-family:var(--display); font-size:18.5px; font-weight:600; color:var(--gold-2); margin:30px 0 8px}
+  article p{margin:12px 0; color:#DDE1F2}
+  article strong{color:var(--ink); font-weight:600}
+  article em{color:var(--muted)}
+  article a{color:var(--gold-2); text-decoration:none; border-bottom:1px solid rgba(252,208,91,.35)}
+  article a:hover{border-bottom-color:var(--gold-2)}
+  article ul,article ol{margin:12px 0; padding-left:22px}
+  article li{margin:7px 0; color:#DDE1F2} article li::marker{color:var(--gold)}
+  hr{border:0; border-top:1px solid var(--line); margin:30px 0}
+  code{font-family:var(--mono); font-size:.86em; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:6px; padding:1.5px 6px; color:var(--gold-2); word-break:break-word}
+  pre{background:#070a18; border:1px solid var(--line-2); border-radius:12px; padding:14px 16px; overflow:auto}
+  pre code{background:none; border:0; padding:0; color:var(--ink)}
+  blockquote{margin:16px 0; padding:12px 18px; border-left:3px solid var(--gold); background:rgba(246,172,41,.06); border-radius:0 10px 10px 0; color:#E7EAF7}
+  blockquote p{margin:6px 0; color:#E7EAF7}
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14.5px}
+  th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line-2); background:rgba(255,255,255,.02)}
+  tbody tr:hover{background:rgba(255,255,255,.02)}
+  td code{font-size:.8em}
+  footer.wp-foot{margin-top:46px; padding-top:18px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--muted); text-align:center}
+  @media(max-width:600px){ .page{padding:0 16px 64px} article h1{font-size:28px} article h2{font-size:22px} table{font-size:13px} th,td{padding:8px 9px} }
+</style>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="wrap-nav">
+      <a class="brand" href="/"><svg width="30" height="34" viewBox="0 0 100 116" aria-hidden="true">
+        <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+      </svg><span class="word">DROP<b>RATE</b></span></a>
+      <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+      <nav id="nav-links">
+        <a href="/#how">How it works</a>
+        <a href="/#loot">Loot table</a>
+        <a href="/draws.html">Draws</a>
+        <a href="/crates.html">Crates</a>
+        <a class="active" href="/docs.html">Docs</a>
+      </nav>
+    </div>
+  </header>
+<div class="page">
+  <section class="docs-hero">
+    <h1>Documentation</h1>
+    <p class="sub">Everything about how DropRate works — the mechanics, the money, and the fairness you can verify yourself.</p>
+  </section>
+  <div class="doc-grid">
+    <a class="doc-card" href="/whitepaper.html">
+      <div class="doc-kicker">01 · Paper</div>
+      <h3>Whitepaper</h3>
+      <p>The everything paper: the $DROP token, draws, crates, tokenomics, the burn &amp; liquidity flywheel, security, and how to verify every result yourself.</p>
+      <span class="doc-go">Read the paper &rarr;</span>
+    </a>
+    <div class="doc-card disabled">
+      <div class="doc-kicker">02 · Plan</div>
+      <h3>Roadmap</h3>
+      <p>Where DropRate is headed next — features, prizes, and milestones.</p>
+      <span class="doc-soon">Coming soon</span>
+    </div>
+  </div>
+</div>
+<script>
+(function(){var mb=document.getElementById("menuBtn"),nv=document.getElementById("nav-links");if(!mb||!nv)return;
+mb.addEventListener("click",function(e){e.stopPropagation();var o=nv.classList.toggle("open");mb.setAttribute("aria-expanded",o);});
+nv.addEventListener("click",function(){nv.classList.remove("open");});
+document.addEventListener("click",function(){nv.classList.remove("open");});})();
+</script>
+</body>
+</html>
