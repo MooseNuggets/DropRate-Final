@@ -227,6 +227,52 @@
       <p class="lore">The table's <span class="g">public</span> — we don't hide it. A pull lands, you see the <b>game</b> and its real Steam price, but not the key. Keep it and the key's yours forever. Don't? Sell it back for 70%. <span class="g">GL;HF.</span></p>
       <p class="lore" style="margin-top:12px;font-size:12.5px;border-top:1px solid var(--line);padding-top:12px">Every crate splits on-chain to public wallets — <span class="g">70%</span> treasury · <span class="g">10%</span> 🔥 burn (incinerator) · <span class="g">10%</span> LP · <span class="g">10%</span> marketing.</p></div>
   </div>
+
+  <!-- ===================== LIVE WINS FEED — START ===================== -->
+  <section class="lwf" id="lwf" style="max-width:560px;margin:44px auto 0">
+    <style>
+      .lwf{--lg:#F6AC29;--lg2:#FCD05B;--link:#EDEFF9;--lmut:#98A1C6;--lln:rgba(255,255,255,.08);--lln2:rgba(255,255,255,.14);
+        border:1px solid var(--lln2);border-radius:18px;padding:18px 18px 8px;background:linear-gradient(180deg,#121736,#0f1330)}
+      .lwf *{box-sizing:border-box}
+      .lwf-h{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+      .lwf-dot{width:8px;height:8px;border-radius:50%;background:#3ad07a;animation:lwfp 1.8s infinite}
+      @keyframes lwfp{0%{box-shadow:0 0 0 0 rgba(58,208,122,.55)}70%{box-shadow:0 0 0 7px rgba(58,208,122,0)}100%{box-shadow:0 0 0 0 rgba(58,208,122,0)}}
+      .lwf-t{font-family:var(--display),'Chakra Petch',sans-serif;font-weight:700;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--link)}
+      .lwf-live{margin-left:auto;font-family:var(--mono),monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--lmut)}
+      .lwf-list{max-height:330px;overflow:auto}
+      .lwf-row{display:flex;align-items:center;gap:11px;padding:9px 4px;border-top:1px solid var(--lln);animation:lwfin .35s ease}
+      @keyframes lwfin{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+      .lwf-cover{width:44px;height:44px;border-radius:9px;flex:none;object-fit:cover;background:#0a0e1e;border:1px solid var(--lln)}
+      .lwf-ph{width:44px;height:44px;border-radius:9px;flex:none;display:grid;place-items:center;font-family:var(--display),'Chakra Petch',sans-serif;font-weight:700;font-size:13px;color:#0c1024}
+      .lwf-m{min-width:0;flex:1}
+      .lwf-game{font-weight:600;font-size:14px;color:var(--link);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .lwf-sub{font-family:var(--mono),monospace;font-size:11px;color:var(--lmut);margin-top:2px}
+      .lwf-rar{font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+      .lwf-when{margin-left:auto;flex:none;font-family:var(--mono),monospace;font-size:10.5px;color:var(--lmut);white-space:nowrap}
+      .lwf-empty{padding:26px 8px;text-align:center;color:var(--lmut);font-size:13px;border-top:1px solid var(--lln)}
+      .lwf-list::-webkit-scrollbar{width:8px}.lwf-list::-webkit-scrollbar-thumb{background:var(--lln2);border-radius:4px}
+    </style>
+    <div class="lwf-h"><span class="lwf-dot"></span><span class="lwf-t">Live Wins</span><span class="lwf-live">auto-updating</span></div>
+    <div class="lwf-list" id="lwf-list"><div class="lwf-empty">Loading recent wins…</div></div>
+    <script>
+    (function(){
+      var RC={common:"#9AA6C7",rare:"#43C9F0",epic:"#A48BF5",legendary:"#F6AC29"};
+      function ago(t){var s=Math.max(1,Math.floor((Date.now()-new Date(t).getTime())/1000));if(s<60)return s+"s ago";var m=Math.floor(s/60);if(m<60)return m+"m ago";var h=Math.floor(m/60);if(h<24)return h+"h ago";return Math.floor(h/24)+"d ago";}
+      function ini(g){return (g||"?").split(" ").map(function(w){return w[0]||"";}).join("").slice(0,3).toUpperCase();}
+      function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+      function render(feed){var L=document.getElementById("lwf-list");if(!L)return;
+        if(!feed||!feed.length){L.innerHTML='<div class="lwf-empty">First wins land here — open a crate and it shows up live.</div>';return;}
+        L.innerHTML=feed.map(function(it){var c=RC[it.rarity]||"#9AA6C7";
+          var cover=it.image?('<img class="lwf-cover" src="'+esc(it.image)+'" alt="">'):('<div class="lwf-ph" style="background:linear-gradient(140deg,'+c+',#0a0e1e)">'+ini(it.game)+'</div>');
+          return '<div class="lwf-row">'+cover+'<div class="lwf-m"><div class="lwf-game">'+esc(it.game)+'</div><div class="lwf-sub"><span class="lwf-rar" style="color:'+c+'">'+esc(it.rarity)+'</span> · '+esc(it.wallet)+'</div></div><div class="lwf-when">'+ago(it.at)+'</div></div>';
+        }).join("");
+      }
+      function load(){fetch("/api/stats-public",{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){if(d&&!d.error)render(d.feed);}).catch(function(){});}
+      load();setInterval(load,20000);
+    })();
+    </script>
+  </section>
+  <!-- ====================== LIVE WINS FEED — END ====================== -->
 </div>
 <div class="toast" id="toast"></div>
 
