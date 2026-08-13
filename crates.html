@@ -155,7 +155,15 @@
   .lore{color:var(--muted);font-size:14px;line-height:1.5}.lore .g{color:var(--gold)}.lore b{color:var(--ink)}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy-2);border:1px solid var(--line-2);padding:12px 18px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  @media(max-width:820px){.rail{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}nav{display:none}}
+  .menu-btn{display:none;background:none;border:0;color:var(--ink);font-size:24px;line-height:1;cursor:pointer;padding:4px 6px}
+  @media(max-width:820px){
+    .rail{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}
+    .menu-btn{display:block}
+    header{position:relative;flex-wrap:wrap}
+    nav{display:none;position:absolute;top:100%;right:0;left:0;flex-direction:column;gap:16px;background:#0c1024;border:1px solid var(--line-2);border-radius:14px;padding:16px 18px;margin-top:6px;z-index:70}
+    nav.open{display:flex}
+    nav .mono{font-size:15px}
+  }
 </style>
 </head>
 <body>
@@ -189,6 +197,7 @@
     <div style="display:flex;align-items:center;gap:10px">
       <button class="wins-btn" id="winsBtn">My Wins</button>
       <button class="wallet" id="walletBtn" style="cursor:pointer;font:inherit">Connect Wallet</button>
+      <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
   </header>
 
@@ -599,6 +608,13 @@ $('walletBtn').addEventListener('click',connectWallet);
 syncStage();
 updateDropPrices(); setInterval(updateDropPrices,25000);
 (async()=>{ const w=detectWallets().find(x=>x.provider.isConnected&&x.provider.publicKey); if(w){ wallet=w.provider; OWNER=w.provider.publicKey.toString(); $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4); refreshCTA(); } })();
+
+// mobile hamburger: toggle the nav dropdown; close on link tap or outside tap
+(function(){ var mb=$('menuBtn'), nv=document.querySelector('header nav'); if(!mb||!nv) return;
+  mb.addEventListener('click',function(e){ e.stopPropagation(); var o=nv.classList.toggle('open'); mb.setAttribute('aria-expanded',o); });
+  nv.addEventListener('click',function(){ nv.classList.remove('open'); mb.setAttribute('aria-expanded','false'); });
+  document.addEventListener('click',function(){ nv.classList.remove('open'); mb.setAttribute('aria-expanded','false'); });
+})();
 
 </script>
 </body>
