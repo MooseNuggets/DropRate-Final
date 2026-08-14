@@ -171,9 +171,17 @@
   // ---- hex + crypto helpers ----
   function hexToBytes(h){h=String(h||"");var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
   function bufToHex(buf){var b=new Uint8Array(buf),s="";for(var i=0;i<b.length;i++)s+=b[i].toString(16).padStart(2,"0");return s;}
+  var DRAND_CHAIN="52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
   async function drandRound(round){
-    var x=await (await fetch("https://api.drand.sh/v2/beacons/quicknet/rounds/"+round)).json();
-    return String(x.randomness||"").toLowerCase();
+    var urls=[
+      "https://api.drand.sh/v2/beacons/quicknet/rounds/"+round,
+      "https://api.drand.sh/"+DRAND_CHAIN+"/public/"+round,
+      "https://drand.cloudflare.com/"+DRAND_CHAIN+"/public/"+round
+    ];
+    for(var i=0;i<urls.length;i++){
+      try{ var r=await fetch(urls[i]); if(!r.ok) continue; var j=await r.json(); if(j&&j.randomness) return String(j.randomness).toLowerCase(); }catch(e){}
+    }
+    return null; // all relays unreachable / round unavailable
   }
 
   // ---- crate math (matches lib/gacha.js) ----
@@ -241,23 +249,23 @@
     if(!d.seed) throw new Error("That pull hasn't resolved yet — no drand seed to verify.");
     var crate=d.crate,round=Number(d.drand_round),nonce=String(d.nonce),seed=String(d.seed).toLowerCase(),claimed=d.rarity,misses=Number(d.misses_since_floor||0);
     var cfg=CRATES[crate]; if(!cfg) throw new Error("Unknown crate tier: "+crate);
-    var drandSeed=null,drandOk=false,drandErr=null;
-    try{drandSeed=await drandRound(round);drandOk=drandSeed===seed;}catch(e){drandErr=e;}
+    var drandSeed=await drandRound(round);
+    var drandUnreach=(drandSeed===null), drandOk=(!drandUnreach && drandSeed===seed);
     var u=await uniform(seed,nonce);
     var natural=mapRarity(cfg.odds,u);
     var pit=applyPity(natural,misses,cfg.pityFloor);
     var computed=pit.rarity,match=computed===claimed;
 
     if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the rarity reproduces exactly.");
-    else if(match&&drandErr) setVerdict("warn","Math verified ✓","Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself.");
+    else if(match&&drandUnreach) setVerdict("warn","Math verified ✓","Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself.");
     else if(match&&!drandOk) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
     else setVerdict("fail","Mismatch ✗","Recomputed rarity does not match the recorded result.");
 
     var s="";
     s+=stepHTML("•","dot","Pull #"+esc(pullId)+" — <b style=\"color:"+(RC[crate]||"#fff")+"\">"+esc(crate)+"</b> crate, recorded rarity <b style=\"color:"+(RC[claimed]||"#fff")+"\">"+esc(claimed)+"</b>","");
     s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
-    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches recorded seed","<b>"+esc(seed)+"</b>");
-    else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandUnreach) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
     else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)")+" · recorded: "+esc(seed));
     s+=stepHTML("✓","ok","u = sha256(seed:nonce) → <b>"+u.toFixed(6)+"</b>","nonce: <b>"+esc(nonce)+"</b>");
     s+='<div class="step"><div class="mk dot">•</div><div class="body"><div class="t">Rolled against '+esc(crate)+' odds → <b style="color:'+(RC[natural]||"#fff")+'">'+esc(natural)+'</b></div>'+oddsTable(cfg,natural,u)+'</div></div>';
@@ -274,16 +282,37 @@
     var draw=(dj.draws||[]).find(function(d){return Number(d.id)===drawId;});
     if(!draw) throw new Error("Draw #"+drawId+" not found.");
     if(!draw.seed||!draw.drand_round) throw new Error("Draw #"+drawId+" hasn't been drawn yet.");
-    var seed=String(draw.seed).toLowerCase(),round=Number(draw.drand_round),nWin=Number(draw.n_winners||1),snapId=draw.snapshot_id;
+    var seed=String(draw.seed).toLowerCase(),round=Number(draw.drand_round),nWin=Number(draw.n_winners||1),snapId=Number(draw.snapshot_id);
     var recorded=(draw.winners||[]).map(function(w){return w.wallet;});
 
-    var se=(snapId!=null)?await (await fetch("/api/snapshot-entries?snapshot_id="+snapId)).json():{entries:[]};
+    // Rebuild the ELIGIBLE holder pool: only wallets present in the last K=4 snapshots
+    // ending at this draw's snapshot (the diamond-hands streak). Tickets come from the
+    // draw's snapshot. This mirrors filterEligible() in the backend exactly.
+    var K=4;
+    var sj=await (await fetch("/api/snapshots")).json();
+    var snaps=(sj.snapshots||[]); // window_start DESC
+    var pos=-1; for(var pi=0;pi<snaps.length;pi++){ if(Number(snaps[pi].id)===snapId){pos=pi;break;} }
+    if(pos<0) throw new Error("Draw #"+drawId+"'s snapshot (#"+snapId+") is older than the public snapshot window — can't rebuild its eligible pool here.");
+    var kIds=snaps.slice(pos,pos+K).map(function(s){return Number(s.id);});
+    var perSnap=[];
+    for(var ki=0;ki<kIds.length;ki++){
+      var seR=await (await fetch("/api/snapshot-entries?snapshot_id="+kIds[ki])).json();
+      perSnap.push({id:kIds[ki],entries:(seR.entries||[])});
+    }
+    var holderEntries=[];
+    if(kIds.length>=K){
+      var counts={};
+      perSnap.forEach(function(ps){ ps.entries.forEach(function(e){ counts[e.wallet]=(counts[e.wallet]||0)+1; }); });
+      var drawSnap=perSnap.filter(function(ps){return ps.id===snapId;})[0];
+      holderEntries=((drawSnap&&drawSnap.entries)||[]).filter(function(e){return counts[e.wallet]===K;});
+    } // else: warm-up (fewer than K snapshots) -> no eligible holders, only free entries
+
     var fe=await (await fetch("/api/free-entries?draw_id="+drawId)).json();
-    var pool=buildPool(se.entries||[],fe.free||[]);
+    var pool=buildPool(holderEntries,fe.free||[]);
     var totalTickets=pool.reduce(function(s,e){return s+Number(e.tickets);},0);
 
-    var drandSeed=null,drandOk=false,drandErr=null;
-    try{drandSeed=await drandRound(round);drandOk=drandSeed===seed;}catch(e){drandErr=e;}
+    var drandSeed=await drandRound(round);
+    var drandUnreach=(drandSeed===null), drandOk=(!drandUnreach && drandSeed===seed);
 
     var computed=await selectWinners(seed,drawId,pool,nWin);
     var computedPayable=computed.map(function(w){return payable(w.wallet);});
@@ -291,7 +320,7 @@
     var match=recSorted.length===compSorted.length&&recSorted.every(function(w,i){return w===compSorted[i];});
 
     if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the winners reproduce exactly from the public pool.");
-    else if(match&&drandErr) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
+    else if(match&&drandUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
     else if(!match&&drandOk) setVerdict("fail","Winner mismatch ✗","The recomputed winners differ from the recorded ones (see below — could be an expired-winner redraw).");
     else setVerdict("fail","Mismatch ✗","Could not reproduce this draw from public data.");
 
@@ -304,10 +333,10 @@
     var s="";
     s+=stepHTML("•","dot","Draw #"+esc(drawId)+(draw.prize_title?(" — <b>"+esc(draw.prize_title)+"</b>"):"")+" · "+nWin+" winner"+(nWin===1?"":"s"),"");
     s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
-    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches recorded seed","<b>"+esc(seed)+"</b>");
-    else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandUnreach) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
     else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)"));
-    s+=stepHTML("•","dot","Ticket pool rebuilt from public data","snapshot #"+esc(snapId)+" · "+(se.entries||[]).length+" holders + "+(fe.free||[]).length+" free = <b>"+totalTickets+"</b> tickets"+(draw.merkle_root?(" · merkle "+esc(String(draw.merkle_root).slice(0,10))+"…"):""));
+    s+=stepHTML("•","dot","Eligible ticket pool rebuilt from public data","snapshot #"+esc(snapId)+" · streak across "+kIds.length+" snapshots · "+holderEntries.length+" eligible holders + "+((fe.free||[]).length)+" free = <b>"+totalTickets+"</b> tickets");
     s+='<div class="step"><div class="mk '+(match?"ok":"no")+'">'+(match?"✓":"✗")+'</div><div class="body"><div class="t">Re-ran HMAC selection → recorded winners '+(match?"reproduce":"do NOT fully reproduce")+'</div>'+wl+'</div></div>';
     $("steps").innerHTML=s;
   }
