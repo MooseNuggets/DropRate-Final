@@ -49,6 +49,8 @@
   .winmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .wincode{margin-top:8px;font-family:var(--mono);font-size:11px;background:#070a18;border:1px dashed var(--line-2);border-radius:8px;padding:8px;color:var(--gold-2);word-break:break-all;cursor:pointer}
   .winstat{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .winverify{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--c-rare);text-decoration:none;font-weight:700}
+  .winverify:hover{text-decoration:underline}
   .winempty{color:var(--muted);text-align:center;padding:44px 0;font-family:var(--mono);font-size:13px}
   .hero{padding:36px 0 6px} .kicker{color:var(--spark)}
   h1{font-size:clamp(30px,5vw,50px);line-height:1.02;margin:12px 0 8px;font-weight:800;letter-spacing:-.005em;font-family:var(--display)}
@@ -249,6 +251,8 @@
       .lwf-sub{font-family:var(--mono),monospace;font-size:11px;color:var(--lmut);margin-top:2px}
       .lwf-rar{font-weight:700;text-transform:uppercase;letter-spacing:.04em}
       .lwf-when{margin-left:auto;flex:none;font-family:var(--mono),monospace;font-size:10.5px;color:var(--lmut);white-space:nowrap}
+      .lwf-v{color:var(--c-rare,#43C9F0);text-decoration:none;font-weight:700;white-space:nowrap}
+      .lwf-v:hover{text-decoration:underline}
       .lwf-empty{padding:26px 8px;text-align:center;color:var(--lmut);font-size:13px;border-top:1px solid var(--lln)}
       .lwf-list::-webkit-scrollbar{width:8px}.lwf-list::-webkit-scrollbar-thumb{background:var(--lln2);border-radius:4px}
     </style>
@@ -264,7 +268,8 @@
         if(!feed||!feed.length){L.innerHTML='<div class="lwf-empty">First wins land here — open a crate and it shows up live.</div>';return;}
         L.innerHTML=feed.map(function(it){var c=RC[it.rarity]||"#9AA6C7";
           var cover=it.image?('<img class="lwf-cover" src="'+esc(it.image)+'" alt="">'):('<div class="lwf-ph" style="background:linear-gradient(140deg,'+c+',#0a0e1e)">'+ini(it.game)+'</div>');
-          return '<div class="lwf-row">'+cover+'<div class="lwf-m"><div class="lwf-game">'+esc(it.game)+'</div><div class="lwf-sub"><span class="lwf-rar" style="color:'+c+'">'+esc(it.rarity)+'</span> · '+esc(it.wallet)+'</div></div><div class="lwf-when">'+ago(it.at)+'</div></div>';
+          var vlink=(it.id!=null)?(' · <a class="lwf-v" href="/verify.html?pull='+encodeURIComponent(it.id)+'">verify #'+esc(it.id)+' ↗</a>'):'';
+          return '<div class="lwf-row">'+cover+'<div class="lwf-m"><div class="lwf-game">'+esc(it.game)+'</div><div class="lwf-sub"><span class="lwf-rar" style="color:'+c+'">'+esc(it.rarity)+'</span> · '+esc(it.wallet)+vlink+'</div></div><div class="lwf-when">'+ago(it.at)+'</div></div>';
         }).join("");
       }
       function load(){fetch("/api/stats-public",{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){if(d&&!d.error)render(d.feed);}).catch(function(){});}
@@ -552,7 +557,7 @@ async function landReveal(pullId,res,round){
   requestAnimationFrame(()=>{const c=$('card');if(c)c.classList.add('in');});
   const sl=$('steam'); if(sl) sl.href='https://store.steampowered.com/search/?term='+encodeURIComponent(title);
   if(!res._owed) startClaimTimer(claimSec);
-  $('status').innerHTML=`round <b>#${round}</b> · <span style="color:var(--c-rare)">verify ✓</span>`;
+  $('status').innerHTML=`round <b>#${round}</b> · <a href="/verify.html?pull=${encodeURIComponent(pullId)}" target="_blank" rel="noopener" style="color:var(--c-rare);font-weight:700;text-decoration:none">verify this pull ↗</a>`;
   busy=false;
 }
 
@@ -642,11 +647,12 @@ function renderWins(items){
     else if(it.state==='sold_back') foot='<div class="winstat">↺ sold back · refunded</div>';
     else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
     else foot='<div class="winstat">key pending</div>';
+    const vlink=(it.id!=null)?`<a class="winverify" href="/verify.html?pull=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">verify #${esc(it.id)} ↗</a>`:'';
     return `<div class="wincard" style="--rc:${rc}"><div class="wincover">${cover}</div><div class="winbody">
       <div class="wintag">${esc(it.rarity)} · ${esc(it.crate)}</div>
       <div class="wintitle">${title}</div>
       <div class="winmeta">${money(it.msrp_cents)}${it.date?(' · '+esc(dt(it.date))):''}</div>
-      ${foot}</div></div>`;
+      ${foot}${vlink}</div></div>`;
   }).join('')+'</div>';
 }
 
