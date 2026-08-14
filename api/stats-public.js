@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       const kept = await sql`
         SELECT count(*)::int AS n FROM pulls WHERE state IN ('kept', 'revealed')`;
       const rows = await sql`
-        SELECT p.rarity, p.crate, p.owner,
+        SELECT p.id, p.rarity, p.crate, p.owner,
                COALESCE(p.resolved_at, p.created_at) AS at,
                k.game_title, k.image
         FROM pulls p
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
       burnedRaw = burned.rows[0].raw;
       cratesKept = kept.rows[0].n;
       feed = rows.rows.map((r) => ({
+        id: r.id,                          // pull id — lets anyone re-verify at /verify.html?pull=<id>
         game: r.game_title || "Mystery game",
         image: r.image || null,
         rarity: r.rarity,
