@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DropRate — Verify a Pull</title>
-<meta name="description" content="Re-run any DropRate crate pull yourself. Fetch the drand randomness, recompute the rarity in your own browser, and prove the result wasn't rigged.">
+<title>DropRate — Verify</title>
+<meta name="description" content="Re-run any DropRate crate pull or raffle draw yourself. Fetch the drand randomness, recompute the result in your own browser, and prove it wasn't rigged.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -46,20 +46,24 @@
   h1{font-family:var(--display); font-size:clamp(28px,5vw,42px); font-weight:700; margin:10px 0 8px; letter-spacing:-.01em}
   .lede{color:var(--muted); max-width:640px; font-size:15px}
   .lede b{color:var(--ink)}
-  .form{display:flex; gap:10px; margin:26px 0 8px; flex-wrap:wrap}
+  .modes{display:inline-flex; border:1px solid var(--line-2); border-radius:12px; overflow:hidden; margin:24px 0 0}
+  .modes button{background:transparent; border:0; color:var(--muted); font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:10px 18px; cursor:pointer; transition:.15s}
+  .modes button.on{background:linear-gradient(180deg,var(--gold-2),var(--gold)); color:#12152b; font-weight:700}
+  .form{display:flex; gap:10px; margin:14px 0 8px; flex-wrap:wrap}
   .form input{flex:1; min-width:180px; background:#070a18; border:1px solid var(--line-2); color:var(--ink);
     font-family:var(--mono); font-size:14px; padding:13px 15px; border-radius:12px; outline:none}
   .form input:focus{border-color:var(--gold)}
-  .form button{font-family:var(--display); font-weight:700; font-size:14px; letter-spacing:.04em; text-transform:uppercase;
+  .form button.go{font-family:var(--display); font-weight:700; font-size:14px; letter-spacing:.04em; text-transform:uppercase;
     border:0; border-radius:12px; padding:0 22px; cursor:pointer; color:#12152b;
     background:linear-gradient(180deg,var(--gold-2),var(--gold)); transition:transform .12s,filter .2s}
-  .form button:hover{transform:translateY(-1px); filter:brightness(1.05)}
-  .form button:disabled{opacity:.55; cursor:default; transform:none}
+  .form button.go:hover{transform:translateY(-1px); filter:brightness(1.05)}
+  .form button.go:disabled{opacity:.55; cursor:default; transform:none}
   .hint{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.03em}
+  .hint a{color:var(--gold-2)}
 
   .receipt{margin-top:26px; background:#0c1024; border:1px dashed var(--gold); border-radius:16px; padding:22px 22px 18px; display:none}
   .receipt.show{display:block}
-  .verdict{display:flex; align-items:center; gap:12px; padding-bottom:16px; margin-bottom:6px; border-bottom:1px solid var(--line)}
+  .verdict{display:flex; align-items:center; gap:12px; padding-bottom:16px; margin-bottom:6px; border-bottom:1px solid var(--line); flex-wrap:wrap}
   .vbadge{font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.06em; text-transform:uppercase; padding:8px 14px; border-radius:10px}
   .vbadge.pass{background:rgba(58,208,122,.14); color:var(--green); border:1px solid rgba(58,208,122,.4)}
   .vbadge.warn{background:rgba(246,172,41,.14); color:var(--gold-2); border:1px solid rgba(246,172,41,.4)}
@@ -80,6 +84,10 @@
   .orow .rr{flex:0 0 92px; font-weight:700; text-transform:uppercase; letter-spacing:.04em}
   .orow .rg{flex:1; color:var(--muted)}
   .orow .mk{flex:none; color:var(--gold-2); font-weight:600}
+  .wlist{margin-top:8px; display:flex; flex-direction:column; gap:6px}
+  .wl{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:12px}
+  .wl .mk{flex:none; font-weight:600} .wl .mk.ok{color:var(--green)} .wl .mk.no{color:var(--red)}
+  .wl .w{color:var(--ink); word-break:break-all}
   .err{margin-top:20px; color:var(--red); font-family:var(--mono); font-size:13px; display:none}
   .err.show{display:block}
   .foot-note{margin-top:22px; font-size:12.5px; color:var(--muted); line-height:1.65}
@@ -109,14 +117,18 @@
 
   <div class="page">
     <div class="kicker">Provably fair</div>
-    <h1>Verify a pull</h1>
-    <p class="lede">Don't trust us — <b>re-run it yourself.</b> Enter a pull ID and your browser will fetch the drand randomness straight from a public relay, recompute the rarity from the published odds, and prove the result was fixed before the randomness ever existed. Nothing here trusts DropRate's servers for the math.</p>
+    <h1>Verify it yourself</h1>
+    <p class="lede">Don't trust us — <b>re-run it.</b> Pick what you're checking, enter its ID, and your browser fetches the <b>drand</b> randomness straight from a public relay and recomputes the result locally. Both crate pulls and raffle draws are fixed by a future drand round committed <b>before</b> that randomness exists.</p>
 
-    <div class="form">
-      <input id="pull-input" inputmode="numeric" placeholder="Pull ID (e.g. 42)" autocomplete="off" spellcheck="false">
-      <button id="go">Verify</button>
+    <div class="modes" role="tablist">
+      <button id="mode-crate" class="on" data-mode="crate">Crate pull</button>
+      <button id="mode-draw" data-mode="draw">Raffle draw</button>
     </div>
-    <div class="hint">Tip: your pull IDs are on your <a href="/crates.html" style="color:var(--gold-2)">My Wins</a> receipts, or share a direct link like <code style="font-family:var(--mono)">verify.html?id=42</code>.</div>
+    <div class="form">
+      <input id="idin" inputmode="numeric" placeholder="Pull ID (e.g. 42)" autocomplete="off" spellcheck="false">
+      <button class="go" id="go">Verify</button>
+    </div>
+    <div class="hint" id="hint">Pull IDs are on your <a href="/crates.html">My Wins</a> receipts. Direct link: <code>verify.html?pull=42</code></div>
 
     <div class="err" id="err"></div>
 
@@ -128,16 +140,13 @@
       <div id="steps"></div>
     </div>
 
-    <p class="foot-note">
-      How it works: the pull's rarity is <code>u = sha256("seed:nonce")</code> mapped through the crate's published odds, where <code>seed</code> is the randomness from a specific future <b>drand</b> round committed the moment you paid — before that randomness existed. This page fetches that round from <code>api.drand.sh</code> itself, checks it equals the seed on record, and rolls the dice again locally. Same inputs, same result, every time.
-    </p>
+    <p class="foot-note" id="foot"></p>
   </div>
 
 <script>
 (function(){
   var RARITIES=["common","rare","epic","legendary"];
   var RC={common:"#9AA6C7",rare:"#43C9F0",epic:"#A48BF5",legendary:"#F6AC29"};
-  // Published odds — identical to lib/gacha.js CRATES.
   var CRATES={
     common:{odds:[0.90,0.08,0.018,0.002],pityFloor:"rare"},
     rare:{odds:[0.40,0.45,0.12,0.03],pityFloor:"epic"},
@@ -148,107 +157,196 @@
   var rank=function(r){return RARITIES.indexOf(r);};
   var $=function(id){return document.getElementById(id);};
   var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+  var shortW=function(w){w=String(w||"");return w.length>16?w.slice(0,6)+"…"+w.slice(-6):w;};
 
-  // mobile menu
+  var CRATE_FOOT='How a pull works: rarity is <code>u = sha256("seed:nonce")</code> mapped through the crate’s published odds, where <code>seed</code> is the randomness of a future <b>drand</b> round committed the moment you paid. This page fetches that round from <code>api.drand.sh</code>, confirms it equals the recorded seed, and rolls again locally.';
+  var DRAW_FOOT='How a draw works: each winner is <code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code> walking the ticket-weighted pool, without replacement. This page rebuilds the pool from the public snapshot + free entries, fetches the committed <b>drand</b> round, and re-runs the selection. Note: expired-winner redraws can shift the set; this reproduces the original draw.';
+
+  // ---- mobile menu ----
   (function(){var mb=$("menuBtn"),nv=$("nav-links");if(!mb||!nv)return;
     mb.addEventListener("click",function(e){e.stopPropagation();nv.classList.toggle("open");});
     nv.addEventListener("click",function(){nv.classList.remove("open");});
     document.addEventListener("click",function(){nv.classList.remove("open");});})();
 
+  // ---- hex + crypto helpers ----
+  function hexToBytes(h){h=String(h||"");var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+  function bufToHex(buf){var b=new Uint8Array(buf),s="";for(var i=0;i<b.length;i++)s+=b[i].toString(16).padStart(2,"0");return s;}
+  async function drandRound(round){
+    var x=await (await fetch("https://api.drand.sh/v2/beacons/quicknet/rounds/"+round)).json();
+    return String(x.randomness||"").toLowerCase();
+  }
+
+  // ---- crate math (matches lib/gacha.js) ----
   async function uniform(seed,nonce){
     var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(seed+":"+nonce));
     var dv=new DataView(buf);
-    var hi=dv.getUint32(0)&0xFFFFF;   // big-endian, low 20 bits  (matches h.readUInt32BE(0)&0xfffff)
-    var lo=dv.getUint32(4);           // big-endian
+    var hi=dv.getUint32(0)&0xFFFFF;   // big-endian low 20 bits
+    var lo=dv.getUint32(4);
     return (hi*Math.pow(2,32)+lo)/Math.pow(2,52);
   }
   function mapRarity(odds,u){var a=0;for(var i=0;i<odds.length;i++){a+=odds[i];if(u<a)return RARITIES[i];}return RARITIES[RARITIES.length-1];}
-  function applyPity(natural,misses,floor){
-    if(misses>=PITY_PULLS-1 && rank(natural)<rank(floor)) return {rarity:floor,forced:true};
-    return {rarity:natural,forced:false};
+  function applyPity(nat,misses,floor){if(misses>=PITY_PULLS-1&&rank(nat)<rank(floor))return{rarity:floor,forced:true};return{rarity:nat,forced:false};}
+
+  // ---- draw math (matches lib/draw.js) ----
+  function buildPool(snap,free){
+    var holders=(snap||[]).map(function(e){return{wallet:e.wallet,tickets:Number(e.tickets)};})
+      .sort(function(a,b){return a.wallet<b.wallet?-1:1;});
+    var fr=(free||[]).slice().sort(function(a,b){return a.id-b.id;})
+      .map(function(f){return{wallet:"free:"+f.id+":"+f.wallet,tickets:1};});
+    return holders.concat(fr);
+  }
+  function payable(w){return String(w).indexOf("free:")===0?String(w).split(":")[2]:w;}
+  async function selectWinners(seedHex,drawId,pool,nWinners){
+    var entries=pool.filter(function(e){return e.tickets>0;}).map(function(e){return{wallet:e.wallet,tickets:BigInt(e.tickets)};});
+    var key=await crypto.subtle.importKey("raw",hexToBytes(seedHex),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+    var winners=[],idx=0;
+    while(winners.length<nWinners&&entries.length>0){
+      var total=0n; for(var k=0;k<entries.length;k++) total+=entries[k].tickets;
+      var sig=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(drawId+":"+idx));
+      var r=BigInt("0x"+bufToHex(sig))%total;
+      var acc=0n,pick=-1;
+      for(var i=0;i<entries.length;i++){acc+=entries[i].tickets;if(r<acc){pick=i;break;}}
+      winners.push({wallet:entries[pick].wallet,index:idx});
+      entries.splice(pick,1);
+      idx++;
+    }
+    return winners;
   }
 
+  // ---- render helpers ----
   function stepHTML(mark,cls,title,detail){
     return '<div class="step"><div class="mk '+cls+'">'+mark+'</div><div class="body"><div class="t">'+title+'</div>'+(detail?('<div class="v">'+detail+'</div>'):'')+'</div></div>';
   }
   function oddsTable(cfg,natural,u){
     var a=0,rows="";
     for(var i=0;i<cfg.odds.length;i++){
-      var lo=a, hi=a+cfg.odds[i]; a=hi;
-      var name=RARITIES[i], isHit=(name===natural);
+      var lo=a,hi=a+cfg.odds[i]; a=hi;
+      var name=RARITIES[i],isHit=(name===natural);
       rows+='<div class="orow'+(isHit?" hit":"")+'"><span class="rr" style="color:'+RC[name]+'">'+name+'</span>'+
         '<span class="rg">'+lo.toFixed(4)+' – '+hi.toFixed(4)+'  ·  '+(cfg.odds[i]*100).toFixed(2)+'%</span>'+
         '<span class="mk">'+(isHit?"◄ u="+u.toFixed(4):"")+'</span></div>';
     }
     return '<div class="odds">'+rows+'</div>';
   }
+  function setVerdict(kind,badge,sub){
+    var vb=$("vbadge"); vb.className="vbadge "+kind; vb.textContent=badge; $("vsub").textContent=sub;
+  }
+  function fail(msg){$("err").textContent="⚠ "+msg;$("err").className="err show";}
 
-  async function run(pullId){
-    var errEl=$("err"), rc=$("receipt");
-    errEl.className="err"; rc.className="receipt";
-    $("go").disabled=true; $("go").textContent="Verifying…";
-    try{
-      // 1) backend reproduction data (no auth, read-only)
-      var r=await fetch("/api/crate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pullId:Number(pullId)})});
-      var d=await r.json();
-      if(!r.ok||d.error) throw new Error(d.error||"Pull not found.");
-      if(!d.seed) throw new Error("That pull hasn't resolved yet — no drand seed to verify.");
-      var crate=d.crate, round=Number(d.drand_round), nonce=String(d.nonce), seed=String(d.seed).toLowerCase(), claimed=d.rarity, misses=Number(d.misses_since_floor||0);
-      var cfg=CRATES[crate];
-      if(!cfg) throw new Error("Unknown crate tier: "+crate);
+  // ---- CRATE flow ----
+  async function runCrate(pullId){
+    var r=await fetch("/api/crate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pullId:Number(pullId)})});
+    var d=await r.json();
+    if(!r.ok||d.error) throw new Error(d.error||"Pull not found.");
+    if(!d.seed) throw new Error("That pull hasn't resolved yet — no drand seed to verify.");
+    var crate=d.crate,round=Number(d.drand_round),nonce=String(d.nonce),seed=String(d.seed).toLowerCase(),claimed=d.rarity,misses=Number(d.misses_since_floor||0);
+    var cfg=CRATES[crate]; if(!cfg) throw new Error("Unknown crate tier: "+crate);
+    var drandSeed=null,drandOk=false,drandErr=null;
+    try{drandSeed=await drandRound(round);drandOk=drandSeed===seed;}catch(e){drandErr=e;}
+    var u=await uniform(seed,nonce);
+    var natural=mapRarity(cfg.odds,u);
+    var pit=applyPity(natural,misses,cfg.pityFloor);
+    var computed=pit.rarity,match=computed===claimed;
 
-      // 2) independent drand fetch
-      var drandSeed=null, drandOk=false, drandErr=null;
-      try{
-        var dr=await fetch("https://api.drand.sh/v2/beacons/quicknet/rounds/"+round);
-        var dj=await dr.json();
-        drandSeed=String(dj.randomness||"").toLowerCase();
-        drandOk = drandSeed===seed;
-      }catch(e){ drandErr=e; }
+    if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the rarity reproduces exactly.");
+    else if(match&&drandErr) setVerdict("warn","Math verified ✓","Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself.");
+    else if(match&&!drandOk) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+    else setVerdict("fail","Mismatch ✗","Recomputed rarity does not match the recorded result.");
 
-      // 3) recompute locally
-      var u=await uniform(seed,nonce);
-      var natural=mapRarity(cfg.odds,u);
-      var pit=applyPity(natural,misses,cfg.pityFloor);
-      var computed=pit.rarity;
-      var match=computed===claimed;
-
-      // verdict
-      var vb=$("vbadge"), vs=$("vsub");
-      if(match && drandOk){ vb.className="vbadge pass"; vb.textContent="Provably fair ✓"; vs.textContent="Seed matches drand and the rarity reproduces exactly."; }
-      else if(match && !drandOk && drandErr){ vb.className="vbadge warn"; vb.textContent="Math verified ✓"; vs.textContent="Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself."; }
-      else if(match && !drandOk){ vb.className="vbadge fail"; vb.textContent="Seed mismatch ✗"; vs.textContent="The recorded seed does not match drand for this round."; }
-      else { vb.className="vbadge fail"; vb.textContent="Mismatch ✗"; vs.textContent="Recomputed rarity does not match the recorded result."; }
-
-      // steps
-      var s="";
-      s+=stepHTML("•","dot","Pull #"+esc(pullId)+" — <b style=\"color:"+(RC[crate]||"#fff")+"\">"+esc(crate)+"</b> crate, recorded rarity <b style=\"color:"+(RC[claimed]||"#fff")+"\">"+esc(claimed)+"</b>","");
-      s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet · randomness fixed after commit)");
-      if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches the recorded seed","<b>"+esc(seed)+"</b>");
-      else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check the seed (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
-      else s+=stepHTML("✗","no","drand randomness does NOT match the recorded seed","drand: "+esc(drandSeed||"(none)")+" · recorded: "+esc(seed));
-      s+=stepHTML("✓","ok","u = sha256(seed:nonce) → <b>"+u.toFixed(6)+"</b>","nonce: <b>"+esc(nonce)+"</b>");
-      s+='<div class="step"><div class="mk dot">•</div><div class="body"><div class="t">Rolled against '+esc(crate)+' odds → <b style="color:'+(RC[natural]||"#fff")+'">'+esc(natural)+'</b></div>'+oddsTable(cfg,natural,u)+'</div></div>';
-      if(pit.forced) s+=stepHTML("•","dot","Pity floor applied — "+misses+" misses ≥ 9, bumped up to <b style=\"color:"+(RC[cfg.pityFloor])+"\">"+esc(cfg.pityFloor)+"</b>","");
-      else s+=stepHTML("•","dot","No pity override ("+misses+" misses, floor "+esc(cfg.pityFloor)+")","");
-      s+=stepHTML(match?"✓":"✗",match?"ok":"no","Recomputed rarity <b style=\"color:"+(RC[computed]||"#fff")+"\">"+esc(computed)+"</b> "+(match?"= recorded ":"≠ recorded ")+esc(claimed),"");
-      $("steps").innerHTML=s;
-      rc.className="receipt show";
-    }catch(e){
-      errEl.textContent="⚠ "+(e.message||e);
-      errEl.className="err show";
-    }finally{
-      $("go").disabled=false; $("go").textContent="Verify";
-    }
+    var s="";
+    s+=stepHTML("•","dot","Pull #"+esc(pullId)+" — <b style=\"color:"+(RC[crate]||"#fff")+"\">"+esc(crate)+"</b> crate, recorded rarity <b style=\"color:"+(RC[claimed]||"#fff")+"\">"+esc(claimed)+"</b>","");
+    s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)")+" · recorded: "+esc(seed));
+    s+=stepHTML("✓","ok","u = sha256(seed:nonce) → <b>"+u.toFixed(6)+"</b>","nonce: <b>"+esc(nonce)+"</b>");
+    s+='<div class="step"><div class="mk dot">•</div><div class="body"><div class="t">Rolled against '+esc(crate)+' odds → <b style="color:'+(RC[natural]||"#fff")+'">'+esc(natural)+'</b></div>'+oddsTable(cfg,natural,u)+'</div></div>';
+    if(pit.forced) s+=stepHTML("•","dot","Pity floor applied — "+misses+" misses ≥ 9, bumped to <b style=\"color:"+(RC[cfg.pityFloor])+"\">"+esc(cfg.pityFloor)+"</b>","");
+    else s+=stepHTML("•","dot","No pity override ("+misses+" misses, floor "+esc(cfg.pityFloor)+")","");
+    s+=stepHTML(match?"✓":"✗",match?"ok":"no","Recomputed <b style=\"color:"+(RC[computed]||"#fff")+"\">"+esc(computed)+"</b> "+(match?"= recorded ":"≠ recorded ")+esc(claimed),"");
+    $("steps").innerHTML=s;
   }
 
-  $("go").addEventListener("click",function(){var v=$("pull-input").value.trim();if(v) run(v);});
-  $("pull-input").addEventListener("keydown",function(e){if(e.key==="Enter"){var v=e.target.value.trim();if(v) run(v);}});
+  // ---- DRAW flow ----
+  async function runDraw(drawId){
+    drawId=Number(drawId);
+    var dj=await (await fetch("/api/draws")).json();
+    var draw=(dj.draws||[]).find(function(d){return Number(d.id)===drawId;});
+    if(!draw) throw new Error("Draw #"+drawId+" not found.");
+    if(!draw.seed||!draw.drand_round) throw new Error("Draw #"+drawId+" hasn't been drawn yet.");
+    var seed=String(draw.seed).toLowerCase(),round=Number(draw.drand_round),nWin=Number(draw.n_winners||1),snapId=draw.snapshot_id;
+    var recorded=(draw.winners||[]).map(function(w){return w.wallet;});
 
-  // deep link: verify.html?id=42  (or ?pull=42)
+    var se=(snapId!=null)?await (await fetch("/api/snapshot-entries?snapshot_id="+snapId)).json():{entries:[]};
+    var fe=await (await fetch("/api/free-entries?draw_id="+drawId)).json();
+    var pool=buildPool(se.entries||[],fe.free||[]);
+    var totalTickets=pool.reduce(function(s,e){return s+Number(e.tickets);},0);
+
+    var drandSeed=null,drandOk=false,drandErr=null;
+    try{drandSeed=await drandRound(round);drandOk=drandSeed===seed;}catch(e){drandErr=e;}
+
+    var computed=await selectWinners(seed,drawId,pool,nWin);
+    var computedPayable=computed.map(function(w){return payable(w.wallet);});
+    var recSorted=recorded.slice().sort(),compSorted=computedPayable.slice().sort();
+    var match=recSorted.length===compSorted.length&&recSorted.every(function(w,i){return w===compSorted[i];});
+
+    if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the winners reproduce exactly from the public pool.");
+    else if(match&&drandErr) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
+    else if(!match&&drandOk) setVerdict("fail","Winner mismatch ✗","The recomputed winners differ from the recorded ones (see below — could be an expired-winner redraw).");
+    else setVerdict("fail","Mismatch ✗","Could not reproduce this draw from public data.");
+
+    var compSet={}; computedPayable.forEach(function(w){compSet[w]=1;});
+    var wl='<div class="wlist">'+recorded.map(function(w){
+      var ok=compSet[w]===1;
+      return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'</span></div>';
+    }).join("")+'</div>';
+
+    var s="";
+    s+=stepHTML("•","dot","Draw #"+esc(drawId)+(draw.prize_title?(" — <b>"+esc(draw.prize_title)+"</b>"):"")+" · "+nWin+" winner"+(nWin===1?"":"s"),"");
+    s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)"));
+    s+=stepHTML("•","dot","Ticket pool rebuilt from public data","snapshot #"+esc(snapId)+" · "+(se.entries||[]).length+" holders + "+(fe.free||[]).length+" free = <b>"+totalTickets+"</b> tickets"+(draw.merkle_root?(" · merkle "+esc(String(draw.merkle_root).slice(0,10))+"…"):""));
+    s+='<div class="step"><div class="mk '+(match?"ok":"no")+'">'+(match?"✓":"✗")+'</div><div class="body"><div class="t">Re-ran HMAC selection → recorded winners '+(match?"reproduce":"do NOT fully reproduce")+'</div>'+wl+'</div></div>';
+    $("steps").innerHTML=s;
+  }
+
+  // ---- driver ----
+  var MODE="crate";
+  function setMode(m){
+    MODE=m;
+    $("mode-crate").className=(m==="crate")?"on":"";
+    $("mode-draw").className=(m==="draw")?"on":"";
+    $("idin").placeholder=(m==="crate")?"Pull ID (e.g. 42)":"Draw ID (e.g. 7)";
+    $("hint").innerHTML=(m==="crate")
+      ? 'Pull IDs are on your <a href="/crates.html">My Wins</a> receipts. Direct link: <code>verify.html?pull=42</code>'
+      : 'Draw IDs are on the <a href="/draws.html">Draws</a> page. Direct link: <code>verify.html?draw=7</code>';
+    $("foot").innerHTML=(m==="crate")?CRATE_FOOT:DRAW_FOOT;
+    $("receipt").className="receipt"; $("err").className="err";
+  }
+  async function run(){
+    var v=$("idin").value.trim(); if(!v) return;
+    $("err").className="err"; $("receipt").className="receipt";
+    $("go").disabled=true; $("go").textContent="Verifying…";
+    try{
+      if(MODE==="crate") await runCrate(v); else await runDraw(v);
+      $("receipt").className="receipt show";
+    }catch(e){ fail(e.message||String(e)); }
+    finally{ $("go").disabled=false; $("go").textContent="Verify"; }
+  }
+
+  $("mode-crate").addEventListener("click",function(){setMode("crate");});
+  $("mode-draw").addEventListener("click",function(){setMode("draw");});
+  $("go").addEventListener("click",run);
+  $("idin").addEventListener("keydown",function(e){if(e.key==="Enter")run();});
+
+  // deep links: ?pull=42  ?id=42 (crate)  ·  ?draw=7 (raffle)
+  setMode("crate");
   var qs=new URLSearchParams(location.search);
-  var pre=qs.get("id")||qs.get("pull");
-  if(pre){ $("pull-input").value=pre; run(pre); }
+  var p=qs.get("pull")||qs.get("id"), dr=qs.get("draw");
+  if(dr){ setMode("draw"); $("idin").value=dr; run(); }
+  else if(p){ setMode("crate"); $("idin").value=p; run(); }
 })();
 </script>
 </body>
