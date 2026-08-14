@@ -130,7 +130,7 @@ async function load(){
           Winners: ${d.winners.map(w=>`<span class="win ${w.status==="expired"?"expired":""}">${short(w.wallet)}</span>`).join(" · ")||"—"}<br>
           ${d.pool_tickets!=null?`Pool: <b>${d.pool_holders||0}</b> holders · <b>${d.pool_tickets.toLocaleString()}</b> tickets · <b>${d.pool_free||0}</b> free entries<br>`:""}
           Proof: round <b>${d.drand_round}</b> · seed <b>${(d.seed||"").slice(0,16)}…</b> · snapshot root <b>${(d.merkle_root||"").slice(0,16)}…</b><br>
-          Verify: <b>node scripts/verify-draw.js ${location.origin} ${d.id}</b>
+         Verify: <a href="/verify.html?draw=${d.id}" style="color:var(--gold);font-weight:600">re-run this draw in your browser →</a>
         </div>
       </div>`;
     document.getElementById("done").innerHTML = done.length
