@@ -28,14 +28,6 @@ export default async function handler(req, res) {
       draws_run: drawn.rows[0].n,
       holders: holders.rows[0]?.holder_count ?? 0,
       // gacha dashboard
-      crates_opened: gacha.crates_opened,
-      drop_burned_raw: gacha.drop_burned_raw,        // base units; UI divides by 10^decimals
-      games_given: keysClaimed + (gacha.games_kept || 0),  // draw wins + crate keeps
-      biggest: gacha.biggest,                        // {game,image,rarity,wallet,msrp_cents} | null
-      feed: gacha.feed,                              // [{game,image,rarity,crate,wallet,at}]
-      decimals: Number(process.env.DROP_DECIMALS || 6),
-    });
-  } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
-  }
-}
+      crates_opened: gacha.crates_opened,            // crates pulled
+      crate_keys_claimed: gacha.games_kept,          // crate keys won/kept (gacha)
+      drop_burned
