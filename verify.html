@@ -289,7 +289,7 @@
     // ending at this draw's snapshot (the diamond-hands streak). Tickets come from the
     // draw's snapshot. This mirrors filterEligible() in the backend exactly.
     var K=4;
-    var sj=await (await fetch("/api/snapshots")).json();
+    var sj=await (await fetch("/api/snapshots?limit=2000")).json();
     var snaps=(sj.snapshots||[]); // window_start DESC
     var pos=-1; for(var pi=0;pi<snaps.length;pi++){ if(Number(snaps[pi].id)===snapId){pos=pi;break;} }
     if(pos<0) throw new Error("Draw #"+drawId+"'s snapshot (#"+snapId+") is older than the public snapshot window — can't rebuild its eligible pool here.");
@@ -314,20 +314,23 @@
     var drandSeed=await drandRound(round);
     var drandUnreach=(drandSeed===null), drandOk=(!drandUnreach && drandSeed===seed);
 
-    var computed=await selectWinners(seed,drawId,pool,nWin);
-    var computedPayable=computed.map(function(w){return payable(w.wallet);});
-    var recSorted=recorded.slice().sort(),compSorted=computedPayable.slice().sort();
-    var match=recSorted.length===compSorted.length&&recSorted.every(function(w,i){return w===compSorted[i];});
+    // Walk the deterministic sequence deeper than n_winners so redraws (expired
+    // winners replaced at later indices, same seed, prior winners removed) still
+    // resolve — a recorded winner must appear SOMEWHERE in the sequence.
+    var wantN=Math.min(pool.length, Math.max(nWin, recorded.length)+40);
+    var computed=await selectWinners(seed,drawId,pool,wantN);
+    var idxOf={}; computed.forEach(function(w){var pw=payable(w.wallet); if(idxOf[pw]===undefined) idxOf[pw]=w.index;});
+    var anyRedraw=recorded.some(function(w){return idxOf[w]!==undefined && idxOf[w]>=nWin;});
+    var match=recorded.length>0 && recorded.every(function(w){return idxOf[w]!==undefined;});
 
-    if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the winners reproduce exactly from the public pool.");
+    if(match&&drandOk) setVerdict("pass","Provably fair ✓",anyRedraw?"Winners reproduce from the public pool (includes a redraw replacement) and the seed matches drand.":"Seed matches drand and the winners reproduce exactly from the public pool.");
     else if(match&&drandUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
-    else if(!match&&drandOk) setVerdict("fail","Winner mismatch ✗","The recomputed winners differ from the recorded ones (see below — could be an expired-winner redraw).");
-    else setVerdict("fail","Mismatch ✗","Could not reproduce this draw from public data.");
+    else setVerdict("fail","Winner mismatch ✗","A recorded winner isn't in the deterministic sequence from public data.");
 
-    var compSet={}; computedPayable.forEach(function(w){compSet[w]=1;});
     var wl='<div class="wlist">'+recorded.map(function(w){
-      var ok=compSet[w]===1;
-      return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'</span></div>';
+      var ix=idxOf[w], ok=(ix!==undefined);
+      var tag=ok?(" (selection #"+ix+(ix>=nWin?" · redraw":"")+")"):"";
+      return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'<span style="color:var(--muted)">'+esc(tag)+'</span></span></div>';
     }).join("")+'</div>';
 
     var s="";
