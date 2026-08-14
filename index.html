@@ -345,9 +345,12 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
   <div class="amb amb-gold"></div><div class="amb amb-cyan"></div>
   <div class="hero-grid">
     <div class="hero-left">
-      <div class="sysbar">
+<div class="sysbar">
         <div class="chip"><span class="dot dot-live"></span>DRAWS <b>LIVE</b></div>
-        <div class="chip"><span class="dot dot-gold"></span>KEYS CLAIMED <b id="claimed-n">0</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>$DROP BURNED <b id="burned-n">—</b></div>
+        <div class="chip"><span class="dot dot-violet"></span>CRATES PULLED <b id="cratesopened-n">0</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>CRATE KEYS <b id="cratekeys-n">0</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>RAFFLE KEYS <b id="claimed-n">0</b></div>
         <div class="chip"><span class="dot dot-violet"></span>HOLDERS <b id="holders-n">—</b></div>
       </div>
       <h1>Hold $DROP.<br>Win <span class="rate">game keys.</span></h1>
@@ -638,16 +641,25 @@ setInterval(loadNextDraw, 60_000);
 
 /* live stats: claimed keys + holders */
 (function liveStats(){
-  fetch("/api/stats-public").then((r) => r.ok ? r.json() : null).then((s) => {
-    if (!s) return;
-    if (typeof s.keys_claimed === "number") {
-      document.getElementById("claimed-n").textContent = s.keys_claimed.toLocaleString("en-US");
-      document.getElementById("claimed-hud").textContent = s.keys_claimed.toLocaleString("en-US");
-    }
-    if (typeof s.holders === "number" && s.holders > 0) {
-      document.getElementById("holders-n").textContent = s.holders.toLocaleString("en-US");
-    }
-  }).catch(() => {});
+  const setN = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = Number(v).toLocaleString("en-US"); };
+  function load(){
+    fetch("/api/stats-public", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((s) => {
+      if (!s) return;
+      if (typeof s.keys_claimed === "number") {
+        setN("claimed-n", s.keys_claimed);
+        const hud = document.getElementById("claimed-hud");
+        if (hud) hud.textContent = s.keys_claimed.toLocaleString("en-US");
+      }
+      setN("cratekeys-n", s.crate_keys_claimed);
+      setN("cratesopened-n", s.crates_opened);
+      if (s.drop_burned_raw != null) {
+        const dec = s.decimals || 6;
+        setN("burned-n", Math.round(Number(s.drop_burned_raw) / Math.pow(10, dec)));
+      }
+      if (typeof s.holders === "number" && s.holders > 0) setN("holders-n", s.holders);
+    }).catch(() => {});
+  }
+  load(); setInterval(load, 20000);
 })();
 
 /* hero entry console */
