@@ -166,6 +166,24 @@
     nav.open{display:flex}
     nav .mono{font-size:15px}
   }
+  /* ---- win share card ---- */
+  .flexbtn,.winflex{font-family:var(--font);font-weight:700;cursor:pointer;border:0;border-radius:10px;
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b;transition:transform .12s,filter .2s}
+  .flexbtn{margin-top:12px;width:100%;padding:12px 16px;font-size:14px;box-shadow:0 12px 30px -14px var(--gold)}
+  .flexbtn:hover,.winflex:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .winflex{margin-top:8px;padding:7px 12px;font-size:11px;letter-spacing:.02em}
+  .shareov{position:fixed;inset:0;background:rgba(2,4,12,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:90;padding:20px}
+  .sharepanel{position:relative;background:#0c1024;border:1px solid var(--line-2);border-radius:18px;width:min(560px,96vw);max-height:92vh;overflow:auto;padding:20px}
+  .sharepanel h3{font-family:var(--display);font-size:16px;margin:0 0 14px;color:var(--ink)}
+  .sharex{position:absolute;top:14px;right:16px;background:none;border:0;color:var(--muted);font-size:24px;line-height:1;cursor:pointer}
+  .shareimgwrap{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#070a18}
+  .shareimgwrap img{display:block;width:100%;height:auto}
+  .sharebtns{display:flex;gap:10px;margin-top:14px}
+  .sbtn{flex:1;font-family:var(--font);font-weight:700;font-size:14px;cursor:pointer;border-radius:11px;padding:13px 14px;
+    border:1px solid var(--line-2);background:transparent;color:var(--ink);transition:transform .12s,filter .2s,border-color .2s}
+  .sbtn:hover{transform:translateY(-1px);border-color:var(--ink)}
+  .sbtn.primary{border:0;background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b;box-shadow:0 12px 30px -14px var(--gold)}
+  .sharehint{margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
@@ -555,7 +573,12 @@ async function landReveal(pullId,res,round){
       <div class="quip">${pickQuip(rarity)}</div>
       ${gateHTML}
     </div>`;
+  // stash the win so the flex card can be built once the key is committed (kept),
+  // never on a pull the player is about to sell back.
+  last.win={id:pullId,rarity:rarity,crate:selected,game:title,image:res.image,msrp_cents:res.msrp_cents};
   requestAnimationFrame(()=>{const c=$('card');if(c)c.classList.add('in');});
+  // an "owed" pull sold out its tier and can't be sold back — it's already committed, so it earns the flex now.
+  if(res._owed) mountFlex($('card'), last.win);
   const sl=$('steam'); if(sl) sl.href='https://store.steampowered.com/search/?term='+encodeURIComponent(title);
   if(!res._owed) startClaimTimer(claimSec);
   $('status').innerHTML=`round <b>#${round}</b> · <a href="/verify.html?pull=${encodeURIComponent(pullId)}" target="_blank" rel="noopener" style="color:var(--c-rare);font-weight:700;text-decoration:none">verify this pull ↗</a>`;
@@ -572,6 +595,7 @@ async function handleGate(a){
     const g=$('gate'); if(g) g.outerHTML=`<div class="revealed">STEAM KEY&nbsp; ${r.code}</div>`;
     const t=$('timer'); if(t) t.remove();
     toast(`🔑 ${last.title} claimed — the key is yours.`);
+    mountFlex($('card'), last.win); // key kept → now they've earned the flex
   }else{
     $('status').innerHTML='refunding…';
     const r=await api({action:'sellback',pullId:last.pullId,owner:OWNER});
@@ -612,6 +636,8 @@ function winsShell(inner){
   o=document.createElement('div'); o.className='winsov'; o.id='winsov';
   o.innerHTML=`<div class="winspanel"><div class="winshead"><h3>My Wins</h3><button class="winsx" data-x="1">×</button></div><div id="winsbody">${inner}</div></div>`;
   o.addEventListener('click',e=>{
+    const f=e.target.closest('.winflex');
+    if(f&&f.dataset.flex!=null){ openShare(WINS_CACHE[Number(f.dataset.flex)]); return; }
     if(e.target===o||e.target.dataset.x){ closeWins(); return; }
     const c=e.target.closest('.wincode');
     if(c&&c.dataset.code){ if(navigator.clipboard) navigator.clipboard.writeText(c.dataset.code); toast('Key copied.'); }
@@ -636,9 +662,10 @@ async function openWins(){
 function renderWins(items){
   const body=document.getElementById('winsbody'); if(!body) return;
   if(!items.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
+  WINS_CACHE=items;
   const money=c=>c!=null?('$'+(c/100).toFixed(2)):'';
   const dt=d=>{ try{ return new Date(d).toLocaleDateString(); }catch{ return ''; } };
-  body.innerHTML='<div class="wingrid">'+items.map(it=>{
+  body.innerHTML='<div class="wingrid">'+items.map((it,i)=>{
     const rc=RC_HEX[it.rarity]||'var(--muted)';
     const title=esc(it.game||'Mystery game');
     const ini=((it.game||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase())||'?';
@@ -649,14 +676,127 @@ function renderWins(items){
     else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
     else foot='<div class="winstat">key pending</div>';
     const vlink=(it.id!=null)?`<a class="winverify" href="/verify.html?pull=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">verify #${esc(it.id)} ↗</a>`:'';
+    const flex=(it.game&&it.state!=='sold_back')?`<button class="winflex" data-flex="${i}">🔥 Flex on X</button>`:'';
     return `<div class="wincard" style="--rc:${rc}"><div class="wincover">${cover}</div><div class="winbody">
       <div class="wintag">${esc(it.rarity)} · ${esc(it.crate)}</div>
       <div class="wintitle">${title}</div>
       <div class="winmeta">${money(it.msrp_cents)}${it.date?(' · '+esc(dt(it.date))):''}</div>
-      ${foot}${vlink}</div></div>`;
+      ${foot}${vlink}${flex}</div></div>`;
   }).join('')+'</div>';
 }
 
+/* ===== win share cards (client-side canvas → X) ===== */
+const RC_SOLID={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
+let WINS_CACHE=[];
+const SHARE_ORIGIN=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'https://droprate.xyz';
+function shareText(win){
+  const r=(win.rarity||'').toUpperCase();
+  const g=win.game||'a mystery game';
+  const crate=win.crate?('the '+win.crate+' crate'):'a crate';
+  const url=SHARE_ORIGIN+'/verify.html?pull='+(win.id!=null?encodeURIComponent(win.id):'');
+  return `just pulled a ${r} on DropRate 💧\n\n${g} — from ${crate}\nprovably fair, verify it yourself 👇\n${url}`;
+}
+function loadImg(src){
+  return new Promise(res=>{
+    if(!src) return res(null);
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>res(im); im.onerror=()=>res(null);
+    im.src=src;
+  });
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function wrapLines(ctx,text,maxW){
+  const words=String(text).split(/\s+/);const lines=[];let line='';
+  for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}
+  if(line)lines.push(line);return lines;
+}
+async function buildFlexCanvas(win){
+  try{ await document.fonts.ready; }catch(e){}
+  const W=1200,H=675,c=document.createElement('canvas');c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  const rc=RC_SOLID[win.rarity]||'#F6AC29';
+  const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#0E1330');bg.addColorStop(1,'#080B1A');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(let x=0;x<=W;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<=H;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  const gl=ctx.createRadialGradient(W*0.7,0,0,W*0.7,0,720);gl.addColorStop(0,rc+'33');gl.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=gl;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=rc;ctx.lineWidth=4;roundRect(ctx,20,20,W-40,H-40,22);ctx.stroke();
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  ctx.font='700 34px "Chakra Petch",sans-serif';
+  ctx.fillStyle='#EDEFF9';ctx.fillText('DROP',60,86);
+  const dw=ctx.measureText('DROP').width;
+  ctx.fillStyle='#F6AC29';ctx.fillText('RATE',60+dw,86);
+  ctx.font='700 22px "Chakra Petch",sans-serif';
+  const rt=(win.rarity||'').toUpperCase()||'PULL';const rtw=ctx.measureText(rt).width;
+  const pillW=rtw+44,pillX=W-60-pillW;
+  ctx.fillStyle=rc+'22';roundRect(ctx,pillX,54,pillW,40,20);ctx.fill();
+  ctx.strokeStyle=rc;ctx.lineWidth=1.5;roundRect(ctx,pillX,54,pillW,40,20);ctx.stroke();
+  ctx.fillStyle=rc;ctx.fillText(rt,pillX+22,82);
+  const cover=await loadImg(win.image);
+  const cx=60,cy=150,cw=300,ch=400;
+  roundRect(ctx,cx,cy,cw,ch,16);ctx.save();ctx.clip();
+  if(cover){
+    const ar=cover.width/cover.height,tar=cw/ch;let sw,sh,sx,sy;
+    if(ar>tar){sh=cover.height;sw=sh*tar;sx=(cover.width-sw)/2;sy=0;}else{sw=cover.width;sh=sw/tar;sx=0;sy=(cover.height-sh)/2;}
+    ctx.drawImage(cover,sx,sy,sw,sh,cx,cy,cw,ch);
+  }else{
+    const pg=ctx.createLinearGradient(cx,cy,cx,cy+ch);pg.addColorStop(0,rc);pg.addColorStop(1,'#0A0D1E');
+    ctx.fillStyle=pg;ctx.fillRect(cx,cy,cw,ch);
+    ctx.fillStyle='rgba(10,13,30,.55)';ctx.font='700 120px "Chakra Petch",sans-serif';ctx.textAlign='center';
+    const ini=((win.game||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase())||'?';
+    ctx.fillText(ini,cx+cw/2,cy+ch/2+42);ctx.textAlign='left';
+  }
+  ctx.restore();
+  roundRect(ctx,cx,cy,cw,ch,16);ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1.5;ctx.stroke();
+  const tx=400;
+  ctx.fillStyle='#98A1C6';ctx.font='600 20px "JetBrains Mono",monospace';ctx.fillText('I PULLED',tx,182);
+  ctx.fillStyle='#EDEFF9';ctx.font='700 56px "Chakra Petch",sans-serif';
+  const lines=wrapLines(ctx,win.game||'Mystery game',W-tx-70).slice(0,3);
+  let ty=248;for(const ln of lines){ctx.fillText(ln,tx,ty);ty+=64;}
+  ty+=6;
+  ctx.fillStyle=rc;ctx.font='600 24px "JetBrains Mono",monospace';ctx.fillText('from the '+(win.crate||'mystery')+' crate',tx,ty);ty+=46;
+  if(win.msrp_cents!=null){ctx.fillStyle='#FCD05B';ctx.font='700 30px "Chakra Petch",sans-serif';ctx.fillText('$'+(win.msrp_cents/100).toFixed(2)+' value',tx,ty);}
+  ctx.fillStyle='#3AD07A';ctx.font='700 22px "Chakra Petch",sans-serif';ctx.fillText('PROVABLY FAIR ✓',tx,H-92);
+  ctx.fillStyle='#98A1C6';ctx.font='400 20px "JetBrains Mono",monospace';ctx.fillText('verify'+(win.id!=null?' #'+win.id:'')+' at droprate.xyz/verify',tx,H-58);
+  return c;
+}
+function mountFlex(container,win){
+  if(!container||!win) return;
+  if(container.querySelector('.flexbtn')) return;
+  const b=document.createElement('button'); b.className='flexbtn'; b.textContent='🔥 Flex this pull on X';
+  b.addEventListener('click',()=>openShare(win));
+  container.appendChild(b);
+}
+function dlBlob(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
+function closeShare(){const o=document.getElementById('shareov');if(o)o.remove();}
+async function openShare(win){
+  if(!win) return;
+  toast('Building your flex card…');
+  let canvas;
+  try{ canvas=await buildFlexCanvas(win); }catch(e){ toast('Could not build card.'); return; }
+  const dataUrl=canvas.toDataURL('image/png');
+  const o=document.createElement('div');o.className='shareov';o.id='shareov';
+  o.innerHTML=`<div class="sharepanel"><button class="sharex" data-x="1">×</button>
+    <h3>Flex your ${esc(win.rarity||'')} pull</h3>
+    <div class="shareimgwrap"><img src="${dataUrl}" alt="win card"></div>
+    <div class="sharebtns"><button class="sbtn primary" id="sbShare">🔥 Share to X</button><button class="sbtn" id="sbDl">Download</button></div>
+    <div class="sharehint">The card links back to the verifier — provable flex.</div></div>`;
+  o.addEventListener('click',e=>{ if(e.target===o||e.target.dataset.x) closeShare(); });
+  document.body.appendChild(o);
+  const doBlob=()=>new Promise(r=>canvas.toBlob(r,'image/png'));
+  document.getElementById('sbDl').addEventListener('click',async()=>{const b=await doBlob();dlBlob(b,`droprate-${win.id||'win'}.png`);toast('Card downloaded ✦');});
+  document.getElementById('sbShare').addEventListener('click',async()=>{
+    const b=await doBlob();const file=new File([b],`droprate-${win.id||'win'}.png`,{type:'image/png'});const text=shareText(win);
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file],text}); return; }catch(e){ if(e&&e.name==='AbortError') return; }
+    }
+    dlBlob(b,file.name);
+    window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener');
+    toast('Card downloaded — attach it to your X post ✦');
+  });
+}
 $('winsBtn').addEventListener('click',openWins);
 $('walletBtn').addEventListener('click',connectWallet);
 syncStage();
