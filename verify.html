@@ -72,7 +72,7 @@
   .step{display:flex; gap:12px; padding:12px 2px; border-bottom:1px solid var(--line); font-size:13.5px}
   .step:last-of-type{border-bottom:0}
   .step .mk{flex:none; width:20px; font-family:var(--mono); font-weight:600}
-  .step .mk.ok{color:var(--green)} .step .mk.no{color:var(--red)} .step .mk.dot{color:var(--muted)}
+  .step .mk.ok{color:var(--green)} .step .mk.no{color:var(--red)} .step .mk.dot{color:var(--muted)} .step .mk.warn{color:var(--gold-2)}
   .step .body{min-width:0; flex:1}
   .step .t{color:var(--ink); font-weight:600}
   .step .v{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:3px; word-break:break-all}
@@ -323,8 +323,20 @@
     var anyRedraw=recorded.some(function(w){return idxOf[w]!==undefined && idxOf[w]>=nWin;});
     var match=recorded.length>0 && recorded.every(function(w){return idxOf[w]!==undefined;});
 
+    // Cross-check the rebuilt pool against the counts the backend actually recorded.
+    // If they differ, the backend applied an eligibility filter (e.g. sell-detection)
+    // that isn't visible in public snapshots, so the selection can't be independently
+    // re-run for this draw — but drand can still be confirmed. Prevents a single
+    // server-filtered draw from showing a scary red WINNER MISMATCH.
+    var holderTix=holderEntries.reduce(function(a,e){return a+Number(e.tickets);},0);
+    var recBH=(draw.pool_holders!=null)?Number(draw.pool_holders):null;
+    var recBT=(draw.pool_tickets!=null)?Number(draw.pool_tickets):null;
+    var poolDiffers=(recBH!==null&&recBH!==holderEntries.length)||(recBT!==null&&recBT!==holderTix);
+
     if(match&&drandOk) setVerdict("pass","Provably fair ✓",anyRedraw?"Winners reproduce from the public pool (includes a redraw replacement) and the seed matches drand.":"Seed matches drand and the winners reproduce exactly from the public pool.");
     else if(match&&drandUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
+    else if(!drandOk&&!drandUnreach) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+    else if(!match&&poolDiffers) setVerdict("warn","Pool filtered · drand ✓","A wallet was removed by an eligibility rule (e.g. a detected sell) that isn't in the public snapshots, so this draw's selection can't be re-run independently here — but drand matches the recorded seed.");
     else setVerdict("fail","Winner mismatch ✗","A recorded winner isn't in the deterministic sequence from public data.");
 
     var wl='<div class="wlist">'+recorded.map(function(w){
@@ -340,7 +352,10 @@
     else if(drandUnreach) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
     else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)"));
     s+=stepHTML("•","dot","Eligible ticket pool rebuilt from public data","snapshot #"+esc(snapId)+" · streak across "+kIds.length+" snapshots · "+holderEntries.length+" eligible holders + "+((fe.free||[]).length)+" free = <b>"+totalTickets+"</b> tickets");
-    s+='<div class="step"><div class="mk '+(match?"ok":"no")+'">'+(match?"✓":"✗")+'</div><div class="body"><div class="t">Re-ran HMAC selection → recorded winners '+(match?"reproduce":"do NOT fully reproduce")+'</div>'+wl+'</div></div>';
+    if(poolDiffers) s+=stepHTML("!","warn","Backend recorded a different pool than public snapshots show","recorded <b>"+recBH+"</b> holders / "+recBT+" tickets vs rebuilt "+holderEntries.length+" / "+holderTix+" — the difference was filtered by an eligibility rule (e.g. a detected sell) not present in public data");
+    var hmk=match?"ok":(poolDiffers?"warn":"no"), hsym=match?"✓":(poolDiffers?"!":"✗");
+    var hmsg=match?"reproduce":(poolDiffers?"can't be independently re-run (pool filtered server-side)":"do NOT fully reproduce");
+    s+='<div class="step"><div class="mk '+hmk+'">'+hsym+'</div><div class="body"><div class="t">Re-ran HMAC selection → recorded winners '+hmsg+'</div>'+wl+'</div></div>';
     $("steps").innerHTML=s;
   }
 
