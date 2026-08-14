@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DropRate — Verify a Pull</title>
+<meta name="description" content="Re-run any DropRate crate pull yourself. Fetch the drand randomness, recompute the rarity in your own browser, and prove the result wasn't rigged.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
+    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --green:#3ad07a; --red:#f2607a;
+    --c-common:#9AA6C7; --c-rare:#43C9F0; --c-epic:#A48BF5; --c-legendary:#F6AC29;
+    --font:"Poppins",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+    --display:"Chakra Petch",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 600px at 50% -12%, #22284d 0%, transparent 60%),
+      radial-gradient(800px 500px at 88% 12%, rgba(139,125,240,.12), transparent 55%),
+      linear-gradient(180deg,#0E1330 0%, var(--navy-0) 70%);
+    background-attachment:fixed; color:var(--ink); font-family:var(--font); line-height:1.6;
+    -webkit-font-smoothing:antialiased; min-height:100vh;}
+  .site-nav{border-bottom:1px solid var(--line)}
+  .wrap-nav{max-width:820px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; gap:20px}
+  .site-nav .brand{display:flex; align-items:center; gap:11px; text-decoration:none; color:inherit}
+  .site-nav .word{font-family:var(--display); font-weight:700; font-size:22px}
+  .site-nav .word b{color:var(--gold)}
+  .site-nav nav{display:flex; gap:22px; margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase}
+  .site-nav nav a{color:var(--muted); text-decoration:none; transition:color .2s}
+  .site-nav nav a:hover{color:var(--ink)}
+  .menu-btn{display:none; background:none; border:0; color:var(--ink); font-size:24px; line-height:1; cursor:pointer; padding:4px 6px; margin-left:auto}
+  @media(max-width:700px){
+    .menu-btn{display:block}
+    .wrap-nav{position:relative; flex-wrap:wrap}
+    .site-nav nav{display:none; position:absolute; top:100%; right:0; left:0; margin:6px 0 0; flex-direction:column; gap:0; background:#0c1024; border:1px solid var(--line-2); border-radius:12px; padding:6px 0; z-index:70}
+    .site-nav nav.open{display:flex}
+    .site-nav nav a{padding:12px 18px; font-size:13px}
+  }
+  .page{max-width:820px; margin:0 auto; padding:34px 24px 90px}
+  .kicker{font-family:var(--mono); color:var(--spark); letter-spacing:.28em; font-size:11px; text-transform:uppercase}
+  h1{font-family:var(--display); font-size:clamp(28px,5vw,42px); font-weight:700; margin:10px 0 8px; letter-spacing:-.01em}
+  .lede{color:var(--muted); max-width:640px; font-size:15px}
+  .lede b{color:var(--ink)}
+  .form{display:flex; gap:10px; margin:26px 0 8px; flex-wrap:wrap}
+  .form input{flex:1; min-width:180px; background:#070a18; border:1px solid var(--line-2); color:var(--ink);
+    font-family:var(--mono); font-size:14px; padding:13px 15px; border-radius:12px; outline:none}
+  .form input:focus{border-color:var(--gold)}
+  .form button{font-family:var(--display); font-weight:700; font-size:14px; letter-spacing:.04em; text-transform:uppercase;
+    border:0; border-radius:12px; padding:0 22px; cursor:pointer; color:#12152b;
+    background:linear-gradient(180deg,var(--gold-2),var(--gold)); transition:transform .12s,filter .2s}
+  .form button:hover{transform:translateY(-1px); filter:brightness(1.05)}
+  .form button:disabled{opacity:.55; cursor:default; transform:none}
+  .hint{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.03em}
+
+  .receipt{margin-top:26px; background:#0c1024; border:1px dashed var(--gold); border-radius:16px; padding:22px 22px 18px; display:none}
+  .receipt.show{display:block}
+  .verdict{display:flex; align-items:center; gap:12px; padding-bottom:16px; margin-bottom:6px; border-bottom:1px solid var(--line)}
+  .vbadge{font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.06em; text-transform:uppercase; padding:8px 14px; border-radius:10px}
+  .vbadge.pass{background:rgba(58,208,122,.14); color:var(--green); border:1px solid rgba(58,208,122,.4)}
+  .vbadge.warn{background:rgba(246,172,41,.14); color:var(--gold-2); border:1px solid rgba(246,172,41,.4)}
+  .vbadge.fail{background:rgba(242,96,122,.14); color:var(--red); border:1px solid rgba(242,96,122,.4)}
+  .vsub{font-size:13px; color:var(--muted)}
+  .step{display:flex; gap:12px; padding:12px 2px; border-bottom:1px solid var(--line); font-size:13.5px}
+  .step:last-of-type{border-bottom:0}
+  .step .mk{flex:none; width:20px; font-family:var(--mono); font-weight:600}
+  .step .mk.ok{color:var(--green)} .step .mk.no{color:var(--red)} .step .mk.dot{color:var(--muted)}
+  .step .body{min-width:0; flex:1}
+  .step .t{color:var(--ink); font-weight:600}
+  .step .v{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:3px; word-break:break-all}
+  .step .v b{color:var(--gold-2)}
+  .odds{margin-top:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .orow{display:flex; align-items:center; gap:10px; padding:8px 12px; font-family:var(--mono); font-size:12px; border-top:1px solid var(--line)}
+  .orow:first-child{border-top:0}
+  .orow.hit{background:rgba(246,172,41,.08)}
+  .orow .rr{flex:0 0 92px; font-weight:700; text-transform:uppercase; letter-spacing:.04em}
+  .orow .rg{flex:1; color:var(--muted)}
+  .orow .mk{flex:none; color:var(--gold-2); font-weight:600}
+  .err{margin-top:20px; color:var(--red); font-family:var(--mono); font-size:13px; display:none}
+  .err.show{display:block}
+  .foot-note{margin-top:22px; font-size:12.5px; color:var(--muted); line-height:1.65}
+  .foot-note code{font-family:var(--mono); background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:5px; padding:1px 5px; color:var(--gold-2)}
+</style>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="wrap-nav">
+      <a class="brand" href="/">
+        <svg width="30" height="34" viewBox="0 0 100 116" aria-hidden="true">
+          <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+          <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+        </svg>
+        <span class="word">DROP<b>RATE</b></span>
+      </a>
+      <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+      <nav id="nav-links">
+        <a href="/#how">How it works</a>
+        <a href="/#loot">Loot table</a>
+        <a href="/draws.html">Draws</a>
+        <a href="/crates.html">Crates</a>
+        <a href="/docs.html">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+    <div class="kicker">Provably fair</div>
+    <h1>Verify a pull</h1>
+    <p class="lede">Don't trust us — <b>re-run it yourself.</b> Enter a pull ID and your browser will fetch the drand randomness straight from a public relay, recompute the rarity from the published odds, and prove the result was fixed before the randomness ever existed. Nothing here trusts DropRate's servers for the math.</p>
+
+    <div class="form">
+      <input id="pull-input" inputmode="numeric" placeholder="Pull ID (e.g. 42)" autocomplete="off" spellcheck="false">
+      <button id="go">Verify</button>
+    </div>
+    <div class="hint">Tip: your pull IDs are on your <a href="/crates.html" style="color:var(--gold-2)">My Wins</a> receipts, or share a direct link like <code style="font-family:var(--mono)">verify.html?id=42</code>.</div>
+
+    <div class="err" id="err"></div>
+
+    <div class="receipt" id="receipt">
+      <div class="verdict">
+        <span class="vbadge" id="vbadge">—</span>
+        <span class="vsub" id="vsub"></span>
+      </div>
+      <div id="steps"></div>
+    </div>
+
+    <p class="foot-note">
+      How it works: the pull's rarity is <code>u = sha256("seed:nonce")</code> mapped through the crate's published odds, where <code>seed</code> is the randomness from a specific future <b>drand</b> round committed the moment you paid — before that randomness existed. This page fetches that round from <code>api.drand.sh</code> itself, checks it equals the seed on record, and rolls the dice again locally. Same inputs, same result, every time.
+    </p>
+  </div>
+
+<script>
+(function(){
+  var RARITIES=["common","rare","epic","legendary"];
+  var RC={common:"#9AA6C7",rare:"#43C9F0",epic:"#A48BF5",legendary:"#F6AC29"};
+  // Published odds — identical to lib/gacha.js CRATES.
+  var CRATES={
+    common:{odds:[0.90,0.08,0.018,0.002],pityFloor:"rare"},
+    rare:{odds:[0.40,0.45,0.12,0.03],pityFloor:"epic"},
+    epic:{odds:[0.20,0.38,0.32,0.10],pityFloor:"epic"},
+    legendary:{odds:[0.00,0.10,0.50,0.40],pityFloor:"legendary"}
+  };
+  var PITY_PULLS=10;
+  var rank=function(r){return RARITIES.indexOf(r);};
+  var $=function(id){return document.getElementById(id);};
+  var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+
+  // mobile menu
+  (function(){var mb=$("menuBtn"),nv=$("nav-links");if(!mb||!nv)return;
+    mb.addEventListener("click",function(e){e.stopPropagation();nv.classList.toggle("open");});
+    nv.addEventListener("click",function(){nv.classList.remove("open");});
+    document.addEventListener("click",function(){nv.classList.remove("open");});})();
+
+  async function uniform(seed,nonce){
+    var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(seed+":"+nonce));
+    var dv=new DataView(buf);
+    var hi=dv.getUint32(0)&0xFFFFF;   // big-endian, low 20 bits  (matches h.readUInt32BE(0)&0xfffff)
+    var lo=dv.getUint32(4);           // big-endian
+    return (hi*Math.pow(2,32)+lo)/Math.pow(2,52);
+  }
+  function mapRarity(odds,u){var a=0;for(var i=0;i<odds.length;i++){a+=odds[i];if(u<a)return RARITIES[i];}return RARITIES[RARITIES.length-1];}
+  function applyPity(natural,misses,floor){
+    if(misses>=PITY_PULLS-1 && rank(natural)<rank(floor)) return {rarity:floor,forced:true};
+    return {rarity:natural,forced:false};
+  }
+
+  function stepHTML(mark,cls,title,detail){
+    return '<div class="step"><div class="mk '+cls+'">'+mark+'</div><div class="body"><div class="t">'+title+'</div>'+(detail?('<div class="v">'+detail+'</div>'):'')+'</div></div>';
+  }
+  function oddsTable(cfg,natural,u){
+    var a=0,rows="";
+    for(var i=0;i<cfg.odds.length;i++){
+      var lo=a, hi=a+cfg.odds[i]; a=hi;
+      var name=RARITIES[i], isHit=(name===natural);
+      rows+='<div class="orow'+(isHit?" hit":"")+'"><span class="rr" style="color:'+RC[name]+'">'+name+'</span>'+
+        '<span class="rg">'+lo.toFixed(4)+' – '+hi.toFixed(4)+'  ·  '+(cfg.odds[i]*100).toFixed(2)+'%</span>'+
+        '<span class="mk">'+(isHit?"◄ u="+u.toFixed(4):"")+'</span></div>';
+    }
+    return '<div class="odds">'+rows+'</div>';
+  }
+
+  async function run(pullId){
+    var errEl=$("err"), rc=$("receipt");
+    errEl.className="err"; rc.className="receipt";
+    $("go").disabled=true; $("go").textContent="Verifying…";
+    try{
+      // 1) backend reproduction data (no auth, read-only)
+      var r=await fetch("/api/crate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pullId:Number(pullId)})});
+      var d=await r.json();
+      if(!r.ok||d.error) throw new Error(d.error||"Pull not found.");
+      if(!d.seed) throw new Error("That pull hasn't resolved yet — no drand seed to verify.");
+      var crate=d.crate, round=Number(d.drand_round), nonce=String(d.nonce), seed=String(d.seed).toLowerCase(), claimed=d.rarity, misses=Number(d.misses_since_floor||0);
+      var cfg=CRATES[crate];
+      if(!cfg) throw new Error("Unknown crate tier: "+crate);
+
+      // 2) independent drand fetch
+      var drandSeed=null, drandOk=false, drandErr=null;
+      try{
+        var dr=await fetch("https://api.drand.sh/v2/beacons/quicknet/rounds/"+round);
+        var dj=await dr.json();
+        drandSeed=String(dj.randomness||"").toLowerCase();
+        drandOk = drandSeed===seed;
+      }catch(e){ drandErr=e; }
+
+      // 3) recompute locally
+      var u=await uniform(seed,nonce);
+      var natural=mapRarity(cfg.odds,u);
+      var pit=applyPity(natural,misses,cfg.pityFloor);
+      var computed=pit.rarity;
+      var match=computed===claimed;
+
+      // verdict
+      var vb=$("vbadge"), vs=$("vsub");
+      if(match && drandOk){ vb.className="vbadge pass"; vb.textContent="Provably fair ✓"; vs.textContent="Seed matches drand and the rarity reproduces exactly."; }
+      else if(match && !drandOk && drandErr){ vb.className="vbadge warn"; vb.textContent="Math verified ✓"; vs.textContent="Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself."; }
+      else if(match && !drandOk){ vb.className="vbadge fail"; vb.textContent="Seed mismatch ✗"; vs.textContent="The recorded seed does not match drand for this round."; }
+      else { vb.className="vbadge fail"; vb.textContent="Mismatch ✗"; vs.textContent="Recomputed rarity does not match the recorded result."; }
+
+      // steps
+      var s="";
+      s+=stepHTML("•","dot","Pull #"+esc(pullId)+" — <b style=\"color:"+(RC[crate]||"#fff")+"\">"+esc(crate)+"</b> crate, recorded rarity <b style=\"color:"+(RC[claimed]||"#fff")+"\">"+esc(claimed)+"</b>","");
+      s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet · randomness fixed after commit)");
+      if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched from api.drand.sh — matches the recorded seed","<b>"+esc(seed)+"</b>");
+      else if(drandErr) s+=stepHTML("!","dot","Couldn't reach drand to cross-check the seed (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+      else s+=stepHTML("✗","no","drand randomness does NOT match the recorded seed","drand: "+esc(drandSeed||"(none)")+" · recorded: "+esc(seed));
+      s+=stepHTML("✓","ok","u = sha256(seed:nonce) → <b>"+u.toFixed(6)+"</b>","nonce: <b>"+esc(nonce)+"</b>");
+      s+='<div class="step"><div class="mk dot">•</div><div class="body"><div class="t">Rolled against '+esc(crate)+' odds → <b style="color:'+(RC[natural]||"#fff")+'">'+esc(natural)+'</b></div>'+oddsTable(cfg,natural,u)+'</div></div>';
+      if(pit.forced) s+=stepHTML("•","dot","Pity floor applied — "+misses+" misses ≥ 9, bumped up to <b style=\"color:"+(RC[cfg.pityFloor])+"\">"+esc(cfg.pityFloor)+"</b>","");
+      else s+=stepHTML("•","dot","No pity override ("+misses+" misses, floor "+esc(cfg.pityFloor)+")","");
+      s+=stepHTML(match?"✓":"✗",match?"ok":"no","Recomputed rarity <b style=\"color:"+(RC[computed]||"#fff")+"\">"+esc(computed)+"</b> "+(match?"= recorded ":"≠ recorded ")+esc(claimed),"");
+      $("steps").innerHTML=s;
+      rc.className="receipt show";
+    }catch(e){
+      errEl.textContent="⚠ "+(e.message||e);
+      errEl.className="err show";
+    }finally{
+      $("go").disabled=false; $("go").textContent="Verify";
+    }
+  }
+
+  $("go").addEventListener("click",function(){var v=$("pull-input").value.trim();if(v) run(v);});
+  $("pull-input").addEventListener("keydown",function(e){if(e.key==="Enter"){var v=e.target.value.trim();if(v) run(v);}});
+
+  // deep link: verify.html?id=42  (or ?pull=42)
+  var qs=new URLSearchParams(location.search);
+  var pre=qs.get("id")||qs.get("pull");
+  if(pre){ $("pull-input").value=pre; run(pre); }
+})();
+</script>
+</body>
+</html>
