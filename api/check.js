@@ -2,9 +2,8 @@ import { CONFIG } from "../lib/config.js";
 import { sql } from "../lib/db.js";
 import { lastTakenSnapshots, walletInSnapshots } from "../lib/db.js";
 import { loadEligibility } from "../lib/eligibility.js";
-
+import { loadWalletStreak } from "../lib/streak.js";
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
 export default async function handler(req, res) {
   const wallet = String(req.query.wallet || "").trim();
   if (!BASE58.test(wallet)) {
@@ -20,7 +19,6 @@ export default async function handler(req, res) {
     }
     const rows = await walletInSnapshots(wallet, snaps.map((s) => s.id));
     const byId = new Map(rows.map((r) => [r.snapshot_id, r]));
-
     const detail = snaps.map((s) => {
       const hit = byId.get(s.id);
       return {
@@ -32,23 +30,21 @@ export default async function handler(req, res) {
         balance: hit ? Number(BigInt(String(hit.balance_raw).split(".")[0]) / 10n ** BigInt(CONFIG.DECIMALS)) : 0,
       };
     });
-
     const { results } = await loadEligibility();
     const ev = results.get(wallet);
     const enoughSnaps = snaps.length >= CONFIG.K_CONSECUTIVE;
     const eligible = !!(ev && ev.eligible && enoughSnaps);
-
     let reason = "ok";
     if (!enoughSnaps) reason = "warming-up";
     else if (!ev || !ev.streakOk) reason = "missed-snapshot";
     else if (ev.soldRecently) reason = "sold-recently";
-
     const feQ = await sql`
       SELECT f.draw_id, d.prize_title, d.scheduled_at
       FROM free_entries f JOIN draws d ON d.id = f.draw_id
       WHERE f.wallet = ${wallet} AND d.status != 'drawn' AND d.scheduled_at > now()
       ORDER BY d.scheduled_at`;
-
+    // Diamond-hands loyalty streak (clean-hold duration -> bonus entries).
+    const streak = await loadWalletStreak(wallet, CONFIG.ELIGIBILITY_START);
     return res.status(200).json({
       wallet,
       eligible,
@@ -60,6 +56,7 @@ export default async function handler(req, res) {
       tokens_per_ticket: CONFIG.TOKENS_PER_TICKET,
       snapshots: detail,
       free_entries: feQ.rows,
+      streak: { holdDays: streak.holdDays, bonus: streak.bonus, msToNext: streak.msToNext },
     });
   } catch (err) {
     console.error(err);
