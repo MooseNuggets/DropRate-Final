@@ -43,9 +43,27 @@ font-size:.8rem;color:var(--dim);line-height:1.6}
 .snap.hit b{color:var(--green)} .snap.miss b{color:var(--red)}
 .snap span{font-size:.65rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
 .err{color:var(--red);font-size:.85rem;margin-top:16px}
-
 h1,h2,.brand{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.04em}
 code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!important}
+/* ---- hold-streak loyalty panel ---- */
+#streakPanel{margin-top:16px}
+.dhs-card{background:var(--navy2);border:1px solid var(--line);border-radius:16px;padding:22px}
+.dhs-kick{font-family:'JetBrains Mono',monospace;color:#4ec9ff;letter-spacing:.22em;font-size:10px;text-transform:uppercase;margin-bottom:14px}
+.dhs-tiles{display:flex;gap:10px;margin-bottom:18px}
+.dhs-tk{flex:1;background:var(--navy);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.dhs-tk b{display:block;font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--white)}
+.dhs-tk.bonus b{color:var(--gold)}
+.dhs-tk.total b{color:#ffecbe}
+.dhs-tk small{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.dhs-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-family:'Chakra Petch',sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--white)}
+.dhs-d{font-family:'JetBrains Mono',monospace;color:#ffecbe}
+.dhs-bar{position:relative;height:12px;background:var(--navy);border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-bottom:8px}
+.dhs-fill{position:absolute;inset:0;background:linear-gradient(90deg,var(--gold),#ffecbe);border-radius:6px}
+.dhs-tier{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim)}
+.dhs-tier b{color:#ffecbe}
+.dhs-next{margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--white);background:rgba(255,194,75,.08);border:1px dashed rgba(255,194,75,.35);border-radius:10px;padding:10px 12px;line-height:1.5}
+.dhs-next b{color:#ffecbe}
+.dhs-rule{margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);line-height:1.6}
 </style>
 </head>
 <body>
@@ -56,13 +74,11 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
   </a>
   <a class="back" href="/">&larr; Back to site</a>
 </div></header>
-
 <main class="wrap">
   <h1>Eligibility checker</h1>
   <p class="sub">Paste your wallet address to see your tickets and whether you've held through
      enough consecutive snapshots to be in the next draw. Checking is read-only — no wallet
      connection, no signatures.</p>
-
   <div class="row">
     <input id="wallet" placeholder="Your Solana wallet address" spellcheck="false" autocomplete="off">
     <button id="go">Check</button>
@@ -70,23 +86,20 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
   <div id="result"></div>
   <div id="streakPanel"></div>
 </main>
-
 <script>
 // brand droplet path (same parametric curve as main site)
 (function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
 const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38, y=58-Math.cos(t)*48;
 d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
-
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString("en-US");
-
 $("go").addEventListener("click", check);
 $("wallet").addEventListener("keydown", (e) => { if (e.key === "Enter") check(); });
-
 async function check(){
   const w = $("wallet").value.trim();
   const out = $("result");
   out.innerHTML = "";
+  $("streakPanel").innerHTML = "";
   if (!w) return;
   $("go").disabled = true;
   try {
@@ -94,13 +107,14 @@ async function check(){
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     render(data, out);
+    renderStreak(data);
   } catch (err) {
     out.innerHTML = `<div class="err">${escapeHtml(err.message)}</div>`;
+    $("streakPanel").innerHTML = "";
   } finally {
     $("go").disabled = false;
   }
 }
-
 function render(d, out){
   let statusHtml;
   if (d.reason === "no-snapshots-yet") {
@@ -122,13 +136,11 @@ function render(d, out){
       <p class="muted">You need 10,000+ $DROP held through ${d.required} consecutive snapshots (~24h).
       Keep your balance in place and you'll qualify automatically.</p>`;
   }
-
   const snaps = (d.snapshots || []).slice().reverse().map((s) =>
     `<div class="snap ${s.present ? "hit" : "miss"}">
        <b>${s.present ? fmt(s.tickets) : "—"}</b>
        <span>${new Date(s.taken_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric"})}</span>
      </div>`).join("");
-
   let feHtml = "";
   if (d.free_entries && d.free_entries.length) {
     feHtml = `<div class="fe-box">🎟 <b>Free entries active:</b> ` +
@@ -141,7 +153,47 @@ function render(d, out){
     <p class="muted" style="margin-top:14px">Last ${d.snapshots.length} snapshots — tickets recorded at each.</p>` : ""}
   </div>`;
 }
-
+// ---- hold-streak loyalty panel (reads d.streak from /api/check) ----
+function fmtDur(ms){
+  if (ms == null) return "maxed";
+  let s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  if (d > 0) return d + "d " + h + "h";
+  if (h > 0) return h + "h " + m + "m";
+  return m + "m";
+}
+function renderStreak(d){
+  const host = $("streakPanel");
+  if (!host) return;
+  const st = d && d.streak;
+  const base = Number((d && d.tickets) || 0);
+  if (!st) { host.innerHTML = ""; return; }        // api/check hasn't shipped streak yet -> stay hidden
+  const hold = Number(st.holdDays || 0), bonus = Number(st.bonus || 0), total = base + bonus;
+  if (base <= 0 && bonus <= 0 && hold <= 0) { host.innerHTML = ""; return; } // nothing to show
+  const START = 10, DAY = 86400000;
+  let pct, nextLabel, nextBonus;
+  if (hold < START) { pct = Math.max(0, Math.min(1, hold / START)); nextBonus = 1; nextLabel = "day " + START; }
+  else { pct = ((hold - START) % 2) / 2; nextBonus = bonus + 1; nextLabel = "day " + (START + (Math.floor((hold - START) / 2) + 1) * 2); }
+  const holdTxt = hold <= 0 ? "—" : (Math.floor(hold) + "d " + Math.floor((hold * 24) % 24) + "h");
+  const nextLine = (hold < START)
+    ? ("⏳ <b>" + fmtDur((START - hold) * DAY) + "</b> of clean holding until your <b>first +1 entry</b>.")
+    : (st.msToNext == null ? "✓ Maxed reward tier."
+       : ("⏳ Next bonus in <b>" + fmtDur(st.msToNext) + "</b> — hold to <b>" + nextLabel + "</b> for <b>+" + nextBonus + "</b>."));
+  host.innerHTML =
+    '<div class="dhs-card">' +
+      '<div class="dhs-kick">Diamond hands · loyalty rewards</div>' +
+      '<div class="dhs-tiles">' +
+        '<div class="dhs-tk"><b>' + base + '</b><small>Base tickets</small></div>' +
+        '<div class="dhs-tk bonus"><b>+' + bonus + '</b><small>Loyalty bonus</small></div>' +
+        '<div class="dhs-tk total"><b>' + total + '</b><small>Total entries</small></div>' +
+      '</div>' +
+      '<div class="dhs-head"><span>Clean hold</span><span class="dhs-d">' + holdTxt + '</span></div>' +
+      '<div class="dhs-bar"><div class="dhs-fill" style="width:' + (pct * 100).toFixed(1) + '%"></div></div>' +
+      (bonus > 0 ? '<div class="dhs-tier">Reward tier: <b>+' + bonus + ' entr' + (bonus === 1 ? "y" : "ies") + '</b> · +1 every 2 days held, forever</div>' : '') +
+      '<div class="dhs-next">' + nextLine + ' Sell or transfer and the streak resets to zero.</div>' +
+      '<div class="dhs-rule">First bonus unlocks at 10 days of clean holding. Buying crates never breaks your streak — only selling or moving $DROP out does.</div>' +
+    '</div>';
+}
 function escapeHtml(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
 </script>
 </body>
