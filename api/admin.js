@@ -99,6 +99,14 @@ export default async function handler(req, res) {
       await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
       return res.status(200).json({ ok: true, voided: id });
     }
+    if (action === "restore-key") {
+      // Un-void a key back into the pool (void -> available) — undo for an
+      // accidental void. Only works on keys currently 'void'.
+      const id = Number(req.body.id);
+      const r = await sql`UPDATE codes SET status = 'available' WHERE id = ${id} AND status = 'void' RETURNING id`;
+      if (!r.rows.length) return res.status(400).json({ error: "key not found or not void" });
+      return res.status(200).json({ ok: true, restored: id });
+    }
     if (action === "swap-key") {
       // Replace an ASSIGNED key with a fresh one — winner, draw, and timing untouched.
       const codeId = Number(req.body.code_id);
