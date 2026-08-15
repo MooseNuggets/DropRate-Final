@@ -93,11 +93,22 @@ export default async function handler(req, res) {
       const id = Number(req.body.id);
       const r = await sql`SELECT status FROM codes WHERE id = ${id}`;
       if (!r.rows.length) return res.status(404).json({ error: "no such key" });
-      if (r.rows[0].status !== "available") {
-        return res.status(400).json({ error: "only pool (available) keys can be voided — use swap for assigned keys" });
+      const st = r.rows[0].status;
+      if (st === "available") {
+        await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
+        return res.status(200).json({ ok: true, voided: id });
       }
-      await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
-      return res.status(200).json({ ok: true, voided: id });
+      if (st === "assigned") {
+        // Allow voiding an ORPHANED assigned key — one whose winner was voided/
+        // removed, so nothing holds it. Block if a live winner still holds it
+        // (use swap for that case, so the winner keeps a valid key).
+        const held = await sql`
+          SELECT id FROM winners WHERE code_id = ${id} AND status IN ('assigned','claimed')`;
+        if (held.rows.length) return res.status(400).json({ error: "a live winner holds this key — use swap, not void" });
+        await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
+        return res.status(200).json({ ok: true, voided: id });
+      }
+      return res.status(400).json({ error: "only pool (available) or orphaned assigned keys can be voided" });
     }
     if (action === "restore-key") {
       // Un-void a key back into the pool (void -> available) — undo for an
