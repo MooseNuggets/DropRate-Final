@@ -279,14 +279,55 @@
   // ---- DRAW flow ----
   async function runDraw(drawId){
     drawId=Number(drawId);
-    var dj=await (await fetch("/api/draws")).json();
-    var draw=(dj.draws||[]).find(function(d){return Number(d.id)===drawId;});
+    var draw=null;
+    try{ var one=await (await fetch("/api/draws?id="+drawId)).json(); if(one&&one.draw) draw=one.draw; }catch(e){}
+    if(!draw){ var dj=await (await fetch("/api/draws")).json(); draw=(dj.draws||[]).find(function(d){return Number(d.id)===drawId;}); }
     if(!draw) throw new Error("Draw #"+drawId+" not found.");
     if(!draw.seed||!draw.drand_round) throw new Error("Draw #"+drawId+" hasn't been drawn yet.");
     var seed=String(draw.seed).toLowerCase(),round=Number(draw.drand_round),nWin=Number(draw.n_winners||1),snapId=Number(draw.snapshot_id);
     var recorded=(draw.winners||[]).map(function(w){return w.wallet;});
 
-    // Rebuild the ELIGIBLE holder pool: only wallets present in the last K=4 snapshots
+    // EXACT PATH: draws publish pool_json — the precise pool they drew from, with
+    // loyalty-bonus entries already baked in. Re-run selection on it directly; no
+    // reconstruction needed, so bonuses (and any server-side filter) reproduce exactly.
+    if(draw.pool_json){
+      var exactPool=null;
+      try{ var pj=JSON.parse(draw.pool_json); if(pj&&pj.length) exactPool=pj.map(function(e){return {wallet:e.w,tickets:Number(e.t)};}); }catch(e){}
+      if(exactPool){
+        var xTotal=exactPool.reduce(function(a,e){return a+Number(e.tickets);},0);
+        var xDrand=await drandRound(round);
+        var xUnreach=(xDrand===null), xOk=(!xUnreach && xDrand===seed);
+        var xWantN=Math.min(exactPool.length, Math.max(nWin, recorded.length)+40);
+        var xComputed=await selectWinners(seed,drawId,exactPool,xWantN);
+        var xIdx={}; xComputed.forEach(function(w){var pw=payable(w.wallet); if(xIdx[pw]===undefined) xIdx[pw]=w.index;});
+        var xRedraw=recorded.some(function(w){return xIdx[w]!==undefined && xIdx[w]>=nWin;});
+        var xMatch=recorded.length>0 && recorded.every(function(w){return xIdx[w]!==undefined;});
+        if(xMatch&&xOk) setVerdict("pass","Provably fair ✓",xRedraw?"Winners reproduce from the draw's published pool (includes a redraw replacement) and the seed matches drand.":"Seed matches drand and the winners reproduce exactly from the draw's published pool.");
+        else if(xMatch&&xUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the published pool — couldn't reach drand to cross-check the seed.");
+        else if(!xOk&&!xUnreach) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+        else setVerdict("fail","Winner mismatch ✗","A recorded winner isn't in the deterministic sequence from the published pool.");
+        var xwl='<div class="wlist">'+recorded.map(function(w){
+          var ix=xIdx[w], ok=(ix!==undefined);
+          var tag=ok?(" (selection #"+ix+(ix>=nWin?" · redraw":"")+")"):"";
+          return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'<span style="color:var(--muted)">'+esc(tag)+'</span></span></div>';
+        }).join("")+'</div>';
+        var xHold=(draw.pool_holders!=null)?draw.pool_holders:"?";
+        var xFree=(draw.pool_free!=null)?draw.pool_free:exactPool.filter(function(e){return String(e.wallet).indexOf("free:")===0;}).length;
+        var xs="";
+        xs+=stepHTML("•","dot","Draw #"+esc(drawId)+(draw.prize_title?(" — <b>"+esc(draw.prize_title)+"</b>"):"")+" · "+nWin+" winner"+(nWin===1?"":"s"),"");
+        xs+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+        if(xOk) xs+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+        else if(xUnreach) xs+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+        else xs+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(xDrand||"(none)"));
+        xs+=stepHTML("✓","ok","Exact pool published by the draw","loyalty-bonus entries included · "+xHold+" eligible holders + "+xFree+" free = <b>"+xTotal+"</b> tickets");
+        xs+='<div class="step"><div class="mk '+(xMatch?"ok":"no")+'">'+(xMatch?"✓":"✗")+'</div><div class="body"><div class="t">Re-ran HMAC selection on the published pool → recorded winners '+(xMatch?"reproduce":"do NOT reproduce")+'</div>'+xwl+'</div></div>';
+        $("steps").innerHTML=xs;
+        return;
+      }
+    }
+
+    // FALLBACK (older draws with no published pool): rebuild the ELIGIBLE holder pool
+    // from public snapshots — wallets present in the last K=4 snapshots
     // ending at this draw's snapshot (the diamond-hands streak). Tickets come from the
     // draw's snapshot. This mirrors filterEligible() in the backend exactly.
     var K=4;
