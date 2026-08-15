@@ -2,7 +2,6 @@ import { sql, migrate } from "../lib/db.js";
 import { encryptCode, decryptCode } from "../lib/vault.js";
 import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
 import { prepareKey, parseBatch } from "../lib/loader.js";
-
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.ADMIN_SECRET}`) {
     return res.status(401).json({ error: "unauthorized" });
@@ -11,7 +10,6 @@ export default async function handler(req, res) {
   try {
     await migrate();
     const { action } = req.body ?? {};
-
     if (action === "create-draw") {
       const { scheduled_at, prize_title, n_winners = 1 } = req.body;
       const r = await sql`
@@ -20,7 +18,6 @@ export default async function handler(req, res) {
         RETURNING id, scheduled_at, prize_title, n_winners`;
       return res.status(200).json({ ok: true, draw: r.rows[0] });
     }
-
     if (action === "add-codes") {
       // codes: array of plaintext keys. draw_id/game_title optional —
       // omitted = global mystery pool, which is the normal mode.
@@ -35,7 +32,6 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, added: cleaned.length });
     }
-
     if (action === "create-draws-bulk") {
       // draws: [{scheduled_at, prize_title?, n_winners?}]
       const { draws } = req.body;
@@ -50,7 +46,6 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, created });
     }
-
     if (action === "keys") {
       const r = await sql`
         SELECT c.id, c.game_title, c.status, c.draw_id,
@@ -63,7 +58,6 @@ export default async function handler(req, res) {
       rows.forEach((k) => { counts[k.status] = (counts[k.status] || 0) + 1; });
       return res.status(200).json({ keys: rows, counts });
     }
-
     if (action === "reveal") {
       // Plaintext is ONLY ever decrypted for keys a winner has already claimed.
       // Sealed (available/assigned) keys cannot be revealed — by design, to anyone.
@@ -76,7 +70,6 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ id, code: decryptCode(r.rows[0].code_encrypted, process.env.CODE_VAULT_KEY) });
     }
-
     if (action === "audit-dupes") {
       // Decrypts server-side ONLY to compare — plaintext never leaves the server.
       const r = await sql`
@@ -96,7 +89,6 @@ export default async function handler(req, res) {
       const dupes = [...groups.values()].filter((g) => g.length > 1);
       return res.status(200).json({ dupe_groups: dupes, checked: r.rows.length });
     }
-
     if (action === "void-key") {
       const id = Number(req.body.id);
       const r = await sql`SELECT status FROM codes WHERE id = ${id}`;
@@ -107,7 +99,6 @@ export default async function handler(req, res) {
       await sql`UPDATE codes SET status = 'void' WHERE id = ${id}`;
       return res.status(200).json({ ok: true, voided: id });
     }
-
     if (action === "swap-key") {
       // Replace an ASSIGNED key with a fresh one — winner, draw, and timing untouched.
       const codeId = Number(req.body.code_id);
@@ -130,7 +121,44 @@ export default async function handler(req, res) {
       await sql`UPDATE winners SET code_id = ${newId} WHERE id = ${win.rows[0].id}`;
       return res.status(200).json({ ok: true, voided: codeId, assigned: newId, winner_id: win.rows[0].id });
     }
-
+    if (action === "void-winner") {
+      // Terminally void a WINNER without recycling its key or triggering a redraw.
+      // For when a prize was already re-issued out of band (e.g. a dead wallet won a
+      // draw and you re-ran it with the same key) and you do NOT want that key to
+      // fall back into the pool. Identify by winner_id OR (draw_id + wallet).
+      //
+      // - winner status -> 'void' (the expire/redraw cron only touches 'assigned'
+      //   winners past expiry, so a voided winner is never redrawn)
+      // - the code is detached from the winner
+      // - the key is only marked 'void' if it's still sitting 'available'; a key you
+      //   already re-issued ('assigned'/'claimed') is left completely untouched.
+      // Only 'assigned' or 'expired' winners can be voided — never a real 'claimed'.
+      const { winner_id, draw_id, wallet } = req.body;
+      let rows;
+      if (winner_id != null) {
+        rows = (await sql`
+          SELECT id, code_id FROM winners
+          WHERE id = ${Number(winner_id)} AND status IN ('assigned','expired')`).rows;
+      } else if (draw_id != null && wallet) {
+        rows = (await sql`
+          SELECT id, code_id FROM winners
+          WHERE draw_id = ${Number(draw_id)} AND wallet = ${String(wallet)}
+            AND status IN ('assigned','expired')`).rows;
+      } else {
+        return res.status(400).json({ error: "provide winner_id OR (draw_id + wallet)" });
+      }
+      if (!rows.length) return res.status(404).json({ error: "no voidable winner found (already claimed/void, or wrong id)" });
+      let voided = 0, keysBlocked = 0;
+      for (const w of rows) {
+        await sql`UPDATE winners SET status = 'void', code_id = NULL WHERE id = ${w.id}`;
+        voided++;
+        if (w.code_id) {
+          const c = await sql`UPDATE codes SET status = 'void' WHERE id = ${w.code_id} AND status = 'available' RETURNING id`;
+          if (c.rows.length) keysBlocked++;
+        }
+      }
+      return res.status(200).json({ ok: true, voided, keys_blocked_from_pool: keysBlocked });
+    }
     if (action === "stats") {
       const codes = await sql`
         SELECT status, count(*)::int AS n FROM codes GROUP BY status`;
@@ -138,7 +166,7 @@ export default async function handler(req, res) {
         SELECT id, scheduled_at, prize_title, n_winners, status, drand_round
         FROM draws WHERE status != 'drawn' ORDER BY scheduled_at ASC LIMIT 60`;
       const recentWinners = await sql`
-        SELECT w.draw_id, w.wallet, w.status, w.expires_at, d.prize_title
+        SELECT w.id, w.draw_id, w.wallet, w.status, w.expires_at, d.prize_title
         FROM winners w JOIN draws d ON d.id = w.draw_id
         ORDER BY w.assigned_at DESC LIMIT 20`;
       const snap = await sql`
@@ -146,13 +174,12 @@ export default async function handler(req, res) {
         WHERE status = 'taken' ORDER BY window_start DESC LIMIT 1`;
       const codeMap = Object.fromEntries(codes.rows.map((c) => [c.status, c.n]));
       return res.status(200).json({
-        codes: { available: codeMap.available || 0, assigned: codeMap.assigned || 0, claimed: codeMap.claimed || 0 },
+        codes: { available: codeMap.available || 0, assigned: codeMap.assigned || 0, claimed: codeMap.claimed || 0, void: codeMap.void || 0 },
         upcoming: upcoming.rows,
         recentWinners: recentWinners.rows,
         latestSnapshot: snap.rows[0] || null,
       });
     }
-
     if (action === "add-exclusion") {
       const { wallet, label } = req.body;
       await sql`
@@ -160,7 +187,6 @@ export default async function handler(req, res) {
         ON CONFLICT (wallet) DO UPDATE SET label = EXCLUDED.label`;
       return res.status(200).json({ ok: true });
     }
-
     // ---- GACHA: load keys into the crate pool ----------------------------
     if (action === "gacha-load-keys") {
       await migrateGacha();
@@ -206,13 +232,11 @@ export default async function handler(req, res) {
       const stock = await bucketCounts();
       return res.status(200).json({ ok: true, added, failures, stock });
     }
-
     // ---- GACHA: current stock per rarity --------------------------------
     if (action === "gacha-stock") {
       await migrateGacha();
       return res.status(200).json({ ok: true, stock: await bucketCounts() });
     }
-
     // ---- GACHA: void a bad pool key -------------------------------------
     if (action === "gacha-void-key") {
       await migrateGacha();
