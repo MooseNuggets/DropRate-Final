@@ -206,7 +206,9 @@ async function refresh(){
         : k.status === "available"
         ? ` · <a href="#" class="void-key" data-id="${k.id}" style="color:#f87171;text-decoration:none">void</a>`
         : k.status === "assigned"
-        ? ` · <a href="#" class="reveal-key" data-id="${k.id}" style="color:#4ec9ff;text-decoration:none">reveal</a><span class="mono" id="rev-${k.id}"></span> · <a href="#" class="swap-key" data-id="${k.id}" style="color:#8b7bff;text-decoration:none">swap</a>`
+        ? (k.winner_wallet
+            ? ` · <a href="#" class="reveal-key" data-id="${k.id}" style="color:#4ec9ff;text-decoration:none">reveal</a><span class="mono" id="rev-${k.id}"></span> · <a href="#" class="swap-key" data-id="${k.id}" style="color:#8b7bff;text-decoration:none">swap</a>`
+            : ` · <span style="color:var(--dim)">orphaned</span> · <a href="#" class="void-key" data-id="${k.id}" style="color:#f87171;text-decoration:none">void</a>`)
         : k.status === "void"
         ? ` · <a href="#" class="restore-key" data-id="${k.id}" style="color:#4ade80;text-decoration:none">restore</a>`
         : "";
