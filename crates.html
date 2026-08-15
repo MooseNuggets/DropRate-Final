@@ -710,7 +710,7 @@ function wrapLines(ctx,text,maxW){
   for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}
   if(line)lines.push(line);return lines;
 }
-async function buildFlexCanvas(win){
+async function buildFlexCanvas(win,tier){
   try{ await document.fonts.ready; }catch(e){}
   const W=1200,H=675,c=document.createElement('canvas');c.width=W;c.height=H;
   const ctx=c.getContext('2d');
@@ -728,6 +728,15 @@ async function buildFlexCanvas(win){
   ctx.fillStyle='#EDEFF9';ctx.fillText('DROP',60,86);
   const dw=ctx.measureText('DROP').width;
   ctx.fillStyle='#F6AC29';ctx.fillText('RATE',60+dw,86);
+  // tier badge (Bronze+ only — a flex should signal real holding, so Paper hands stays off the card)
+  if(tier && tier.key && tier.key!=='paper'){
+    ctx.font='700 20px "Chakra Petch",sans-serif';
+    const tl='◆ '+(tier.name||'').toUpperCase()+' HANDS';
+    const tw2=ctx.measureText(tl).width, tpx=60, tpy=104, tpw=tw2+36, tph=34, tcol=tier.color||'#9AA6C7';
+    ctx.fillStyle=tcol+'22';roundRect(ctx,tpx,tpy,tpw,tph,17);ctx.fill();
+    ctx.strokeStyle=tcol;ctx.lineWidth=1.5;roundRect(ctx,tpx,tpy,tpw,tph,17);ctx.stroke();
+    ctx.fillStyle=tcol;ctx.fillText(tl,tpx+18,tpy+23);
+  }
   ctx.font='700 22px "Chakra Petch",sans-serif';
   const rt=(win.rarity||'').toUpperCase()||'PULL';const rtw=ctx.measureText(rt).width;
   const pillW=rtw+44,pillX=W-60-pillW;
@@ -774,8 +783,10 @@ function closeShare(){const o=document.getElementById('shareov');if(o)o.remove()
 async function openShare(win){
   if(!win) return;
   toast('Building your flex card…');
+  let tier=null;
+  try{ if(OWNER){ const cj=await (await fetch('/api/check?wallet='+encodeURIComponent(OWNER),{cache:'no-store'})).json(); if(cj&&cj.streak&&cj.streak.tier) tier=cj.streak.tier; } }catch(e){}
   let canvas;
-  try{ canvas=await buildFlexCanvas(win); }catch(e){ toast('Could not build card.'); return; }
+  try{ canvas=await buildFlexCanvas(win,tier); }catch(e){ toast('Could not build card.'); return; }
   const dataUrl=canvas.toDataURL('image/png');
   const o=document.createElement('div');o.className='shareov';o.id='shareov';
   o.innerHTML=`<div class="sharepanel"><button class="sharex" data-x="1">×</button>
