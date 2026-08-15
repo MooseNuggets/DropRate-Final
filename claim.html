@@ -32,7 +32,6 @@ button:disabled{opacity:.5;cursor:wait}
 word-break:break-all;background:var(--navy);border:1px dashed var(--line);border-radius:10px;padding:16px;cursor:pointer}
 .hint{color:var(--dim);font-size:.78rem;margin-top:12px;line-height:1.6}
 .err{color:var(--red);font-size:.85rem;margin-top:16px}
-
 h1,h2,.brand{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.04em}
 code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!important}
 </style>
@@ -42,25 +41,29 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
   <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE</a>
   <a class="back" href="/draws.html">Past draws</a>
 </div></header>
-
 <main class="wrap">
   <h1>Claim your key</h1>
   <p class="sub">Won a draw? Connect the winning wallet and sign one message to prove it's yours.
      Your key is shown exactly once — copy it somewhere safe. Signing costs nothing and moves no tokens.</p>
-
   <input id="draw" placeholder="Draw number (e.g. 12)" inputmode="numeric">
   <button id="go">Connect wallet &amp; claim</button>
   <div id="out"></div>
 </main>
-
 <script>
 (function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
 const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
 d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
-
 const $=(id)=>document.getElementById(id);
 $("go").addEventListener("click", claim);
-
+// Prefill the draw number from the URL (?draw_id=.. or ?draw=..), e.g. the
+// "Claim →" links on the Draws-page win search. Wallet still comes from connect.
+(function(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const raw=p.get("draw_id")||p.get("draw");
+    if(raw && $("draw")) $("draw").value=String(raw).replace(/[^0-9]/g,"");
+  }catch(e){}
+})();
 function b58encode(bytes){
   const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   let n=0n; for(const b of bytes) n=n*256n+BigInt(b);
@@ -68,7 +71,6 @@ function b58encode(bytes){
   for(const b of bytes){if(b===0)s="1"+s;else break;}
   return s;
 }
-
 async function claim(){
   const out=$("out"); out.innerHTML="";
   const drawId=parseInt($("draw").value,10);
@@ -79,21 +81,17 @@ async function claim(){
   try{
     const conn=await provider.connect();
     const wallet=conn.publicKey.toString();
-
     const nres=await fetch(`/api/claim?wallet=${wallet}&draw_id=${drawId}`);
     const ndata=await nres.json();
     if(!nres.ok) throw new Error(ndata.error||"nonce request failed");
-
     const enc=new TextEncoder().encode(ndata.message);
     const signed=await provider.signMessage(enc,"utf8");
     const sigBytes=signed.signature||signed; // provider variations
     const signature=b58encode(sigBytes instanceof Uint8Array?sigBytes:new Uint8Array(sigBytes));
-
     const cres=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({wallet,draw_id:drawId,nonce:ndata.nonce,signature})});
     const cdata=await cres.json();
     if(!cres.ok) throw new Error(cdata.error||"claim failed");
-
     out.innerHTML=`<div class="card">
       <div class="game">🎁 ${escapeHtml(cdata.game_title)}</div>
       <div class="code" id="codebox" title="Tap to copy">${escapeHtml(cdata.code)}</div>
