@@ -2,7 +2,7 @@ import { CONFIG } from "../lib/config.js";
 import { sql } from "../lib/db.js";
 import { lastTakenSnapshots, walletInSnapshots } from "../lib/db.js";
 import { loadEligibility } from "../lib/eligibility.js";
-import { loadWalletStreak } from "../lib/streak.js";
+import { loadWalletStreak, tierFor } from "../lib/streak.js";
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 export default async function handler(req, res) {
   const wallet = String(req.query.wallet || "").trim();
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       tokens_per_ticket: CONFIG.TOKENS_PER_TICKET,
       snapshots: detail,
       free_entries: feQ.rows,
-      streak: { holdDays: streak.holdDays, bonus: streak.bonus, msToNext: streak.msToNext },
+      streak: { holdDays: streak.holdDays, bonus: streak.bonus, msToNext: streak.msToNext, tier: tierFor(streak.holdDays) },
     });
   } catch (err) {
     console.error(err);
