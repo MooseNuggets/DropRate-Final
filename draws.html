@@ -71,6 +71,100 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
 
 <main class="wrap">
   <h1>Draws</h1>
+  <!-- ============================================================================
+     DROPRATE — "Did you win?" wallet search (self-contained add-on for draws.html)
+     ----------------------------------------------------------------------------
+     WHERE IT GOES: paste this whole block right after the intro paragraph
+     (<p class="sub"> … </p>) and BEFORE <h2>Upcoming</h2>.
+     No other changes. It scans /api/draws (already public) — no new endpoint.
+     Bonus: deep-link support — /draws.html?won=<wallet> auto-runs the search.
+============================================================================ -->
+<style>
+.diw-wrap{background:#161b31;border:1px solid #262d52;border-radius:16px;padding:20px;margin-bottom:34px}
+.diw-title{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.05em;font-size:.95rem;color:#eef1fc;margin-bottom:4px}
+.diw-lede{color:#97a0c8;font-size:.8rem;line-height:1.6;margin-bottom:14px}
+.diw-row{display:flex;gap:10px;flex-wrap:wrap}
+.diw-row input{flex:1;min-width:200px;background:#0d1020;border:1px solid #262d52;border-radius:10px;padding:12px 14px;color:#eef1fc;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.8rem;outline:none}
+.diw-row input:focus{border-color:#ffc24b}
+.diw-row button{background:linear-gradient(180deg,#ffc24b,#e8941b);color:#231a05;border:none;border-radius:10px;padding:12px 22px;font-family:'Poppins',sans-serif;font-weight:600;font-size:.85rem;cursor:pointer}
+.diw-row button:disabled{opacity:.5;cursor:wait}
+#diw-result{margin-top:16px}
+.diw-muted,.diw-none{color:#97a0c8;font-size:.84rem;line-height:1.6}
+.diw-none b{color:#eef1fc}
+.diw-head{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:.95rem;margin-bottom:12px;color:#eef1fc}
+.diw-head.win{color:#ffc24b}
+.diw-list{display:flex;flex-direction:column;gap:8px}
+.diw-item{display:flex;align-items:center;gap:12px;background:#0d1020;border:1px solid #262d52;border-radius:10px;padding:12px 14px}
+.diw-item.un{border-color:rgba(255,194,75,.55);box-shadow:0 0 0 1px rgba(255,194,75,.22)}
+.diw-i-main{flex:1;min-width:0}
+.diw-i-prize{font-weight:600;font-size:.9rem;color:#eef1fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.diw-i-sub{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#97a0c8;margin-top:2px}
+.diw-badge{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;padding:4px 8px;border-radius:6px;flex:none;white-space:nowrap}
+.diw-badge.un{background:rgba(255,194,75,.15);color:#ffc24b}
+.diw-badge.cl{background:rgba(74,222,128,.15);color:#4ade80}
+.diw-badge.ex{background:rgba(151,160,200,.12);color:#97a0c8}
+.diw-claim{flex:none;background:linear-gradient(180deg,#ffc24b,#e8941b);color:#231a05;text-decoration:none;font-weight:700;font-size:.75rem;padding:9px 14px;border-radius:8px}
+.diw-item.ex .diw-i-prize{color:#97a0c8;text-decoration:line-through}
+</style>
+<div class="diw-wrap">
+  <div class="diw-title">Did you win?</div>
+  <div class="diw-lede">Paste your wallet to check every draw at once — unclaimed keys are highlighted so nothing gets buried.</div>
+  <div class="diw-row">
+    <input id="diw-wallet" placeholder="Your Solana wallet address" spellcheck="false" autocomplete="off">
+    <button id="diw-go">Did I win?</button>
+  </div>
+  <div id="diw-result"></div>
+</div>
+<script>
+(function(){
+  var inp=document.getElementById('diw-wallet'), btn=document.getElementById('diw-go'), out=document.getElementById('diw-result');
+  if(!btn||!inp||!out) return;
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function shortW(w){return w.length>10?(w.slice(0,4)+'…'+w.slice(-4)):w;}
+  function fmtT(t){try{return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});}catch(e){return '';}}
+  async function run(){
+    var w=(inp.value||'').trim();
+    out.innerHTML='';
+    if(!w) return;
+    btn.disabled=true; out.innerHTML='<div class="diw-muted">Searching your wins…</div>';
+    try{
+      var d=await (await fetch('/api/draws',{cache:'no-store'})).json();
+      var mine=[];
+      (d.draws||[]).forEach(function(dr){
+        (dr.winners||[]).forEach(function(win){
+          if(win.wallet===w) mine.push({id:dr.id, prize:dr.prize_title, at:dr.scheduled_at, status:win.status});
+        });
+      });
+      if(!mine.length){
+        out.innerHTML='<div class="diw-none">No wins found for <b>'+esc(shortW(w))+'</b> in the last 60 draws. Unclaimed keys always show here — if you won recently, double-check the address.</div>';
+        return;
+      }
+      var rank={assigned:0, claimed:1, expired:2};
+      mine.sort(function(a,b){ return (rank[a.status]-rank[b.status]) || (b.id-a.id); });
+      var unclaimed=mine.filter(function(m){return m.status==='assigned';}).length;
+      var head = unclaimed>0
+        ? '<div class="diw-head win">🔑 You have <b>'+unclaimed+'</b> unclaimed '+(unclaimed===1?'key':'keys')+' — claim before they expire!</div>'
+        : '<div class="diw-head">Your wins</div>';
+      out.innerHTML = head + '<div class="diw-list">'+mine.map(function(m){
+        var cls, badge, action='';
+        if(m.status==='assigned'){ cls='un'; badge='UNCLAIMED';
+          action='<a class="diw-claim" href="/claim.html?wallet='+encodeURIComponent(w)+'&draw_id='+m.id+'">Claim →</a>'; }
+        else if(m.status==='claimed'){ cls='cl'; badge='CLAIMED'; }
+        else { cls='ex'; badge='EXPIRED'; }
+        return '<div class="diw-item '+cls+'"><div class="diw-i-main">'+
+          '<div class="diw-i-prize">'+esc(m.prize||'Mystery key')+'</div>'+
+          '<div class="diw-i-sub">Draw #'+m.id+' · '+fmtT(m.at)+'</div></div>'+
+          '<span class="diw-badge '+cls+'">'+badge+'</span>'+action+'</div>';
+      }).join('')+'</div>';
+    }catch(e){
+      out.innerHTML='<div class="diw-none">Couldn’t load draws right now — try again in a moment.</div>';
+    }finally{ btn.disabled=false; }
+  }
+  btn.addEventListener('click',run);
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter') run(); });
+  try{ var q=new URLSearchParams(location.search).get('won'); if(q){ inp.value=q; run(); } }catch(e){}
+})();
+</script>
   <p class="sub">Every draw is locked in before it runs — the winner is picked by
      <a href="https://drand.love" target="_blank" rel="noopener" style="color:var(--gold)">public randomness</a>
      that nobody controls, not even us. When a draw completes, the result and its proof are published right here for anyone to check.</p>
