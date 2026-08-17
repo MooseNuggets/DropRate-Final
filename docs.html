@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DropRate — Docs</title>
+<title>DropRate — Verify</title>
+<meta name="description" content="Re-run any DropRate crate pull or raffle draw yourself. Fetch the drand randomness, recompute the result in your own browser, and prove it wasn't rigged.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -12,6 +13,8 @@
     --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445;
     --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
     --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --green:#3ad07a; --red:#f2607a;
+    --c-common:#9AA6C7; --c-rare:#43C9F0; --c-epic:#A48BF5; --c-legendary:#F6AC29;
     --font:"Poppins",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
     --display:"Chakra Petch",system-ui,sans-serif;
   }
@@ -20,17 +23,16 @@
       radial-gradient(1100px 600px at 50% -12%, #22284d 0%, transparent 60%),
       radial-gradient(800px 500px at 88% 12%, rgba(139,125,240,.12), transparent 55%),
       linear-gradient(180deg,#0E1330 0%, var(--navy-0) 70%);
-    background-attachment:fixed; color:var(--ink); font-family:var(--font); line-height:1.62;
+    background-attachment:fixed; color:var(--ink); font-family:var(--font); line-height:1.6;
     -webkit-font-smoothing:antialiased; min-height:100vh;}
   .site-nav{border-bottom:1px solid var(--line)}
-  .wrap-nav{max-width:880px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; gap:20px}
+  .wrap-nav{max-width:820px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; gap:20px}
   .site-nav .brand{display:flex; align-items:center; gap:11px; text-decoration:none; color:inherit}
   .site-nav .word{font-family:var(--display); font-weight:700; font-size:22px}
   .site-nav .word b{color:var(--gold)}
   .site-nav nav{display:flex; gap:22px; margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase}
   .site-nav nav a{color:var(--muted); text-decoration:none; transition:color .2s}
   .site-nav nav a:hover{color:var(--ink)}
-  .site-nav nav a.active{color:var(--gold-2)}
   .menu-btn{display:none; background:none; border:0; color:var(--ink); font-size:24px; line-height:1; cursor:pointer; padding:4px 6px; margin-left:auto}
   @media(max-width:700px){
     .menu-btn{display:block}
@@ -39,87 +41,401 @@
     .site-nav nav.open{display:flex}
     .site-nav nav a{padding:12px 18px; font-size:13px}
   }
-  .page{max-width:880px; margin:0 auto; padding:0 24px 90px}
-  .docs-hero{padding:40px 0 6px}
-  .docs-hero h1{font-family:var(--display); font-size:clamp(30px,5vw,44px); font-weight:700; margin:0 0 8px}
-  .docs-hero .sub{color:var(--muted); font-size:15px; max-width:600px}
-  .doc-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin:26px 0}
-  .doc-card{display:block; text-decoration:none; color:inherit; background:linear-gradient(180deg,var(--navy-2),var(--navy-1)); border:1px solid var(--line); border-radius:16px; padding:22px; transition:transform .12s,border-color .2s}
-  a.doc-card:hover{transform:translateY(-2px); border-color:var(--gold)}
-  .doc-kicker{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
-  .doc-card h3{font-family:var(--display); font-size:20px; font-weight:700; margin:8px 0 6px}
-  .doc-card p{color:var(--muted); font-size:13.5px; margin:0 0 14px; line-height:1.5}
-  .doc-go{font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-2)}
-  .doc-card.disabled{opacity:.6}
-  .doc-soon{display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line-2); border-radius:999px; padding:3px 10px}
-  article{padding-top:22px}
-  article h1{font-family:var(--display); font-size:clamp(30px,5.2vw,46px); line-height:1.05; font-weight:700; letter-spacing:-.01em; margin:14px 0 10px}
-  article h2{font-family:var(--display); font-size:26px; font-weight:700; margin:52px 0 14px; padding-top:16px; border-top:1px solid var(--line); letter-spacing:.01em}
-  article h3{font-family:var(--display); font-size:18.5px; font-weight:600; color:var(--gold-2); margin:30px 0 8px}
-  article p{margin:12px 0; color:#DDE1F2}
-  article strong{color:var(--ink); font-weight:600}
-  article em{color:var(--muted)}
-  article a{color:var(--gold-2); text-decoration:none; border-bottom:1px solid rgba(252,208,91,.35)}
-  article a:hover{border-bottom-color:var(--gold-2)}
-  article ul,article ol{margin:12px 0; padding-left:22px}
-  article li{margin:7px 0; color:#DDE1F2} article li::marker{color:var(--gold)}
-  hr{border:0; border-top:1px solid var(--line); margin:30px 0}
-  code{font-family:var(--mono); font-size:.86em; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:6px; padding:1.5px 6px; color:var(--gold-2); word-break:break-word}
-  pre{background:#070a18; border:1px solid var(--line-2); border-radius:12px; padding:14px 16px; overflow:auto}
-  pre code{background:none; border:0; padding:0; color:var(--ink)}
-  blockquote{margin:16px 0; padding:12px 18px; border-left:3px solid var(--gold); background:rgba(246,172,41,.06); border-radius:0 10px 10px 0; color:#E7EAF7}
-  blockquote p{margin:6px 0; color:#E7EAF7}
-  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14.5px}
-  th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
-  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--line-2); background:rgba(255,255,255,.02)}
-  tbody tr:hover{background:rgba(255,255,255,.02)}
-  td code{font-size:.8em}
-  footer.wp-foot{margin-top:46px; padding-top:18px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--muted); text-align:center}
-  @media(max-width:600px){ .page{padding:0 16px 64px} article h1{font-size:28px} article h2{font-size:22px} table{font-size:13px} th,td{padding:8px 9px} }
+  .page{max-width:820px; margin:0 auto; padding:34px 24px 90px}
+  .kicker{font-family:var(--mono); color:var(--spark); letter-spacing:.28em; font-size:11px; text-transform:uppercase}
+  h1{font-family:var(--display); font-size:clamp(28px,5vw,42px); font-weight:700; margin:10px 0 8px; letter-spacing:-.01em}
+  .lede{color:var(--muted); max-width:640px; font-size:15px}
+  .lede b{color:var(--ink)}
+  .modes{display:inline-flex; border:1px solid var(--line-2); border-radius:12px; overflow:hidden; margin:24px 0 0}
+  .modes button{background:transparent; border:0; color:var(--muted); font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase; padding:10px 18px; cursor:pointer; transition:.15s}
+  .modes button.on{background:linear-gradient(180deg,var(--gold-2),var(--gold)); color:#12152b; font-weight:700}
+  .form{display:flex; gap:10px; margin:14px 0 8px; flex-wrap:wrap}
+  .form input{flex:1; min-width:180px; background:#070a18; border:1px solid var(--line-2); color:var(--ink);
+    font-family:var(--mono); font-size:14px; padding:13px 15px; border-radius:12px; outline:none}
+  .form input:focus{border-color:var(--gold)}
+  .form button.go{font-family:var(--display); font-weight:700; font-size:14px; letter-spacing:.04em; text-transform:uppercase;
+    border:0; border-radius:12px; padding:0 22px; cursor:pointer; color:#12152b;
+    background:linear-gradient(180deg,var(--gold-2),var(--gold)); transition:transform .12s,filter .2s}
+  .form button.go:hover{transform:translateY(-1px); filter:brightness(1.05)}
+  .form button.go:disabled{opacity:.55; cursor:default; transform:none}
+  .hint{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.03em}
+  .hint a{color:var(--gold-2)}
+
+  .receipt{margin-top:26px; background:#0c1024; border:1px dashed var(--gold); border-radius:16px; padding:22px 22px 18px; display:none}
+  .receipt.show{display:block}
+  .verdict{display:flex; align-items:center; gap:12px; padding-bottom:16px; margin-bottom:6px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .vbadge{font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.06em; text-transform:uppercase; padding:8px 14px; border-radius:10px}
+  .vbadge.pass{background:rgba(58,208,122,.14); color:var(--green); border:1px solid rgba(58,208,122,.4)}
+  .vbadge.warn{background:rgba(246,172,41,.14); color:var(--gold-2); border:1px solid rgba(246,172,41,.4)}
+  .vbadge.fail{background:rgba(242,96,122,.14); color:var(--red); border:1px solid rgba(242,96,122,.4)}
+  .vsub{font-size:13px; color:var(--muted)}
+  .step{display:flex; gap:12px; padding:12px 2px; border-bottom:1px solid var(--line); font-size:13.5px}
+  .step:last-of-type{border-bottom:0}
+  .step .mk{flex:none; width:20px; font-family:var(--mono); font-weight:600}
+  .step .mk.ok{color:var(--green)} .step .mk.no{color:var(--red)} .step .mk.dot{color:var(--muted)} .step .mk.warn{color:var(--gold-2)}
+  .step .body{min-width:0; flex:1}
+  .step .t{color:var(--ink); font-weight:600}
+  .step .v{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:3px; word-break:break-all}
+  .step .v b{color:var(--gold-2)}
+  .odds{margin-top:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .orow{display:flex; align-items:center; gap:10px; padding:8px 12px; font-family:var(--mono); font-size:12px; border-top:1px solid var(--line)}
+  .orow:first-child{border-top:0}
+  .orow.hit{background:rgba(246,172,41,.08)}
+  .orow .rr{flex:0 0 92px; font-weight:700; text-transform:uppercase; letter-spacing:.04em}
+  .orow .rg{flex:1; color:var(--muted)}
+  .orow .mk{flex:none; color:var(--gold-2); font-weight:600}
+  .wlist{margin-top:8px; display:flex; flex-direction:column; gap:6px}
+  .wl{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:12px}
+  .wl .mk{flex:none; font-weight:600} .wl .mk.ok{color:var(--green)} .wl .mk.no{color:var(--red)}
+  .wl .w{color:var(--ink); word-break:break-all}
+  .err{margin-top:20px; color:var(--red); font-family:var(--mono); font-size:13px; display:none}
+  .err.show{display:block}
+  .foot-note{margin-top:22px; font-size:12.5px; color:var(--muted); line-height:1.65}
+  .foot-note code{font-family:var(--mono); background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:5px; padding:1px 5px; color:var(--gold-2)}
 </style>
 </head>
 <body>
   <header class="site-nav">
     <div class="wrap-nav">
-      <a class="brand" href="/"><svg width="30" height="34" viewBox="0 0 100 116" aria-hidden="true">
-        <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
-        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
-      </svg><span class="word">DROP<b>RATE</b></span></a>
+      <a class="brand" href="/">
+        <svg width="30" height="34" viewBox="0 0 100 116" aria-hidden="true">
+          <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+          <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+        </svg>
+        <span class="word">DROP<b>RATE</b></span>
+      </a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
       <nav id="nav-links">
-        <a href="/#how">How it works</a>
         <a href="/draws.html">Draws</a>
         <a href="/crates.html">Crates</a>
-        <a class="active" href="/docs.html">Docs</a>
-        <a href="/verify.html">Verify</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/docs.html">Docs</a>
+        <a class="active" href="/verify.html">Verify</a>
       </nav>
     </div>
   </header>
-<div class="page">
-  <section class="docs-hero">
-    <h1>Documentation</h1>
-    <p class="sub">Everything about how DropRate works — the mechanics, the money, and the fairness you can verify yourself.</p>
-  </section>
-  <div class="doc-grid">
-    <a class="doc-card" href="/whitepaper.html">
-      <div class="doc-kicker">01 · Paper</div>
-      <h3>Whitepaper</h3>
-      <p>The everything paper: the $DROP token, draws, crates, tokenomics, the burn &amp; liquidity flywheel, security, and how to verify every result yourself.</p>
-      <span class="doc-go">Read the paper &rarr;</span>
-    </a>
-    <div class="doc-card disabled">
-      <div class="doc-kicker">02 · Plan</div>
-      <h3>Roadmap</h3>
-      <p>Where DropRate is headed next — features, prizes, and milestones.</p>
-      <span class="doc-soon">Coming soon</span>
+
+  <div class="page">
+    <div class="kicker">Provably fair</div>
+    <h1>Verify it yourself</h1>
+    <p class="lede">Don't trust us — <b>re-run it.</b> Pick what you're checking, enter its ID, and your browser fetches the <b>drand</b> randomness straight from a public relay and recomputes the result locally. Both crate pulls and raffle draws are fixed by a future drand round committed <b>before</b> that randomness exists.</p>
+
+    <div class="modes" role="tablist">
+      <button id="mode-crate" class="on" data-mode="crate">Crate pull</button>
+      <button id="mode-draw" data-mode="draw">Raffle draw</button>
     </div>
+    <div class="form">
+      <input id="idin" inputmode="numeric" placeholder="Pull ID (e.g. 42)" autocomplete="off" spellcheck="false">
+      <button class="go" id="go">Verify</button>
+    </div>
+    <div class="hint" id="hint">Pull IDs are on your <a href="/crates.html">My Wins</a> receipts. Direct link: <code>verify.html?pull=42</code></div>
+
+    <div class="err" id="err"></div>
+
+    <div class="receipt" id="receipt">
+      <div class="verdict">
+        <span class="vbadge" id="vbadge">—</span>
+        <span class="vsub" id="vsub"></span>
+      </div>
+      <div id="steps"></div>
+    </div>
+
+    <p class="foot-note" id="foot"></p>
   </div>
-</div>
+
 <script>
-(function(){var mb=document.getElementById("menuBtn"),nv=document.getElementById("nav-links");if(!mb||!nv)return;
-mb.addEventListener("click",function(e){e.stopPropagation();var o=nv.classList.toggle("open");mb.setAttribute("aria-expanded",o);});
-nv.addEventListener("click",function(){nv.classList.remove("open");});
-document.addEventListener("click",function(){nv.classList.remove("open");});})();
+(function(){
+  var RARITIES=["common","rare","epic","legendary"];
+  var RC={common:"#9AA6C7",rare:"#43C9F0",epic:"#A48BF5",legendary:"#F6AC29"};
+  var CRATES={
+    common:{odds:[0.90,0.08,0.018,0.002],pityFloor:"rare"},
+    rare:{odds:[0.40,0.45,0.12,0.03],pityFloor:"epic"},
+    epic:{odds:[0.20,0.38,0.32,0.10],pityFloor:"epic"},
+    legendary:{odds:[0.00,0.10,0.50,0.40],pityFloor:"legendary"}
+  };
+  var PITY_PULLS=10;
+  var rank=function(r){return RARITIES.indexOf(r);};
+  var $=function(id){return document.getElementById(id);};
+  var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+  var shortW=function(w){w=String(w||"");return w.length>16?w.slice(0,6)+"…"+w.slice(-6):w;};
+
+  var CRATE_FOOT='How a pull works: rarity is <code>u = sha256("seed:nonce")</code> mapped through the crate’s published odds, where <code>seed</code> is the randomness of a future <b>drand</b> round committed the moment you paid. This page fetches that round from <code>api.drand.sh</code>, confirms it equals the recorded seed, and rolls again locally.';
+  var DRAW_FOOT='How a draw works: each winner is <code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code> walking the ticket-weighted pool, without replacement. This page rebuilds the pool from the public snapshot + free entries, fetches the committed <b>drand</b> round, and re-runs the selection. Note: expired-winner redraws can shift the set; this reproduces the original draw.';
+
+  // ---- mobile menu ----
+  (function(){var mb=$("menuBtn"),nv=$("nav-links");if(!mb||!nv)return;
+    mb.addEventListener("click",function(e){e.stopPropagation();nv.classList.toggle("open");});
+    nv.addEventListener("click",function(){nv.classList.remove("open");});
+    document.addEventListener("click",function(){nv.classList.remove("open");});})();
+
+  // ---- hex + crypto helpers ----
+  function hexToBytes(h){h=String(h||"");var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+  function bufToHex(buf){var b=new Uint8Array(buf),s="";for(var i=0;i<b.length;i++)s+=b[i].toString(16).padStart(2,"0");return s;}
+  var DRAND_CHAIN="52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+  async function drandRound(round){
+    var urls=[
+      "https://api.drand.sh/v2/beacons/quicknet/rounds/"+round,
+      "https://api.drand.sh/"+DRAND_CHAIN+"/public/"+round,
+      "https://drand.cloudflare.com/"+DRAND_CHAIN+"/public/"+round
+    ];
+    for(var i=0;i<urls.length;i++){
+      try{ var r=await fetch(urls[i]); if(!r.ok) continue; var j=await r.json(); if(j&&j.randomness) return String(j.randomness).toLowerCase(); }catch(e){}
+    }
+    return null; // all relays unreachable / round unavailable
+  }
+
+  // ---- crate math (matches lib/gacha.js) ----
+  async function uniform(seed,nonce){
+    var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(seed+":"+nonce));
+    var dv=new DataView(buf);
+    var hi=dv.getUint32(0)&0xFFFFF;   // big-endian low 20 bits
+    var lo=dv.getUint32(4);
+    return (hi*Math.pow(2,32)+lo)/Math.pow(2,52);
+  }
+  function mapRarity(odds,u){var a=0;for(var i=0;i<odds.length;i++){a+=odds[i];if(u<a)return RARITIES[i];}return RARITIES[RARITIES.length-1];}
+  function applyPity(nat,misses,floor){if(misses>=PITY_PULLS-1&&rank(nat)<rank(floor))return{rarity:floor,forced:true};return{rarity:nat,forced:false};}
+
+  // ---- draw math (matches lib/draw.js) ----
+  function buildPool(snap,free){
+    var holders=(snap||[]).map(function(e){return{wallet:e.wallet,tickets:Number(e.tickets)};})
+      .sort(function(a,b){return a.wallet<b.wallet?-1:1;});
+    var fr=(free||[]).slice().sort(function(a,b){return a.id-b.id;})
+      .map(function(f){return{wallet:"free:"+f.id+":"+f.wallet,tickets:1};});
+    return holders.concat(fr);
+  }
+  function payable(w){return String(w).indexOf("free:")===0?String(w).split(":")[2]:w;}
+  async function selectWinners(seedHex,drawId,pool,nWinners){
+    var entries=pool.filter(function(e){return e.tickets>0;}).map(function(e){return{wallet:e.wallet,tickets:BigInt(e.tickets)};});
+    var key=await crypto.subtle.importKey("raw",hexToBytes(seedHex),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+    var winners=[],idx=0;
+    while(winners.length<nWinners&&entries.length>0){
+      var total=0n; for(var k=0;k<entries.length;k++) total+=entries[k].tickets;
+      var sig=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(drawId+":"+idx));
+      var r=BigInt("0x"+bufToHex(sig))%total;
+      var acc=0n,pick=-1;
+      for(var i=0;i<entries.length;i++){acc+=entries[i].tickets;if(r<acc){pick=i;break;}}
+      winners.push({wallet:entries[pick].wallet,index:idx});
+      entries.splice(pick,1);
+      idx++;
+    }
+    return winners;
+  }
+
+  // ---- render helpers ----
+  function stepHTML(mark,cls,title,detail){
+    return '<div class="step"><div class="mk '+cls+'">'+mark+'</div><div class="body"><div class="t">'+title+'</div>'+(detail?('<div class="v">'+detail+'</div>'):'')+'</div></div>';
+  }
+  function oddsTable(cfg,natural,u){
+    var a=0,rows="";
+    for(var i=0;i<cfg.odds.length;i++){
+      var lo=a,hi=a+cfg.odds[i]; a=hi;
+      var name=RARITIES[i],isHit=(name===natural);
+      rows+='<div class="orow'+(isHit?" hit":"")+'"><span class="rr" style="color:'+RC[name]+'">'+name+'</span>'+
+        '<span class="rg">'+lo.toFixed(4)+' – '+hi.toFixed(4)+'  ·  '+(cfg.odds[i]*100).toFixed(2)+'%</span>'+
+        '<span class="mk">'+(isHit?"◄ u="+u.toFixed(4):"")+'</span></div>';
+    }
+    return '<div class="odds">'+rows+'</div>';
+  }
+  function setVerdict(kind,badge,sub){
+    var vb=$("vbadge"); vb.className="vbadge "+kind; vb.textContent=badge; $("vsub").textContent=sub;
+  }
+  function fail(msg){$("err").textContent="⚠ "+msg;$("err").className="err show";}
+
+  // ---- CRATE flow ----
+  async function runCrate(pullId){
+    var r=await fetch("/api/crate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"verify",pullId:Number(pullId)})});
+    var d=await r.json();
+    if(!r.ok||d.error) throw new Error(d.error||"Pull not found.");
+    if(!d.seed) throw new Error("That pull hasn't resolved yet — no drand seed to verify.");
+    var crate=d.crate,round=Number(d.drand_round),nonce=String(d.nonce),seed=String(d.seed).toLowerCase(),claimed=d.rarity,misses=Number(d.misses_since_floor||0);
+    var cfg=CRATES[crate]; if(!cfg) throw new Error("Unknown crate tier: "+crate);
+    var drandSeed=await drandRound(round);
+    var drandUnreach=(drandSeed===null), drandOk=(!drandUnreach && drandSeed===seed);
+    var u=await uniform(seed,nonce);
+    var natural=mapRarity(cfg.odds,u);
+    var pit=applyPity(natural,misses,cfg.pityFloor);
+    var computed=pit.rarity,match=computed===claimed;
+
+    if(match&&drandOk) setVerdict("pass","Provably fair ✓","Seed matches drand and the rarity reproduces exactly.");
+    else if(match&&drandUnreach) setVerdict("warn","Math verified ✓","Rarity reproduces from the seed — couldn't reach drand to cross-check the seed itself.");
+    else if(match&&!drandOk) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+    else setVerdict("fail","Mismatch ✗","Recomputed rarity does not match the recorded result.");
+
+    var s="";
+    s+=stepHTML("•","dot","Pull #"+esc(pullId)+" — <b style=\"color:"+(RC[crate]||"#fff")+"\">"+esc(crate)+"</b> crate, recorded rarity <b style=\"color:"+(RC[claimed]||"#fff")+"\">"+esc(claimed)+"</b>","");
+    s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandUnreach) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)")+" · recorded: "+esc(seed));
+    s+=stepHTML("✓","ok","u = sha256(seed:nonce) → <b>"+u.toFixed(6)+"</b>","nonce: <b>"+esc(nonce)+"</b>");
+    s+='<div class="step"><div class="mk dot">•</div><div class="body"><div class="t">Rolled against '+esc(crate)+' odds → <b style="color:'+(RC[natural]||"#fff")+'">'+esc(natural)+'</b></div>'+oddsTable(cfg,natural,u)+'</div></div>';
+    if(pit.forced) s+=stepHTML("•","dot","Pity floor applied — "+misses+" misses ≥ 9, bumped to <b style=\"color:"+(RC[cfg.pityFloor])+"\">"+esc(cfg.pityFloor)+"</b>","");
+    else s+=stepHTML("•","dot","No pity override ("+misses+" misses, floor "+esc(cfg.pityFloor)+")","");
+    s+=stepHTML(match?"✓":"✗",match?"ok":"no","Recomputed <b style=\"color:"+(RC[computed]||"#fff")+"\">"+esc(computed)+"</b> "+(match?"= recorded ":"≠ recorded ")+esc(claimed),"");
+    $("steps").innerHTML=s;
+  }
+
+  // ---- DRAW flow ----
+  async function runDraw(drawId){
+    drawId=Number(drawId);
+    var draw=null;
+    try{ var one=await (await fetch("/api/draws?id="+drawId)).json(); if(one&&one.draw) draw=one.draw; }catch(e){}
+    if(!draw){ var dj=await (await fetch("/api/draws")).json(); draw=(dj.draws||[]).find(function(d){return Number(d.id)===drawId;}); }
+    if(!draw) throw new Error("Draw #"+drawId+" not found.");
+    if(!draw.seed||!draw.drand_round) throw new Error("Draw #"+drawId+" hasn't been drawn yet.");
+    var seed=String(draw.seed).toLowerCase(),round=Number(draw.drand_round),nWin=Number(draw.n_winners||1),snapId=Number(draw.snapshot_id);
+    var recorded=(draw.winners||[]).map(function(w){return w.wallet;});
+
+    // EXACT PATH: draws publish pool_json — the precise pool they drew from, with
+    // loyalty-bonus entries already baked in. Re-run selection on it directly; no
+    // reconstruction needed, so bonuses (and any server-side filter) reproduce exactly.
+    if(draw.pool_json){
+      var exactPool=null;
+      try{ var pj=JSON.parse(draw.pool_json); if(pj&&pj.length) exactPool=pj.map(function(e){return {wallet:e.w,tickets:Number(e.t)};}); }catch(e){}
+      if(exactPool){
+        var xTotal=exactPool.reduce(function(a,e){return a+Number(e.tickets);},0);
+        var xDrand=await drandRound(round);
+        var xUnreach=(xDrand===null), xOk=(!xUnreach && xDrand===seed);
+        var xWantN=Math.min(exactPool.length, Math.max(nWin, recorded.length)+40);
+        var xComputed=await selectWinners(seed,drawId,exactPool,xWantN);
+        var xIdx={}; xComputed.forEach(function(w){var pw=payable(w.wallet); if(xIdx[pw]===undefined) xIdx[pw]=w.index;});
+        var xRedraw=recorded.some(function(w){return xIdx[w]!==undefined && xIdx[w]>=nWin;});
+        var xMatch=recorded.length>0 && recorded.every(function(w){return xIdx[w]!==undefined;});
+        if(xMatch&&xOk) setVerdict("pass","Provably fair ✓",xRedraw?"Winners reproduce from the draw's published pool (includes a redraw replacement) and the seed matches drand.":"Seed matches drand and the winners reproduce exactly from the draw's published pool.");
+        else if(xMatch&&xUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the published pool — couldn't reach drand to cross-check the seed.");
+        else if(!xOk&&!xUnreach) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+        else setVerdict("fail","Winner mismatch ✗","A recorded winner isn't in the deterministic sequence from the published pool.");
+        var xwl='<div class="wlist">'+recorded.map(function(w){
+          var ix=xIdx[w], ok=(ix!==undefined);
+          var tag=ok?(" (selection #"+ix+(ix>=nWin?" · redraw":"")+")"):"";
+          return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'<span style="color:var(--muted)">'+esc(tag)+'</span></span></div>';
+        }).join("")+'</div>';
+        var xHold=(draw.pool_holders!=null)?draw.pool_holders:"?";
+        var xFree=(draw.pool_free!=null)?draw.pool_free:exactPool.filter(function(e){return String(e.wallet).indexOf("free:")===0;}).length;
+        var xs="";
+        xs+=stepHTML("•","dot","Draw #"+esc(drawId)+(draw.prize_title?(" — <b>"+esc(draw.prize_title)+"</b>"):"")+" · "+nWin+" winner"+(nWin===1?"":"s"),"");
+        xs+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+        if(xOk) xs+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+        else if(xUnreach) xs+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+        else xs+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(xDrand||"(none)"));
+        xs+=stepHTML("✓","ok","Exact pool published by the draw","loyalty-bonus entries included · "+xHold+" eligible holders + "+xFree+" free = <b>"+xTotal+"</b> tickets");
+        xs+='<div class="step"><div class="mk '+(xMatch?"ok":"no")+'">'+(xMatch?"✓":"✗")+'</div><div class="body"><div class="t">Re-ran HMAC selection on the published pool → recorded winners '+(xMatch?"reproduce":"do NOT reproduce")+'</div>'+xwl+'</div></div>';
+        $("steps").innerHTML=xs;
+        return;
+      }
+    }
+
+    // FALLBACK (older draws with no published pool): rebuild the ELIGIBLE holder pool
+    // from public snapshots — wallets present in the last K=4 snapshots
+    // ending at this draw's snapshot (the diamond-hands streak). Tickets come from the
+    // draw's snapshot. This mirrors filterEligible() in the backend exactly.
+    var K=4;
+    var sj=await (await fetch("/api/snapshots?limit=2000")).json();
+    var snaps=(sj.snapshots||[]); // window_start DESC
+    var pos=-1; for(var pi=0;pi<snaps.length;pi++){ if(Number(snaps[pi].id)===snapId){pos=pi;break;} }
+    if(pos<0) throw new Error("Draw #"+drawId+"'s snapshot (#"+snapId+") is older than the public snapshot window — can't rebuild its eligible pool here.");
+    var kIds=snaps.slice(pos,pos+K).map(function(s){return Number(s.id);});
+    var perSnap=[];
+    for(var ki=0;ki<kIds.length;ki++){
+      var seR=await (await fetch("/api/snapshot-entries?snapshot_id="+kIds[ki])).json();
+      perSnap.push({id:kIds[ki],entries:(seR.entries||[])});
+    }
+    var holderEntries=[];
+    if(kIds.length>=K){
+      var counts={};
+      perSnap.forEach(function(ps){ ps.entries.forEach(function(e){ counts[e.wallet]=(counts[e.wallet]||0)+1; }); });
+      var drawSnap=perSnap.filter(function(ps){return ps.id===snapId;})[0];
+      holderEntries=((drawSnap&&drawSnap.entries)||[]).filter(function(e){return counts[e.wallet]===K;});
+    } // else: warm-up (fewer than K snapshots) -> no eligible holders, only free entries
+
+    var fe=await (await fetch("/api/free-entries?draw_id="+drawId)).json();
+    var pool=buildPool(holderEntries,fe.free||[]);
+    var totalTickets=pool.reduce(function(s,e){return s+Number(e.tickets);},0);
+
+    var drandSeed=await drandRound(round);
+    var drandUnreach=(drandSeed===null), drandOk=(!drandUnreach && drandSeed===seed);
+
+    // Walk the deterministic sequence deeper than n_winners so redraws (expired
+    // winners replaced at later indices, same seed, prior winners removed) still
+    // resolve — a recorded winner must appear SOMEWHERE in the sequence.
+    var wantN=Math.min(pool.length, Math.max(nWin, recorded.length)+40);
+    var computed=await selectWinners(seed,drawId,pool,wantN);
+    var idxOf={}; computed.forEach(function(w){var pw=payable(w.wallet); if(idxOf[pw]===undefined) idxOf[pw]=w.index;});
+    var anyRedraw=recorded.some(function(w){return idxOf[w]!==undefined && idxOf[w]>=nWin;});
+    var match=recorded.length>0 && recorded.every(function(w){return idxOf[w]!==undefined;});
+
+    // Cross-check the rebuilt pool against the counts the backend actually recorded.
+    // If they differ, the backend applied an eligibility filter (e.g. sell-detection)
+    // that isn't visible in public snapshots, so the selection can't be independently
+    // re-run for this draw — but drand can still be confirmed. Prevents a single
+    // server-filtered draw from showing a scary red WINNER MISMATCH.
+    var holderTix=holderEntries.reduce(function(a,e){return a+Number(e.tickets);},0);
+    var recBH=(draw.pool_holders!=null)?Number(draw.pool_holders):null;
+    var recBT=(draw.pool_tickets!=null)?Number(draw.pool_tickets):null;
+    var poolDiffers=(recBH!==null&&recBH!==holderEntries.length)||(recBT!==null&&recBT!==holderTix);
+
+    if(match&&drandOk) setVerdict("pass","Provably fair ✓",anyRedraw?"Winners reproduce from the public pool (includes a redraw replacement) and the seed matches drand.":"Seed matches drand and the winners reproduce exactly from the public pool.");
+    else if(match&&drandUnreach) setVerdict("warn","Winners verified ✓","Winners reproduce from the recorded seed — couldn't reach drand to cross-check it.");
+    else if(!drandOk&&!drandUnreach) setVerdict("fail","Seed mismatch ✗","The recorded seed does not match drand for this round.");
+    else if(!match&&poolDiffers) setVerdict("warn","Pool filtered · drand ✓","A wallet was removed by an eligibility rule (e.g. a detected sell) that isn't in the public snapshots, so this draw's selection can't be re-run independently here — but drand matches the recorded seed.");
+    else setVerdict("fail","Winner mismatch ✗","A recorded winner isn't in the deterministic sequence from public data.");
+
+    var wl='<div class="wlist">'+recorded.map(function(w){
+      var ix=idxOf[w], ok=(ix!==undefined);
+      var tag=ok?(" (selection #"+ix+(ix>=nWin?" · redraw":"")+")"):"";
+      return '<div class="wl"><span class="mk '+(ok?"ok":"no")+'">'+(ok?"✓":"✗")+'</span><span class="w">'+esc(w)+'<span style="color:var(--muted)">'+esc(tag)+'</span></span></div>';
+    }).join("")+'</div>';
+
+    var s="";
+    s+=stepHTML("•","dot","Draw #"+esc(drawId)+(draw.prize_title?(" — <b>"+esc(draw.prize_title)+"</b>"):"")+" · "+nWin+" winner"+(nWin===1?"":"s"),"");
+    s+=stepHTML("•","dot","Committed drand round","#<b>"+round+"</b> (quicknet)");
+    if(drandOk) s+=stepHTML("✓","ok","drand randomness fetched independently — matches recorded seed","<b>"+esc(seed)+"</b>");
+    else if(drandUnreach) s+=stepHTML("!","dot","Couldn't reach drand to cross-check (using recorded seed)","recorded seed: <b>"+esc(seed)+"</b>");
+    else s+=stepHTML("✗","no","drand randomness does NOT match recorded seed","drand: "+esc(drandSeed||"(none)"));
+    s+=stepHTML("•","dot","Eligible ticket pool rebuilt from public data","snapshot #"+esc(snapId)+" · streak across "+kIds.length+" snapshots · "+holderEntries.length+" eligible holders + "+((fe.free||[]).length)+" free = <b>"+totalTickets+"</b> tickets");
+    if(poolDiffers) s+=stepHTML("!","warn","Backend recorded a different pool than public snapshots show","recorded <b>"+recBH+"</b> holders / "+recBT+" tickets vs rebuilt "+holderEntries.length+" / "+holderTix+" — the difference was filtered by an eligibility rule (e.g. a detected sell) not present in public data");
+    var hmk=match?"ok":(poolDiffers?"warn":"no"), hsym=match?"✓":(poolDiffers?"!":"✗");
+    var hmsg=match?"reproduce":(poolDiffers?"can't be independently re-run (pool filtered server-side)":"do NOT fully reproduce");
+    s+='<div class="step"><div class="mk '+hmk+'">'+hsym+'</div><div class="body"><div class="t">Re-ran HMAC selection → recorded winners '+hmsg+'</div>'+wl+'</div></div>';
+    $("steps").innerHTML=s;
+  }
+
+  // ---- driver ----
+  var MODE="crate";
+  function setMode(m){
+    MODE=m;
+    $("mode-crate").className=(m==="crate")?"on":"";
+    $("mode-draw").className=(m==="draw")?"on":"";
+    $("idin").placeholder=(m==="crate")?"Pull ID (e.g. 42)":"Draw ID (e.g. 7)";
+    $("hint").innerHTML=(m==="crate")
+      ? 'Pull IDs are on your <a href="/crates.html">My Wins</a> receipts. Direct link: <code>verify.html?pull=42</code>'
+      : 'Draw IDs are on the <a href="/draws.html">Draws</a> page. Direct link: <code>verify.html?draw=7</code>';
+    $("foot").innerHTML=(m==="crate")?CRATE_FOOT:DRAW_FOOT;
+    $("receipt").className="receipt"; $("err").className="err";
+  }
+  async function run(){
+    var v=$("idin").value.trim(); if(!v) return;
+    $("err").className="err"; $("receipt").className="receipt";
+    $("go").disabled=true; $("go").textContent="Verifying…";
+    try{
+      if(MODE==="crate") await runCrate(v); else await runDraw(v);
+      $("receipt").className="receipt show";
+    }catch(e){ fail(e.message||String(e)); }
+    finally{ $("go").disabled=false; $("go").textContent="Verify"; }
+  }
+
+  $("mode-crate").addEventListener("click",function(){setMode("crate");});
+  $("mode-draw").addEventListener("click",function(){setMode("draw");});
+  $("go").addEventListener("click",run);
+  $("idin").addEventListener("keydown",function(e){if(e.key==="Enter")run();});
+
+  // deep links: ?pull=42  ?id=42 (crate)  ·  ?draw=7 (raffle)
+  setMode("crate");
+  var qs=new URLSearchParams(location.search);
+  var p=qs.get("pull")||qs.get("id"), dr=qs.get("draw");
+  if(dr){ setMode("draw"); $("idin").value=dr; run(); }
+  else if(p){ setMode("crate"); $("idin").value=p; run(); }
+})();
 </script>
 </body>
 </html>
