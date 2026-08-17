@@ -596,8 +596,10 @@ async function handleGate(a){
   if(!last||!last.pullId) return;
   clearInterval(claimTimer);
   if(a==='keep'){
+    $('status').innerHTML='sign to unseal your key…';
+    let rp; try{ rp=await signedReveal(last.pullId); }catch(e){ toast('Signature cancelled.'); return; }
     $('status').innerHTML='unsealing your key…';
-    const r=await api({action:'reveal',pullId:last.pullId,owner:OWNER});
+    const r=await api(rp);
     if(r.error){ toast(r.error); return; }
     const g=$('gate'); if(g) g.outerHTML=`<div class="revealed">STEAM KEY&nbsp; ${r.code}</div>`;
     const t=$('timer'); if(t) t.remove();
@@ -636,6 +638,13 @@ async function signMsg(msg){
   const bytes=sig instanceof Uint8Array?sig:new Uint8Array(sig);
   let s=''; for(const b of bytes) s+=String.fromCharCode(b);
   return btoa(s);
+}
+// Reveal now requires a wallet signature (a revealed code has resale value).
+async function signedReveal(pullId){
+  const ts=Math.floor(Date.now()/1000);
+  const msg=`DROPRATE reveal wallet:${OWNER} pull:${pullId} ts:${ts}`;
+  const signature=await signMsg(msg);
+  return { action:'reveal', pullId, owner:OWNER, message:msg, signature };
 }
 function closeWins(){ const o=document.getElementById('winsov'); if(o) o.remove(); }
 function winsShell(inner){
@@ -715,7 +724,8 @@ async function crateApi(body){
 async function revealFromWins(i){
   const it=WINS_CACHE[i]; if(!it||!OWNER) return;
   if(!confirm('Reveal the key for '+(it.game||'this pull')+'?\n\nThis shows you the code and permanently removes it from the marketplace — a revealed key can\'t be resold.')) return;
-  try{ const j=await crateApi({action:'reveal',pullId:it.id,owner:OWNER});
+  let rp; try{ rp=await signedReveal(it.id); }catch(e){ toast('Signature cancelled.'); return; }
+  try{ const j=await crateApi(rp);
     it.code=j.code; it.state='revealed'; it.listed=false; it.list_price_cents=null;
     renderWins(WINS_CACHE); toast('🔑 Key revealed — it\'s yours.');
   }catch(e){ toast(e.message); }
