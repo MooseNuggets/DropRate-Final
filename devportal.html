@@ -59,6 +59,15 @@ background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b;trans
 .prodrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line);flex-wrap:wrap}
 .prodrow:first-child{border-top:0}
 .mini{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted)}
+.imgdrop{position:relative;border:1.5px dashed var(--line2);border-radius:12px;background:var(--navy);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;transition:.15s}
+.imgdrop:hover{border-color:var(--gold-2)}
+.imgdrop.drag{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 9%,var(--navy))}
+.imgdrop .imgprev{width:100%;height:100%;object-fit:cover;display:none}
+.imgdrop.has .imgprev{display:block}
+.imgdrop.has .imgdrop-cta{display:none}
+.imgdrop-cta{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:14px;line-height:1.5;pointer-events:none}
+.imgdrop.avatar{width:104px;height:104px;border-radius:50%;flex:0 0 auto}
+.imgdrop.cover{width:100%;height:160px}
 .empty{color:var(--muted);text-align:center;padding:50px 0;font-family:'JetBrains Mono',monospace;font-size:.88rem}
 .res{font-family:'JetBrains Mono',monospace;font-size:.78rem;margin-top:10px}
 #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#0c1024;border:1px solid var(--line2);
@@ -182,6 +191,43 @@ function renderStatus(title,pill,msg,reapply){
     ${reapply?'<button class="btn" id="reapply">Update &amp; re-apply</button>':''}</div>`;
   if(reapply) $('reapply').onclick=()=>renderApply();
 }
+// Resize an image File to a JPEG data: URL, bounded to maxDim on the long edge.
+function resizeImage(file,maxDim,quality){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      let w=img.naturalWidth,h=img.naturalHeight;
+      if(w>maxDim||h>maxDim){ const s=maxDim/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      try{ resolve(c.toDataURL('image/jpeg',quality)); }catch(e){ reject(e); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    img.src=url;
+  });
+}
+// Wires a drag/drop + click-to-browse + paste-a-URL image field. IDs are
+// <prefix>-zone / -prev / -cta / -file / -url. Returns { get, set }.
+function imageField(prefix,opts={}){
+  const zone=$(prefix+'-zone'), prev=$(prefix+'-prev'), file=$(prefix+'-file'), urlInput=$(prefix+'-url');
+  const maxDim=opts.maxDim||1000, quality=opts.quality||0.82;
+  let value=opts.initial||'';
+  function render(){ if(value){ prev.src=value; zone.classList.add('has'); } else { prev.removeAttribute('src'); zone.classList.remove('has'); } }
+  async function handle(f){
+    if(!f||!/^image\//.test(f.type)){ toast('Drop an image file.'); return; }
+    try{ value=await resizeImage(f,maxDim,quality); if(urlInput) urlInput.value=''; render(); }
+    catch{ toast('Could not read that image.'); }
+  }
+  zone.addEventListener('click',()=>file.click());
+  file.addEventListener('change',e=>{ if(e.target.files&&e.target.files[0]) handle(e.target.files[0]); });
+  ['dragenter','dragover'].forEach(ev=>zone.addEventListener(ev,e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave','dragend'].forEach(ev=>zone.addEventListener(ev,e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop',e=>{ e.preventDefault(); zone.classList.remove('drag'); const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handle(f); });
+  if(urlInput) urlInput.addEventListener('input',()=>{ value=urlInput.value.trim(); render(); });
+  render();
+  return { get:()=>value, set:v=>{ value=v||''; render(); } };
+}
 function renderDashboard(products){
   const rows=products.length?products.map(p=>`
     <div class="prodrow" data-pid="${p.id}">
@@ -204,12 +250,22 @@ function renderDashboard(products){
     </div>
     <div class="panel">
       <h3>Your profile</h3>
-      <p class="hint">How you appear to buyers and to the DropRate team. Keep it current.</p>
-      <div class="row"><div><label class="f">Studio / publisher name</label><input id="pf-studio" value="${esc(s.studio||'')}" placeholder="Your studio"></div>
-      <div><label class="f">Contact email</label><input id="pf-contact" value="${esc(s.contact||'')}" placeholder="you@studio.com"></div></div>
-      <div class="row"><div><label class="f">Website</label><input id="pf-web" value="${esc(s.website||'')}" placeholder="https://"></div>
-      <div><label class="f">Socials — X / Discord / Telegram</label><input id="pf-socials" value="${esc(s.socials||'')}" placeholder="@yourstudio · discord.gg/…"></div></div>
+      <p class="hint">Your public store page — what buyers see when they click your studio. Keep it current.</p>
+      <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+        <div style="text-align:center;flex:0 0 auto">
+          <div class="imgdrop avatar" id="pfav-zone"><img class="imgprev" id="pfav-prev" alt=""><div class="imgdrop-cta" id="pfav-cta">Drop /<br>click</div><input type="file" accept="image/*" hidden id="pfav-file"></div>
+          <div class="mini" style="margin-top:7px">Profile photo</div>
+        </div>
+        <div style="flex:1;min-width:250px">
+          <label class="f">Studio / publisher name</label><input id="pf-studio" value="${esc(s.studio||'')}" placeholder="Your studio">
+          <label class="f">Profile photo URL <span style="opacity:.6">· optional, or drop it left</span></label><input id="pfav-url" placeholder="https://…/avatar.jpg">
+        </div>
+      </div>
+      <div class="row" style="margin-top:4px"><div><label class="f">Contact email</label><input id="pf-contact" value="${esc(s.contact||'')}" placeholder="you@studio.com"></div>
+      <div><label class="f">Website</label><input id="pf-web" value="${esc(s.website||'')}" placeholder="https://"></div></div>
+      <label class="f">Socials — X / Discord / Telegram</label><input id="pf-socials" value="${esc(s.socials||'')}" placeholder="@yourstudio · discord.gg/…">
       <label class="f">Steam App IDs (comma-separated)</label><input id="pf-appids" value="${esc(s.steam_appids||'')}" placeholder="e.g. 413150, 892970">
+      <label class="f">Bio / description</label><textarea id="pf-bio" placeholder="Tell buyers about your studio and your games…" style="min-height:92px">${esc(s.bio||'')}</textarea>
       <button class="btn" id="pf-save" style="margin-top:18px">Save profile</button>
       <div class="res" id="pf-res"></div>
     </div>
@@ -219,14 +275,19 @@ function renderDashboard(products){
       <div><label class="f">Price (USD)</label><input id="np-price" placeholder="19.99" inputmode="decimal"></div></div>
       <div class="row"><div><label class="f">Region</label><input id="np-region" placeholder="GLOBAL" value="GLOBAL"></div>
       <div><label class="f">Steam App ID (optional)</label><input id="np-appid" placeholder="413150"></div></div>
-      <label class="f">Cover image URL <span style="color:var(--red)">· required</span></label><input id="np-image" placeholder="https://…/cover.jpg">
+      <label class="f">Cover image</label>
+      <div class="imgdrop cover" id="npimg-zone"><img class="imgprev" id="npimg-prev" alt=""><div class="imgdrop-cta" id="npimg-cta">Drag &amp; drop a cover image, or click to browse</div><input type="file" accept="image/*" hidden id="npimg-file"></div>
+      <input id="npimg-url" placeholder="…or paste an image URL" style="margin-top:8px">
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
     </div>`;
+  const pfAvatar=imageField('pfav',{maxDim:512,quality:.85,initial:s.avatar||''});
+  const npCover=imageField('npimg',{maxDim:1000,quality:.82});
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
     const r=await apiSigned('profile-set',{ studio:$('pf-studio').value.trim(), contact:$('pf-contact').value.trim(),
-      website:$('pf-web').value.trim(), socials:$('pf-socials').value.trim(), steam_appids:$('pf-appids').value.trim() });
+      website:$('pf-web').value.trim(), socials:$('pf-socials').value.trim(), steam_appids:$('pf-appids').value.trim(),
+      avatar:pfAvatar.get(), bio:$('pf-bio').value.trim() });
     $('pf-save').disabled=false;
     if(r.error){ $('pf-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     if(r.seller) SELLER={...SELLER,...r.seller};
@@ -234,11 +295,12 @@ function renderDashboard(products){
   };
   $('np-submit').onclick=async()=>{
     const dollars=parseFloat(String($('np-price').value).replace(/[^0-9.]/g,''));
+    const cover=npCover.get();
     if(!$('np-title').value.trim()){ $('np-res').innerHTML='<span style="color:var(--red)">Title required.</span>'; return; }
     if(!Number.isFinite(dollars)||dollars<=0){ $('np-res').innerHTML='<span style="color:var(--red)">Enter a valid price.</span>'; return; }
-    if(!$('np-image').value.trim()){ $('np-res').innerHTML='<span style="color:var(--red)">Cover image URL is required.</span>'; return; }
+    if(!cover){ $('np-res').innerHTML='<span style="color:var(--red)">Add a cover image.</span>'; return; }
     const r=await apiSigned('product-create',{ title:$('np-title').value.trim(), price_cents:Math.round(dollars*100),
-      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:$('np-image').value.trim() });
+      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:cover });
     if(r.error){ $('np-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     toast('Product created.'); loadSell();
   };
