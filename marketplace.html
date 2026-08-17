@@ -77,6 +77,30 @@
   .reveal-card .k{font-family:var(--mono);font-size:16px;color:var(--gold-2);background:#070a18;border:1px dashed var(--line-2);border-radius:10px;padding:14px;margin:14px 0;word-break:break-all;cursor:pointer}
   .reveal-card .note2{font-size:12px;color:var(--muted)}
   .hide{display:none!important}
+  .card .cover{cursor:pointer}
+  .card .title{cursor:pointer}
+  .gv{display:grid;grid-template-columns:1.6fr 1fr;gap:22px}
+  @media(max-width:760px){.gv{grid-template-columns:1fr}}
+  .gv-main{aspect-ratio:16/9;background:#05070f;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .gv-main img{width:100%;height:100%;object-fit:contain}
+  .gv-main iframe,.gv-main video{width:100%;height:100%;border:0;display:block}
+  .gv-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .gv-thumb{width:92px;height:54px;border-radius:7px;overflow:hidden;border:1px solid var(--line);cursor:pointer;position:relative;background:#0a0e1e}
+  .gv-thumb.on{border-color:var(--gold)}
+  .gv-thumb img{width:100%;height:100%;object-fit:cover}
+  .gv-thumb .vbadge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.42);color:#fff;font-size:15px}
+  .gv-side .price-usd{font-family:var(--display);font-weight:700;font-size:26px;color:var(--gold-2)}
+  .gv-side .price-drop{color:var(--muted);font-size:13px;margin:2px 0 14px}
+  .gv-dev{display:flex;align-items:center;gap:11px;cursor:pointer;padding:11px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:14px;background:var(--navy-1)}
+  .gv-dev:hover{border-color:var(--gold)}
+  .gv-av{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--navy-2);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--display);color:var(--muted);font-size:15px}
+  .gv-desc{white-space:pre-wrap;color:var(--ink);font-size:14px;line-height:1.72;margin-top:18px}
+  .gv-desc h4{font-family:var(--display);font-size:15px;color:var(--gold-2);margin-bottom:8px;letter-spacing:.02em}
+  .devhero{display:flex;gap:16px;align-items:center;margin-bottom:12px}
+  .devhero .gv-av{width:78px;height:78px;font-size:26px}
+  .devlink-row{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin:2px 0 4px}
+  .devlink-row a{color:var(--spark);text-decoration:none}
+  .devlink-row a:hover{color:var(--gold-2)}
   @media(max-width:820px){
     .navright{display:none;position:absolute;top:64px;left:0;right:0;background:#161b31;border-bottom:1px solid #262d52;flex-direction:column;align-items:flex-start;gap:14px;padding:16px 24px;z-index:30}
     .navright.open{display:flex}
@@ -262,15 +286,18 @@ function renderDirect(d){
   grid.innerHTML=L.map(it=>{
     const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
     const drop=it.drop_est!=null?('≈ '+Number(it.drop_est).toLocaleString('en-US')+' $DROP'):'';
-    return '<div class="card" style="--rc:var(--gold)"><div class="cover">'+cover+'</div><div class="body">'+
+    return '<div class="card" style="--rc:var(--gold)"><div class="cover" data-open="'+it.id+'">'+cover+'</div><div class="body">'+
       '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+(it.edition?(' · '+esc(it.edition)):'')+(it.trusted?' · ★':'')+'</div>'+
-      '<div class="title">'+esc(it.title)+'</div>'+
+      '<div class="title" data-open="'+it.id+'">'+esc(it.title)+'</div>'+
       '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+drop+' · '+it.available+' in stock</div></div>'+
       '<button class="buy" data-did="'+it.id+'">Buy with $DROP</button></div></div>';
   }).join('');
 }
 async function loadDirect(){ const d=await dapi({action:'market'}); if(d&&!d.error) renderDirect(d); else $('directNote').textContent=(d&&d.error)||''; }
-$('directGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-did]'); if(b) buyDirect(Number(b.dataset.did),b); });
+$('directGrid').addEventListener('click',e=>{
+  const b=e.target.closest('[data-did]'); if(b){ buyDirect(Number(b.dataset.did),b); return; }
+  const o=e.target.closest('[data-open]'); if(o){ openGame(Number(o.dataset.open)); }
+});
 async function buyDirect(productId,btn){
   if(!await ensureWallet()) return;
   if(btn){btn.disabled=true;btn.textContent='Working…';}
@@ -306,6 +333,109 @@ function showReveal(code){
     '<button class="buy" style="margin-top:16px" data-close="1">Done</button></div>';
   ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov){ ov.remove(); return; } const k=e.target.closest('.k'); if(k){ if(navigator.clipboard) navigator.clipboard.writeText(code); toast('Key copied.'); } });
   document.body.appendChild(ov);
+}
+
+// ---------- GAME STORE PAGE (Steam-style, not a copy) ----------
+// Turn a video link into an embed. YouTube/Vimeo → iframe; direct file → <video>.
+function videoEmbed(url){
+  const u=String(url||'');
+  let m=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  if(m) return '<iframe src="https://www.youtube.com/embed/'+esc(m[1])+'" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>';
+  m=u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if(m) return '<iframe src="https://player.vimeo.com/video/'+esc(m[1])+'" allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe>';
+  if(/^https?:\/\/[^\s]+\.(mp4|webm|mov)(\?[^\s]*)?$/i.test(u)) return '<video src="'+esc(u)+'" controls playsinline></video>';
+  // Unknown host → link out rather than embed
+  return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gold-2)">▶ Open video</a>';
+}
+function devAvatar(dev,cls){
+  return dev && dev.avatar
+    ? '<div class="'+cls+'" style="overflow:hidden"><img src="'+esc(dev.avatar)+'" alt="" style="width:100%;height:100%;object-fit:cover"></div>'
+    : '<div class="'+cls+'">'+esc(ini((dev&&dev.studio)||'?'))+'</div>';
+}
+async function openGame(productId){
+  const ov=document.createElement('div'); ov.className='keys-ov';
+  ov.innerHTML='<div class="keys-panel"><div class="keys-head"><h3>Loading…</h3><button class="keys-x" data-close="1" aria-label="Close">×</button></div><div id="gvBody"><div class="empty">Loading game…</div></div></div>';
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const d=await dapi({action:'product-view',product_id:productId});
+  if(!d||d.error){ ov.querySelector('#gvBody').innerHTML='<div class="empty">'+esc((d&&d.error)||'Could not load this game.')+'</div>'; return; }
+  const p=d.product, dev=d.dev;
+  // media list: [{type,src}] — videos first, then cover, then gallery
+  const media=[];
+  (p.videos||[]).forEach(v=>media.push({type:'video',src:v}));
+  if(p.image) media.push({type:'img',src:p.image});
+  (p.media||[]).forEach(m=>media.push({type:'img',src:m}));
+  if(!media.length) media.push({type:'img',src:''});
+  const drop=p.drop_est!=null?('≈ '+Number(p.drop_est).toLocaleString('en-US')+' $DROP'):'';
+  const dropDisc=p.drop_est_discounted!=null?('pay in $DROP · '+Number(p.drop_est_discounted).toLocaleString('en-US')+' $DROP'):'';
+  const thumbs=media.map((m,i)=>'<div class="gv-thumb'+(i===0?' on':'')+'" data-idx="'+i+'">'+
+      (m.type==='video'?'<div class="vbadge">▶</div>':'')+
+      (m.src?'<img src="'+esc(m.src)+'" alt="">':'')+'</div>').join('');
+  ov.querySelector('.keys-head h3').textContent=p.title;
+  ov.querySelector('#gvBody').innerHTML=
+    '<div class="gv"><div class="gv-media">'+
+      '<div class="gv-main" id="gvMain"></div>'+
+      '<div class="gv-thumbs" id="gvThumbs">'+thumbs+'</div>'+
+      (p.description?('<div class="gv-desc"><h4>About this game</h4>'+esc(p.description)+'</div>'):'')+
+    '</div>'+
+    '<div class="gv-side">'+
+      '<div class="gv-dev" data-dev="'+esc(dev.wallet)+'">'+devAvatar(dev,'gv-av')+
+        '<div><div style="font-weight:600">'+esc(dev.studio||'Developer')+(dev.trusted?' ★':'')+'</div>'+
+        '<div style="color:var(--muted);font-size:12px">View developer →</div></div></div>'+
+      '<div class="tag" style="color:var(--gold-2);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">'+esc(p.region||'GLOBAL')+'</div>'+
+      '<div class="price-usd">'+usd(p.price_cents)+'</div>'+
+      '<div class="price-drop">'+drop+' · '+p.available+' in stock</div>'+
+      (p.available>0
+        ? '<button class="buy" data-did="'+p.id+'" style="width:100%">'+ (dropDisc?('Buy — '+dropDisc):'Buy with $DROP') +'</button>'
+        : '<button class="buy" disabled style="width:100%;opacity:.5">Sold out</button>')+
+      '<p style="color:var(--muted);font-size:12px;margin-top:12px;line-height:1.6">Key is escrowed and delivered on payment. Redeem on Steam.</p>'+
+    '</div></div>';
+  // media viewer
+  const mainEl=ov.querySelector('#gvMain'), thumbsEl=ov.querySelector('#gvThumbs');
+  function show(i){
+    const m=media[i]; if(!m) return;
+    mainEl.innerHTML = m.type==='video' ? videoEmbed(m.src) : (m.src?'<img src="'+esc(m.src)+'" alt="">':'<div style="color:var(--muted)">No image</div>');
+    thumbsEl.querySelectorAll('.gv-thumb').forEach(t=>t.classList.toggle('on',Number(t.dataset.idx)===i));
+  }
+  thumbsEl.addEventListener('click',e=>{ const t=e.target.closest('[data-idx]'); if(t) show(Number(t.dataset.idx)); });
+  ov.querySelector('#gvBody').addEventListener('click',e=>{
+    const buy=e.target.closest('[data-did]'); if(buy){ buyDirect(Number(buy.dataset.did),buy); return; }
+    const dv=e.target.closest('[data-dev]'); if(dv){ ov.remove(); openDev(dv.dataset.dev); }
+  });
+  show(0);
+}
+async function openDev(walletAddr){
+  const ov=document.createElement('div'); ov.className='keys-ov';
+  ov.innerHTML='<div class="keys-panel"><div class="keys-head"><h3>Developer</h3><button class="keys-x" data-close="1" aria-label="Close">×</button></div><div id="devBody"><div class="empty">Loading…</div></div></div>';
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const d=await dapi({action:'dev-profile',wallet:walletAddr});
+  if(!d||d.error){ ov.querySelector('#devBody').innerHTML='<div class="empty">'+esc((d&&d.error)||'Developer not found.')+'</div>'; return; }
+  const dev=d.dev, prods=d.products||[];
+  const links=[];
+  if(dev.website) links.push('<a href="'+esc(dev.website)+'" target="_blank" rel="noopener">Website ↗</a>');
+  if(dev.socials) links.push('<span style="color:var(--muted)">'+esc(dev.socials)+'</span>');
+  const grid=prods.length?prods.map(it=>{
+    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
+    return '<div class="card" style="--rc:var(--gold)"><div class="cover" data-open="'+it.id+'">'+cover+'</div><div class="body">'+
+      '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+'</div>'+
+      '<div class="title" data-open="'+it.id+'">'+esc(it.title)+'</div>'+
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+it.available+' in stock</div></div>'+
+      '<button class="buy" data-did="'+it.id+'">Buy with $DROP</button></div></div>';
+  }).join(''):'<div class="empty">No live games right now.</div>';
+  ov.querySelector('.keys-head h3').textContent=dev.studio||'Developer';
+  ov.querySelector('#devBody').innerHTML=
+    '<div class="devhero">'+devAvatar(dev,'gv-av')+
+      '<div><div style="font-family:var(--display);font-size:22px;font-weight:700">'+esc(dev.studio||'Developer')+(dev.trusted?' <span style="color:var(--gold-2)">★ trusted</span>':'')+'</div>'+
+      (dev.sold_count?('<div style="color:var(--muted);font-size:13px">'+dev.sold_count+' key'+(dev.sold_count==1?'':'s')+' sold on DropRate</div>'):'')+
+      (links.length?('<div class="devlink-row">'+links.join('')+'</div>'):'')+'</div></div>'+
+    (dev.bio?('<div class="gv-desc" style="margin:6px 0 20px">'+esc(dev.bio)+'</div>'):'')+
+    '<h3 style="font-family:var(--display);font-size:15px;margin:8px 0 12px">Games from '+esc(dev.studio||'this developer')+'</h3>'+
+    '<div class="grid">'+grid+'</div>';
+  ov.querySelector('#devBody').addEventListener('click',e=>{
+    const buy=e.target.closest('[data-did]'); if(buy){ buyDirect(Number(buy.dataset.did),buy); return; }
+    const o=e.target.closest('[data-open]'); if(o){ ov.remove(); openGame(Number(o.dataset.open)); }
+  });
 }
 
 // ---------- MY KEYS (Direct library) ----------
