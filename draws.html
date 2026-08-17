@@ -16,9 +16,13 @@ body{background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;
 header{border-bottom:1px solid var(--line)}
 .nav{display:flex;align-items:center;justify-content:space-between;height:68px}
 .brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.06em;text-decoration:none;color:var(--white)}
-.nav .links{display:flex;gap:18px}
+.nav .links{display:flex;align-items:center;gap:18px}
 .nav .links a{color:var(--dim);font-size:.85rem;text-decoration:none}
 .nav .links a:hover{color:var(--gold)}
+.nav .links a.active{color:var(--white)}
+.nav .links a.claim-btn{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;font-weight:700;padding:8px 16px;border-radius:9px}
+.nav .links a.claim-btn:hover{color:#231a05;filter:brightness(1.05)}
+@media(max-width:640px){.nav{height:auto;padding:12px 0;flex-wrap:wrap;gap:10px}.nav .links{gap:12px;flex-wrap:wrap;justify-content:flex-end}}
 main{padding:56px 0 80px}
 h1{font-size:1.9rem;margin-bottom:8px}
 .sub{color:var(--dim);font-size:.92rem;line-height:1.7;margin-bottom:34px;max-width:600px}
@@ -58,7 +62,6 @@ details.fold>summary::after{content:"▾";transition:transform .2s}
 details.fold[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
 details.fold[open]>summary::after{transform:rotate(180deg)}
 details.fold>.fold-body{border:1px solid var(--line);border-top:none;border-radius:0 0 14px 14px;padding:14px 14px 0}
-
 h1,h2,.brand{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.04em}
 code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!important}
 </style>
@@ -66,9 +69,8 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
 <body>
 <header><div class="wrap nav">
   <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE</a>
-<div class="links"><a href="/check.html">Eligibility</a><a href="/claim.html">Claim</a><a href="/verify.html">Verify</a></div>
+<div class="links"><a class="active" href="/draws.html">Draws</a><a href="/crates.html">Crates</a><a href="/marketplace.html">Marketplace</a><a href="/docs.html">Docs</a><a href="/verify.html">Verify</a><a class="claim-btn" href="/claim.html">Claim</a></div>
 </div></header>
-
 <main class="wrap">
   <h1>Draws</h1>
   <!-- ============================================================================
@@ -168,30 +170,24 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
   <p class="sub">Every draw is locked in before it runs — the winner is picked by
      <a href="https://drand.love" target="_blank" rel="noopener" style="color:var(--gold)">public randomness</a>
      that nobody controls, not even us. When a draw completes, the result and its proof are published right here for anyone to check.</p>
-
   <h2>Upcoming</h2>
   <div id="upcoming"><p class="empty">Loading…</p></div>
-
   <h2>Completed</h2>
   <div id="done"><p class="empty">Loading…</p></div>
 </main>
-
 <script>
 (function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
 const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
 d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
-
 const esc=(s)=>{const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;};
 const short=(w)=>w.length>12?w.slice(0,4)+"…"+w.slice(-4):w;
 const fmtT=(t)=>new Date(t).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
-
 async function load(){
   try{
     const {draws,live_holders,live_tickets}=await fetch("/api/draws").then(r=>r.json());
     const liveHolders=live_holders||0,liveTickets=live_tickets||0;
     const up=draws.filter(d=>d.status!=="drawn").sort((a,b)=>new Date(a.scheduled_at)-new Date(b.scheduled_at));
     const done=draws.filter(d=>d.status==="drawn");
-
     const upCard = (d)=>`
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
@@ -215,7 +211,6 @@ async function load(){
           ? `<details class="fold"><summary>${up.length-1} more upcoming draw${up.length-1===1?"":"s"}</summary><div class="fold-body">${up.slice(1).map(upCard).join("")}</div></details>`
           : "")
       : '<p class="empty">No draws scheduled yet — first draws go up at launch.</p>';
-
     const doneCard = (d)=>`
       <div class="card">
         <div class="row1"><span class="prize">${esc(d.prize_title)}</span>
@@ -230,14 +225,12 @@ async function load(){
     document.getElementById("done").innerHTML = done.length
       ? `<details class="fold"><summary>${done.length} completed draw${done.length===1?"":"s"} — results &amp; proofs</summary><div class="fold-body">${done.map(doneCard).join("")}</div></details>`
       : '<p class="empty">No completed draws yet.</p>';
-
     document.querySelectorAll("[data-enter]").forEach(btn=>btn.addEventListener("click",()=>enter(btn.dataset.enter)));
   }catch(e){
     document.getElementById("upcoming").innerHTML='<p class="empty">Could not load draws.</p>';
     document.getElementById("done").innerHTML="";
   }
 }
-
 async function enter(id){
   const w=document.querySelector(`[data-w="${id}"]`).value.trim();
   const hp=document.querySelector(`[data-hp="${id}"]`).value;
