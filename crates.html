@@ -59,6 +59,14 @@
   .winreveal:hover,.winlist:hover,.windelist:hover{transform:translateY(-1px);filter:brightness(1.05)}
   .winlisted{font-family:var(--mono);font-size:11px;color:var(--gold-2);display:flex;align-items:center;gap:6px}
   .winempty{color:var(--muted);text-align:center;padding:44px 0;font-family:var(--mono);font-size:13px}
+  .winstabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:2px}
+  .winstab{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;
+    background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px 10px;transition:color .15s,border-color .15s}
+  .winstab:hover{color:var(--ink)}
+  .winstab.active{color:var(--gold-2);border-bottom-color:var(--gold)}
+  .winstab .cnt{opacity:.65;font-size:10.5px;margin-left:4px}
+  .winbought{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--spark);border:1px solid color-mix(in srgb,var(--spark) 45%,transparent);border-radius:6px;padding:2px 6px}
   .hero{padding:36px 0 6px} .kicker{color:var(--spark)}
   h1{font-size:clamp(30px,5vw,50px);line-height:1.02;margin:12px 0 8px;font-weight:800;letter-spacing:-.005em;font-family:var(--display)}
   .brand .word,.rip,.gtitle,.crate .price{font-family:var(--display)}
@@ -720,8 +728,10 @@ function closeWins(){ const o=document.getElementById('winsov'); if(o) o.remove(
 function winsShell(inner){
   let o=document.getElementById('winsov'); if(o) o.remove();
   o=document.createElement('div'); o.className='winsov'; o.id='winsov';
-  o.innerHTML=`<div class="winspanel"><div class="winshead"><h3>My Wins</h3><button class="winsx" data-x="1">×</button></div><div id="winsbody">${inner}</div></div>`;
+  o.innerHTML=`<div class="winspanel"><div class="winshead"><h3>My Library</h3><button class="winsx" data-x="1">×</button></div><div id="winsbody">${inner}</div></div>`;
   o.addEventListener('click',e=>{
+    const tb=e.target.closest('.winstab');
+    if(tb&&tb.dataset.tab){ WINS_TAB=tb.dataset.tab; renderWins(WINS_CACHE); return; }
     const f=e.target.closest('.winflex');
     if(f&&f.dataset.flex!=null){ openShare(WINS_CACHE[Number(f.dataset.flex)]); return; }
     const rv=e.target.closest('.winreveal');
@@ -753,35 +763,54 @@ async function openWins(){
 }
 function renderWins(items){
   const body=document.getElementById('winsbody'); if(!body) return;
-  if(!items.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
-  WINS_CACHE=items;
+  WINS_CACHE=items||[];
   const money=c=>c!=null?('$'+(c/100).toFixed(2)):'';
   const dt=d=>{ try{ return new Date(d).toLocaleDateString(); }catch{ return ''; } };
-  body.innerHTML='<div class="wingrid">'+items.map((it,i)=>{
+  // keep the GLOBAL index (into WINS_CACHE) on each entry so reveal/list/delist still resolve
+  const pulled=[], bought=[];
+  WINS_CACHE.forEach((it,i)=>{ (it.bought?bought:pulled).push([it,i]); });
+  if(WINS_TAB==='bought'&&!bought.length&&pulled.length) WINS_TAB='pulled';
+  const tabs=`<div class="winstabs">
+    <button class="winstab ${WINS_TAB!=='bought'?'active':''}" data-tab="pulled">My Wins<span class="cnt">${pulled.length}</span></button>
+    <button class="winstab ${WINS_TAB==='bought'?'active':''}" data-tab="bought">Purchased<span class="cnt">${bought.length}</span></button>
+  </div>`;
+  const list=WINS_TAB==='bought'?bought:pulled;
+  if(!WINS_CACHE.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
+  if(!list.length){
+    const msg=WINS_TAB==='bought'
+      ? 'No purchases yet — buy a listing on the marketplace and it lands here.'
+      : 'No pulls yet — open a crate and your wins land here.';
+    body.innerHTML=tabs+'<div class="winempty">'+msg+'</div>'; return;
+  }
+  const card=([it,i])=>{
     const rc=RC_HEX[it.rarity]||'var(--muted)';
     const title=esc(it.game||'Mystery game');
     const ini=((it.game||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase())||'?';
     const cover=it.image?`<img src="${esc(it.image)}" alt="">`:esc(ini);
+    const actionable=(it.state==='kept')||(it.bought&&it.state==='sealed');
     let foot;
     if(it.code) foot=`<div class="wincode" data-code="${esc(it.code)}" title="click to copy">${esc(it.code)}</div>`;
     else if(it.state==='sold_back') foot='<div class="winstat">↺ sold back · refunded</div>';
     else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
-    else if(it.state==='kept'){
-      const reveal=`<button class="winreveal" data-i="${i}">Reveal &amp; keep key</button>`;
+    else if(actionable){
+      const reveal=`<button class="winreveal" data-i="${i}">Reveal${it.bought?' key':' &amp; keep key'}</button>`;
       const listctl = it.listed
         ? `<div class="winlisted">🏷 Listed · $${(((it.list_price_cents||0))/100).toFixed(2)} · <button class="windelist" data-i="${i}">Delist</button></div>`
-        : `<button class="winlist" data-i="${i}">List for sale</button>`;
+        : `<button class="winlist" data-i="${i}">${it.bought?'Resell':'List for sale'}</button>`;
       foot=`<div class="winacts">${reveal}${listctl}</div>`;
     }
     else foot='<div class="winstat">key pending</div>';
+    const badge=it.bought?'<div class="winbought">🛒 Purchased</div>':'';
     const vlink=(it.id!=null)?`<a class="winverify" href="/verify.html?pull=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">verify #${esc(it.id)} ↗</a>`:'';
-    const flex=(it.game&&it.state!=='sold_back')?`<button class="winflex" data-flex="${i}">🔥 Flex on X</button>`:'';
+    // only self-pulled wins can be flexed ("just pulled a RARE") — a bought key wasn't pulled by this wallet
+    const flex=(it.game&&!it.bought&&it.state!=='sold_back')?`<button class="winflex" data-flex="${i}">🔥 Flex on X</button>`:'';
     return `<div class="wincard" style="--rc:${rc}"><div class="wincover">${cover}</div><div class="winbody">
       <div class="wintag">${esc(it.rarity)} · ${esc(it.crate)}</div>
       <div class="wintitle">${title}</div>
       <div class="winmeta">${money(it.msrp_cents)}${it.date?(' · '+esc(dt(it.date))):''}</div>
-      ${foot}${vlink}${flex}</div></div>`;
-  }).join('')+'</div>';
+      ${badge}${foot}${vlink}${flex}</div></div>`;
+  };
+  body.innerHTML=tabs+'<div class="wingrid">'+list.map(card).join('')+'</div>';
 }
 
 /* ===== marketplace: reveal / list / delist a kept (sealed) key ===== */
@@ -819,6 +848,7 @@ async function delistFromWins(i){
 /* ===== win share cards (client-side canvas → X) ===== */
 const RC_SOLID={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
 let WINS_CACHE=[];
+let WINS_TAB='pulled'; // 'pulled' = My Wins, 'bought' = Purchased
 const SHARE_ORIGIN=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'https://droprate.xyz';
 function shareText(win){
   const r=(win.rarity||'').toUpperCase();
