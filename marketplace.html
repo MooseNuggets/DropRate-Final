@@ -116,7 +116,7 @@
 
   <!-- RESALE (player-to-player won keys) -->
   <section id="view-resale">
-    <p class="lede">Won a game you already own? List it. Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
+    <p class="lede">Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
     <div class="note" id="resaleNote">Loading listings…</div>
     <div class="grid" id="resaleGrid"></div>
   </section>
@@ -135,7 +135,7 @@
 <div class="keys-ov hide" id="keysOv">
   <div class="keys-panel">
     <div class="keys-head"><h3>My Keys</h3><button class="keys-x" id="keysClose" aria-label="Close">×</button></div>
-    <p class="lede" style="margin-bottom:16px">Keys you've bought <b>Direct</b> from developers. Click one to copy it, then redeem on Steam.</p>
+    <p class="lede" style="margin-bottom:16px">Every game key you own — <b>won</b> in Crates or bought <b>Direct</b>. Click one to copy it, then redeem on Steam.</p>
     <div class="grid" id="keysGrid"></div>
   </div>
 </div>
@@ -180,6 +180,15 @@ async function signMsg(action){
   const bytes=sig instanceof Uint8Array?sig:new Uint8Array(sig);
   let s=''; for(const b of bytes) s+=String.fromCharCode(b);
   return {message:msg,signature:btoa(s)};
+}
+// sign an arbitrary message (used for the crate/gacha `history` endpoint)
+async function signRaw(msg){
+  const enc=new TextEncoder().encode(msg);
+  const res=await wallet.signMessage(enc,'utf8');
+  const sig=(res&&res.signature)?res.signature:res;
+  const bytes=sig instanceof Uint8Array?sig:new Uint8Array(sig);
+  let s=''; for(const b of bytes) s+=String.fromCharCode(b);
+  return btoa(s);
 }
 // P2P resale api (no namespace -> crate.js own actions)
 async function capi(body){ let r,j; try{ r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(e){return{error:'network error'};} try{ j=await r.json(); }catch{ j={error:'server error ('+r.status+')'}; } return j; }
@@ -300,17 +309,37 @@ function showReveal(code){
 // ---------- MY KEYS (Direct library) ----------
 async function loadLibrary(){
   const grid=$('keysGrid');
+  if(!await ensureWallet()){ grid.innerHTML='<div class="empty">Connect your wallet to see your keys.</div>'; return; }
   grid.innerHTML='<div class="empty">Sign to load your keys…</div>';
+  // 1) keys WON in crates/gacha (signed history endpoint, no namespace)
+  let wins=[];
+  try{
+    const ts=Math.floor(Date.now()/1000);
+    const wmsg=`DROPRATE history wallet:${OWNER} ts:${ts}`;
+    const wsig=await signRaw(wmsg);
+    const wr=await capi({action:'history',owner:OWNER,message:wmsg,signature:wsig});
+    if(wr&&!wr.error) wins=(wr.items||[]).filter(w=>w.state==='kept'||w.state==='revealed');
+  }catch(e){}
+  // 2) keys bought DIRECT from developers (signed my-keys, namespaced)
+  let direct=[];
   const d=await dapiSigned('my-keys');
-  if(d.error){ grid.innerHTML='<div class="empty">'+esc(d.error)+'</div>'; return; }
-  const items=d.items||[];
-  if(!items.length){ grid.innerHTML='<div class="empty">No Direct purchases yet — grab a game from the Direct tab.</div>'; return; }
-  grid.innerHTML=items.map(it=>{
-    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
-    const code=it.code?('<div class="code" data-code="'+esc(it.code)+'" title="click to copy">'+esc(it.code)+'</div>'):'<div class="seller">key pending…</div>';
+  if(d&&!d.error) direct=d.items||[];
+  else if(d&&d.error && !wins.length){ grid.innerHTML='<div class="empty">'+esc(d.error)+'</div>'; return; }
+  // merge into one library
+  const cards=[];
+  direct.forEach(it=>cards.push({title:it.title,image:it.image,code:it.code||null,
+    tag:'DIRECT · '+(it.region||'GLOBAL')+(it.edition?(' · '+it.edition):'')}));
+  wins.forEach(w=>cards.push({title:w.game,image:w.image,code:w.code||null,kept:(w.state==='kept'),
+    tag:'WON · '+(w.rarity||'')+(w.crate?(' · '+w.crate):'')}));
+  if(!cards.length){ grid.innerHTML='<div class="empty">No keys yet — win one in Crates or buy Direct.</div>'; return; }
+  grid.innerHTML=cards.map(c=>{
+    const cover=c.image?('<img src="'+esc(c.image)+'" alt="">'):esc(ini(c.title));
+    const body=c.code
+      ? '<div class="code" data-code="'+esc(c.code)+'" title="click to copy">'+esc(c.code)+'</div>'
+      : (c.kept?'<div class="seller">sealed — reveal it on the Crates page</div>':'<div class="seller">key pending…</div>');
     return '<div class="card" style="--rc:var(--gold)"><div class="cover">'+cover+'</div><div class="body">'+
-      '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+(it.edition?(' · '+esc(it.edition)):'')+'</div>'+
-      '<div class="title">'+esc(it.title)+'</div>'+code+'</div></div>';
+      '<div class="tag" style="color:var(--gold-2)">'+esc(c.tag)+'</div>'+
+      '<div class="title">'+esc(c.title)+'</div>'+body+'</div></div>';
   }).join('');
 }
 $('keysGrid').addEventListener('click',e=>{ const c=e.target.closest('[data-code]'); if(c){ if(navigator.clipboard) navigator.clipboard.writeText(c.dataset.code); toast('Key copied.'); } });
