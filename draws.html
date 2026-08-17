@@ -15,9 +15,10 @@ body{background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;
 .wrap{max-width:760px;margin:0 auto;padding:0 24px}
 header{border-bottom:1px solid var(--line)}
 .nav{display:flex;align-items:center;justify-content:space-between;height:68px}
-.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.06em;text-decoration:none;color:var(--white)}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:.1em;font-size:1.02rem;text-decoration:none;color:var(--white)}
+.brand .rate{color:var(--gold)}
 .nav .links{display:flex;align-items:center;gap:18px}
-.nav .links a{color:var(--dim);font-size:.85rem;text-decoration:none}
+.nav .links a{color:var(--dim);font-size:.8rem;letter-spacing:.08em;text-decoration:none}
 .nav .links a:hover{color:var(--gold)}
 .nav .links a.active{color:var(--white)}
 .nav .links a.claim-btn{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;font-weight:700;padding:8px 16px;border-radius:9px}
@@ -68,7 +69,7 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
 </head>
 <body>
 <header><div class="wrap nav">
-  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path id="bd" fill="#ffc24b"></path></svg>DROPRATE</a>
+  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116" aria-hidden="true"><defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs><path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/></svg><span class="word">DROP<span class="rate">RATE</span></span></a>
 <div class="links"><a class="active" href="/draws.html">Draws</a><a href="/crates.html">Crates</a><a href="/marketplace.html">Marketplace</a><a href="/docs.html">Docs</a><a href="/verify.html">Verify</a><a class="claim-btn" href="/claim.html">Claim</a></div>
 </div></header>
 <main class="wrap">
@@ -176,9 +177,7 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
   <div id="done"><p class="empty">Loading…</p></div>
 </main>
 <script>
-(function(){let d="";for(let i=0;i<=96;i++){const t=2*Math.PI*i/96;
-const x=50+(Math.sin(t)*Math.sin(t/2)**2)/0.77*38,y=58-Math.cos(t)*48;
-d+=(i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2);}document.getElementById("bd").setAttribute("d",d+"Z");})();
+/* logo is now a static SVG, consistent site-wide */
 const esc=(s)=>{const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;};
 const short=(w)=>w.length>12?w.slice(0,4)+"…"+w.slice(-4):w;
 const fmtT=(t)=>new Date(t).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
