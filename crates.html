@@ -567,7 +567,8 @@ async function landReveal(pullId,res,round){
     : `<div class="timer" id="timer">research window · <b id="tclock">4:00</b> · <a id="steam" target="_blank" rel="noopener">check on Steam ↗</a></div>
        <div class="gate" id="gate">
          <button class="keep" data-a="keep">KEEP KEY</button>
-         <button data-a="sell">SELL BACK · 70%</button>
+         <button data-a="sell">SELL · 70%</button>
+         <button data-a="list">LIST</button>
        </div>`;
 
   $('stageInner').classList.add('center');
@@ -605,13 +606,26 @@ async function handleGate(a){
     const t=$('timer'); if(t) t.remove();
     toast(`🔑 ${last.title} claimed — the key is yours.`);
     mountFlex($('card'), last.win); // key kept → now they've earned the flex
-  }else{
+  }else if(a==='sell'){
     $('status').innerHTML='refunding…';
     const r=await api({action:'sellback',pullId:last.pullId,owner:OWNER});
     if(r.error){ toast(r.error==='window-closed'?'Window closed — the key is yours to claim.':r.error); return; }
     const toks=r.refundRaw?Math.round(Number(r.refundRaw)/1e6):0;
     toast(`↺ Refund ${r.sent?'sent':'queued'} · ${fmt(toks)} $DROP · key back in the pool.`);
     syncStage();
+  }else if(a==='list'){
+    const def=(last.win&&last.win.msrp_cents!=null)?(last.win.msrp_cents/100).toFixed(2):'';
+    const inp=prompt('List "'+(last.title||'this game')+'" on the marketplace.\nSet your price in USD — buyers pay the live $DROP equivalent:', def);
+    if(inp==null){ return; }
+    const dollars=parseFloat(String(inp).replace(/[^0-9.]/g,''));
+    if(!Number.isFinite(dollars)||dollars<=0){ toast('Enter a valid price.'); return; }
+    const cents=Math.round(dollars*100);
+    $('status').innerHTML='listing…';
+    const r=await api({action:'list',pullId:last.pullId,owner:OWNER,price_cents:cents});
+    if(r.error){ toast(r.error); return; }
+    const g=$('gate'); if(g) g.outerHTML=`<div class="revealed">🏷 Listed for $${(cents/100).toFixed(2)} · <a href="/marketplace.html" style="color:var(--gold-2);text-decoration:none">view market ↗</a></div>`;
+    const t=$('timer'); if(t) t.remove();
+    toast('🏷 Listed on the marketplace.');
   }
 }
 
