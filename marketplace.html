@@ -25,6 +25,7 @@
   nav .mono{font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:none;letter-spacing:.02em}
   nav .mono:hover,nav .mono.active{color:var(--gold-2)}
   .menu-btn{display:none;background:none;border:0;color:var(--ink);font-size:24px;cursor:pointer}
+  .hgroup{display:flex;align-items:center;gap:18px}
   .wrap{max-width:1080px;margin:0 auto;padding:24px}
   .kicker{font-family:var(--mono);color:var(--c-rare);letter-spacing:.28em;font-size:11px;text-transform:uppercase;margin-bottom:10px}
   h1{font-family:var(--display);font-size:34px;letter-spacing:.02em;margin-bottom:8px}
@@ -46,6 +47,9 @@
   .buy{margin-top:auto;font-family:var(--font);font-weight:700;font-size:13px;border:0;border-radius:10px;padding:11px;cursor:pointer;
     background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b}
   .buy.soon{background:transparent;border:1px dashed var(--line-2);color:var(--muted);cursor:default}
+  .buy:hover{filter:brightness(1.05)}
+  .connect{font-family:var(--font);font-weight:700;font-size:13px;border:1px solid var(--line-2);background:transparent;color:var(--ink);border-radius:10px;padding:9px 16px;cursor:pointer}
+  .connect:hover{border-color:var(--gold);color:var(--gold-2)}
   .empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;padding:60px 20px;border:1px dashed var(--line);border-radius:16px}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#12152b;border:1px solid var(--line-2);color:var(--ink);
     font-size:13px;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
@@ -59,14 +63,17 @@
     <svg class="drop" viewBox="0 0 100 116" aria-hidden="true"><path d="M50 8 C50 40 82 58 82 82 a32 32 0 0 1-64 0 C18 58 50 40 50 8Z" fill="#F6AC29"/></svg>
     <span class="word">DROP<b>RATE</b></span>
   </a>
-  <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
-  <nav id="nav">
-    <a class="mono" href="/draws.html">Draws</a>
-    <a class="mono" href="/crates.html">Crates</a>
-    <a class="mono" href="/docs.html">Docs</a>
-    <a class="mono" href="/verify.html">Verify</a>
-    <a class="mono active" href="/marketplace.html">Marketplace</a>
-  </nav>
+  <div class="hgroup">
+    <nav id="nav">
+      <a class="mono" href="/draws.html">Draws</a>
+      <a class="mono" href="/crates.html">Crates</a>
+      <a class="mono" href="/docs.html">Docs</a>
+      <a class="mono" href="/verify.html">Verify</a>
+      <a class="mono active" href="/marketplace.html">Marketplace</a>
+    </nav>
+    <button class="connect" id="connectBtn">Connect wallet</button>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
 </header>
 <div class="wrap">
   <div class="kicker">Player-to-player</div>
@@ -100,7 +107,7 @@ function render(d){
         '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div>'+
           '<div class="drop">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP'+(it.msrp_cents?(' · MSRP '+usd(it.msrp_cents)):'')+'</div></div>'+
         '<div class="seller">seller '+esc(shortW(it.seller))+'</div>'+
-        '<button class="buy soon" data-id="'+it.id+'">Buy · opens soon</button>'+
+        '<button class="buy" data-id="'+it.id+'">Buy with $DROP</button>'+
       '</div></div>';
   }).join('');
 }
@@ -112,11 +119,61 @@ function load(){
 }
 document.getElementById('grid').addEventListener('click',function(e){
   var b=e.target.closest('.buy'); if(!b) return;
-  toast('Buying with $DROP goes live shortly — listings are open now.');
+  if(window.__buy) window.__buy(b.dataset.id); else toast('Loading wallet…');
 });
 (function(){ var mb=document.getElementById('menuBtn'), nv=document.getElementById('nav');
   if(mb) mb.addEventListener('click',function(){ nv.classList.toggle('open'); }); })();
 load(); setInterval(load, 20000);
+</script>
+<script type="module">
+import * as web3 from 'https://esm.sh/@solana/web3.js@1.95.3';
+let OWNER=null, wallet=null;
+function b64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+function detectWallet(){
+  if(window.phantom&&window.phantom.solana&&window.phantom.solana.isPhantom) return window.phantom.solana;
+  if(window.solana&&window.solana.isPhantom) return window.solana;
+  if(window.solflare&&window.solflare.isSolflare) return window.solflare;
+  if(window.solana) return window.solana;
+  return null;
+}
+function setWalletUI(){ const el=document.getElementById('connectBtn'); if(el) el.textContent = OWNER ? (OWNER.slice(0,4)+'…'+OWNER.slice(-4)) : 'Connect wallet'; }
+async function connect(){
+  const p=detectWallet();
+  if(!p){ window.toast('No Solana wallet found — install Phantom or Solflare.'); return false; }
+  try{ const r=await p.connect(); wallet=p; OWNER=((r&&r.publicKey)?r.publicKey:p.publicKey).toString(); setWalletUI(); return true; }
+  catch(e){ window.toast('Wallet connection cancelled.'); return false; }
+}
+async function capi(body){
+  let r,j;
+  try{ r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  catch(e){ return {error:'network error'}; }
+  try{ j=await r.json(); }catch{ j={error:'server error ('+r.status+')'}; }
+  return j;
+}
+async function buy(id){
+  if(!OWNER){ const ok=await connect(); if(!ok) return; }
+  window.toast('Preparing your purchase…');
+  const o=await capi({action:'buy-open',pullId:Number(id),buyer:OWNER});
+  if(o.error){ window.toast(o.error); return; }
+  const bp=await capi({action:'buy-buildpay',reference:o.reference,payer:OWNER});
+  if(bp.error){ window.toast('Could not build payment: '+bp.error); return; }
+  let tx; try{ tx=web3.Transaction.from(b64ToBytes(bp.transaction)); }
+  catch(e){ window.toast('Could not read the transaction.'); return; }
+  window.toast('Approve the payment in your wallet…');
+  try{ await wallet.signAndSendTransaction(tx); }
+  catch(e){ window.toast('Payment rejected in wallet.'); return; }
+  window.toast('Payment sent · confirming on-chain…');
+  for(let i=0;i<45;i++){
+    const c=await capi({action:'buy-confirm',reference:o.reference});
+    if(c.state==='settled'){ window.toast('🎉 Bought! Your key is in My Wins on the Crates page.'); window.load(); return; }
+    if(c.state==='refunded'){ window.toast('That one sold first — you were refunded in full.'); window.load(); return; }
+    if(c.error && c.error!=='payment-not-found'){ window.toast(c.error); return; }
+    await new Promise(function(r){ setTimeout(r,2000); });
+  }
+  window.toast('Payment not detected yet — if it went through, it settles shortly.');
+}
+window.__buy=buy;
+const cb=document.getElementById('connectBtn'); if(cb) cb.addEventListener('click',connect);
 </script>
 </body>
 </html>
