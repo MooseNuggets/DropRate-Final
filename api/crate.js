@@ -70,6 +70,14 @@ async function dispatchRefund(toWallet, amountRaw) {
 }
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  // Dev-key marketplace shares this serverless function (Vercel Hobby caps at 12
+  // functions). Its routes live in lib/devmarket.js — not a new /api file — and are
+  // reached by posting { ns:"devmarket", action:... }. The namespace check runs
+  // BEFORE crate's own actions because some names (market/buy-open/…) overlap.
+  if (req.body && req.body.ns === "devmarket") {
+    const { devmarket } = await import("../lib/devmarket.js");
+    return devmarket(req, res);
+  }
   try {
     await migrateGacha();
     // --- MARKETPLACE columns (idempotent; additive on top of migrateGacha) ---
