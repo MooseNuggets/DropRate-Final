@@ -10,28 +10,38 @@
 <style>
   :root{
     --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445; --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
-    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0; --green:#4ade80;
     --c-common:#9AA6C7; --c-rare:#43C9F0; --c-epic:#A48BF5; --c-legendary:#F6AC29;
     --font:'Poppins',sans-serif; --display:'Chakra Petch',sans-serif; --mono:'JetBrains Mono',monospace;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:linear-gradient(180deg,#0E1330 0%,var(--navy-0) 72%);color:var(--ink);font-family:var(--font);min-height:100vh}
   a{color:inherit}
-  header{display:flex;align-items:center;justify-content:space-between;max-width:1080px;margin:0 auto;padding:18px 24px;position:relative}
-  .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-  .brand .drop{width:22px;height:28px}
-  .brand .word{font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink)} .brand .word b{color:var(--gold)}
-  nav{display:flex;gap:22px}
-  nav .mono{font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:none;letter-spacing:.02em}
-  nav .mono:hover,nav .mono.active{color:var(--gold-2)}
-  .menu-btn{display:none;background:none;border:0;color:var(--ink);font-size:24px;cursor:pointer}
-  .hgroup{display:flex;align-items:center;gap:18px}
+  /* header — copied from the homepage so fonts/sizes/logo match exactly */
+  .disp{font-family:var(--display);text-transform:uppercase}
+  header{position:sticky;top:0;z-index:40;background:rgba(13,16,32,.88);backdrop-filter:blur(12px);border-bottom:1px solid #262d52}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:1080px;margin:0 auto;padding:0 24px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:.1em;font-size:1.02rem;text-decoration:none;color:var(--ink)}
+  .brand .rate{color:var(--gold)}
+  .nav-links{display:flex;align-items:center;gap:26px;font-size:.8rem;color:#97a0c8;letter-spacing:.08em}
+  .nav-links a{text-decoration:none;color:#97a0c8;transition:color .2s}
+  .nav-links a:hover{color:var(--gold)}
+  .nav-links .linkbtn{background:none;border:0;cursor:pointer;font-family:var(--font);font-size:.8rem;letter-spacing:.08em;color:#97a0c8;padding:0;transition:color .2s}
+  .nav-links .linkbtn:hover{color:var(--gold)}
+  .nav-links .linkbtn.gold{color:var(--gold)}
+  .menu-btn{display:none;background:none;border:1px solid #262d52;border-radius:8px;color:var(--gold);font-size:1.3rem;padding:4px 12px;cursor:pointer;line-height:1.4}
   .wrap{max-width:1080px;margin:0 auto;padding:24px}
   .kicker{font-family:var(--mono);color:var(--c-rare);letter-spacing:.28em;font-size:11px;text-transform:uppercase;margin-bottom:10px}
-  h1{font-family:var(--display);font-size:34px;letter-spacing:.02em;margin-bottom:8px}
+  h1{font-family:var(--display);font-size:34px;letter-spacing:.02em;margin-bottom:14px}
   h1 .g{color:var(--gold)}
-  .lede{color:var(--muted);font-size:15px;max-width:640px;line-height:1.6;margin-bottom:8px}
-  .note{font-family:var(--mono);font-size:11px;color:var(--spark);margin-bottom:26px}
+  .tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+  .tb{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px 12px;cursor:pointer;transition:.15s}
+  .tb:hover{color:var(--ink)} .tb.active{color:var(--gold-2);border-bottom-color:var(--gold)}
+  .lede{color:var(--muted);font-size:15px;max-width:660px;line-height:1.6;margin-bottom:8px}
+  .lede b{color:var(--ink)}
+  .note{font-family:var(--mono);font-size:11px;color:var(--spark);margin-bottom:22px;min-height:14px}
+  .devlink{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--gold-2);text-decoration:none;margin-bottom:20px;border:1px solid var(--line-2);border-radius:9px;padding:8px 12px}
+  .devlink:hover{border-color:var(--gold)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
   .card{background:var(--navy-1);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;--rc:var(--muted);transition:transform .12s,border-color .2s}
   .card:hover{transform:translateY(-3px);border-color:var(--rc)}
@@ -46,134 +56,271 @@
   .seller{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .buy{margin-top:auto;font-family:var(--font);font-weight:700;font-size:13px;border:0;border-radius:10px;padding:11px;cursor:pointer;
     background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b}
-  .buy.soon{background:transparent;border:1px dashed var(--line-2);color:var(--muted);cursor:default}
-  .buy:hover{filter:brightness(1.05)}
-  .connect{font-family:var(--font);font-weight:700;font-size:13px;border:1px solid var(--line-2);background:transparent;color:var(--ink);border-radius:10px;padding:9px 16px;cursor:pointer}
-  .connect:hover{border-color:var(--gold);color:var(--gold-2)}
+  .buy:hover{filter:brightness(1.05)} .buy:disabled{opacity:.55;cursor:wait}
+  .code{font-family:var(--mono);font-size:12px;background:#070a18;border:1px dashed var(--line-2);border-radius:8px;padding:9px 11px;color:var(--gold-2);word-break:break-all;cursor:pointer;margin-top:2px}
+  /* My Keys + Connect Wallet now render as .nav-links .linkbtn (homepage-consistent) */
+  .keys-ov{position:fixed;inset:0;background:rgba(2,4,12,.74);backdrop-filter:blur(5px);display:flex;align-items:flex-start;justify-content:center;z-index:70;padding:52px 20px;overflow:auto}
+  .keys-panel{background:#0c1024;border:1px solid var(--line-2);border-radius:18px;width:min(1000px,96vw);padding:24px}
+  .keys-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .keys-head h3{font-family:var(--display);font-size:20px}
+  .keys-x{background:none;border:0;color:var(--muted);font-size:26px;cursor:pointer;line-height:1}
   .empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;padding:60px 20px;border:1px dashed var(--line);border-radius:16px}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#12152b;border:1px solid var(--line-2);color:var(--ink);
-    font-size:13px;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
+    font-size:13px;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  @media(max-width:700px){ nav{display:none;position:absolute;top:100%;right:12px;left:12px;flex-direction:column;gap:14px;background:#0c1024;border:1px solid var(--line-2);border-radius:14px;padding:16px;z-index:20} nav.open{display:flex} .menu-btn{display:block} }
+  .reveal-ov{position:fixed;inset:0;background:rgba(2,4,12,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:90;padding:20px}
+  .reveal-card{background:#0c1024;border:1px solid var(--gold);border-radius:18px;padding:26px;max-width:440px;width:100%;text-align:center}
+  .reveal-card .k{font-family:var(--mono);font-size:16px;color:var(--gold-2);background:#070a18;border:1px dashed var(--line-2);border-radius:10px;padding:14px;margin:14px 0;word-break:break-all;cursor:pointer}
+  .reveal-card .note2{font-size:12px;color:var(--muted)}
+  .hide{display:none!important}
+  @media(max-width:760px){
+    .nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:#161b31;border-bottom:1px solid #262d52;flex-direction:column;align-items:flex-start;gap:0;padding:8px 0;z-index:30}
+    .nav-links.open{display:flex}
+    .nav-links a,.nav-links .linkbtn{padding:14px 24px;border-top:1px solid #262d52;font-size:.95rem;width:100%;text-align:left}
+    .menu-btn{display:block}
+  }
 </style>
 </head>
 <body>
 <header>
-  <a class="brand" href="/">
-    <svg class="drop" viewBox="0 0 100 116" aria-hidden="true"><path d="M50 8 C50 40 82 58 82 82 a32 32 0 0 1-64 0 C18 58 50 40 50 8Z" fill="#F6AC29"/></svg>
-    <span class="word">DROP<b>RATE</b></span>
-  </a>
-  <div class="hgroup">
-    <nav id="nav">
-      <a class="mono" href="/draws.html">Draws</a>
-      <a class="mono" href="/crates.html">Crates</a>
-      <a class="mono" href="/docs.html">Docs</a>
-      <a class="mono" href="/verify.html">Verify</a>
-      <a class="mono active" href="/marketplace.html">Marketplace</a>
-    </nav>
-    <button class="connect" id="connectBtn">Connect wallet</button>
+  <div class="wrap nav">
+    <a class="brand disp" href="/">
+      <svg width="22" height="26" viewBox="0 0 100 116" aria-hidden="true">
+        <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+      </svg>
+      <span>DROP<span class="rate">RATE</span></span>
+    </a>
     <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+    <nav class="nav-links" id="nav">
+      <a href="/draws.html">Draws</a>
+      <a href="/crates.html">Crates</a>
+      <a href="/marketplace.html">Marketplace</a>
+      <a href="/docs.html">Docs</a>
+      <a href="/verify.html">Verify</a>
+      <a href="/check.html" style="color:var(--gold)">Check eligibility</a>
+      <button class="linkbtn" id="myKeysBtn">My Keys</button>
+      <button class="linkbtn gold" id="connectBtn">Connect Wallet</button>
+    </nav>
   </div>
 </header>
+
 <div class="wrap">
-  <div class="kicker">Player-to-player</div>
   <h1>The <span class="g">Marketplace</span></h1>
-  <p class="lede">Won a game you already own? List it. Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
-  <div class="note" id="note">Loading listings…</div>
-  <div class="grid" id="grid"></div>
+  <div class="tabbar">
+    <button class="tb active" data-tab="resale">Resale</button>
+    <button class="tb" data-tab="direct">Direct</button>
+  </div>
+
+  <!-- RESALE (player-to-player won keys) -->
+  <section id="view-resale">
+    <p class="lede">Won a game you already own? List it. Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
+    <div class="note" id="resaleNote">Loading listings…</div>
+    <div class="grid" id="resaleGrid"></div>
+  </section>
+
+  <!-- DIRECT (buy keys straight from developers) -->
+  <section id="view-direct" class="hide">
+    <p class="lede">Buy game keys <b>straight from the developer</b> — they keep up to 98.5% instead of Steam's 70%, so prices are keener. Every key is escrowed and only released to you on payment.</p>
+    <a class="devlink" href="/devportal.html">Develop games? List your keys in the Dev Portal →</a>
+    <div class="note" id="directNote"></div>
+    <div class="grid" id="directGrid"></div>
+  </section>
+
 </div>
+
+<!-- MY KEYS overlay (opened from the header button, like "My Wins" on Crates) -->
+<div class="keys-ov hide" id="keysOv">
+  <div class="keys-panel">
+    <div class="keys-head"><h3>My Keys</h3><button class="keys-x" id="keysClose" aria-label="Close">×</button></div>
+    <p class="lede" style="margin-bottom:16px">Keys you've bought <b>Direct</b> from developers. Click one to copy it, then redeem on Steam.</p>
+    <div class="grid" id="keysGrid"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
-<script>
-var RC={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function ini(g){return (g||'?').split(' ').map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase();}
-function shortW(w){return w&&w.length>10?(w.slice(0,4)+'…'+w.slice(-4)):(w||'');}
-function usd(c){return '$'+((c||0)/100).toFixed(2);}
-function fmtDrop(raw,dec){ var n=Number(raw)/Math.pow(10,dec||6); if(n>=1000) return Math.round(n).toLocaleString('en-US'); return n.toLocaleString('en-US',{maximumFractionDigits:2}); }
-function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2600);}
-function render(d){
-  var grid=document.getElementById('grid'), note=document.getElementById('note');
-  var L=(d&&d.listings)||[];
-  note.textContent = L.length ? (L.length+' key'+(L.length===1?'':'s')+' listed · live $DROP ≈ $'+(d.dropUsd||0).toFixed(6)) : '';
-  if(!L.length){ grid.innerHTML='<div class="empty">No keys listed yet — when holders list a won game, it shows up here.</div>'; return; }
-  grid.innerHTML=L.map(function(it){
-    var rc=RC[it.rarity]||'var(--muted)';
-    var cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.game));
-    return '<div class="card" style="--rc:'+rc+'">'+
-      '<div class="cover">'+cover+'</div>'+
-      '<div class="body">'+
-        '<div class="tag" style="color:'+rc+'">'+esc(it.rarity)+' · '+esc(it.crate)+' crate</div>'+
-        '<div class="title">'+esc(it.game)+'</div>'+
-        '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div>'+
-          '<div class="drop">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP'+(it.msrp_cents?(' · MSRP '+usd(it.msrp_cents)):'')+'</div></div>'+
-        '<div class="seller">seller '+esc(shortW(it.seller))+'</div>'+
-        '<button class="buy" data-id="'+it.id+'">Buy with $DROP</button>'+
-      '</div></div>';
-  }).join('');
-}
-function load(){
-  fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'market'})})
-    .then(function(r){return r.json();})
-    .then(function(d){ if(d&&!d.error){ render(d); } else { document.getElementById('note').textContent=''; } })
-    .catch(function(){ document.getElementById('note').textContent='Could not load the marketplace.'; });
-}
-document.getElementById('grid').addEventListener('click',function(e){
-  var b=e.target.closest('.buy'); if(!b) return;
-  if(window.__buy) window.__buy(b.dataset.id); else toast('Loading wallet…');
-});
-(function(){ var mb=document.getElementById('menuBtn'), nv=document.getElementById('nav');
-  if(mb) mb.addEventListener('click',function(){ nv.classList.toggle('open'); }); })();
-load(); setInterval(load, 20000);
-</script>
+
 <script type="module">
 import * as web3 from 'https://esm.sh/@solana/web3.js@1.95.3';
-let OWNER=null, wallet=null;
-function b64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+
+let OWNER=null, wallet=null, TAB='resale';
+const $=id=>document.getElementById(id);
+const RC={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ini=g=>(g||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase();
+const shortW=w=>w&&w.length>10?(w.slice(0,4)+'…'+w.slice(-4)):(w||'');
+const usd=c=>'$'+((c||0)/100).toFixed(2);
+const fmtDrop=(raw,dec)=>{const n=Number(raw)/Math.pow(10,dec||6);return n>=1000?Math.round(n).toLocaleString('en-US'):n.toLocaleString('en-US',{maximumFractionDigits:2});};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
+function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+
+// ---------- wallet ----------
 function detectWallet(){
   if(window.phantom&&window.phantom.solana&&window.phantom.solana.isPhantom) return window.phantom.solana;
   if(window.solana&&window.solana.isPhantom) return window.solana;
   if(window.solflare&&window.solflare.isSolflare) return window.solflare;
-  if(window.solana) return window.solana;
-  return null;
+  if(window.solana) return window.solana; return null;
 }
-function setWalletUI(){ const el=document.getElementById('connectBtn'); if(el) el.textContent = OWNER ? (OWNER.slice(0,4)+'…'+OWNER.slice(-4)) : 'Connect wallet'; }
+function setWalletUI(){ const el=$('connectBtn'); if(el) el.textContent = OWNER ? (OWNER.slice(0,4)+'…'+OWNER.slice(-4)) : 'Connect wallet'; }
 async function connect(){
   const p=detectWallet();
-  if(!p){ window.toast('No Solana wallet found — install Phantom or Solflare.'); return false; }
+  if(!p){ toast('No Solana wallet found — install Phantom or Solflare.'); return false; }
   try{ const r=await p.connect(); wallet=p; OWNER=((r&&r.publicKey)?r.publicKey:p.publicKey).toString(); setWalletUI(); return true; }
-  catch(e){ window.toast('Wallet connection cancelled.'); return false; }
+  catch(e){ toast('Wallet connection cancelled.'); return false; }
 }
-async function capi(body){
-  let r,j;
-  try{ r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-  catch(e){ return {error:'network error'}; }
-  try{ j=await r.json(); }catch{ j={error:'server error ('+r.status+')'}; }
-  return j;
+async function ensureWallet(){ return OWNER?true:await connect(); }
+async function signMsg(action){
+  const ts=Math.floor(Date.now()/1000);
+  const msg=`DROPRATE devmarket ${action} wallet:${OWNER} ts:${ts}`;
+  const enc=new TextEncoder().encode(msg);
+  const res=await wallet.signMessage(enc,'utf8');
+  const sig=(res&&res.signature)?res.signature:res;
+  const bytes=sig instanceof Uint8Array?sig:new Uint8Array(sig);
+  let s=''; for(const b of bytes) s+=String.fromCharCode(b);
+  return {message:msg,signature:btoa(s)};
 }
-async function buy(id){
-  if(!OWNER){ const ok=await connect(); if(!ok) return; }
-  window.toast('Preparing your purchase…');
+// P2P resale api (no namespace -> crate.js own actions)
+async function capi(body){ let r,j; try{ r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(e){return{error:'network error'};} try{ j=await r.json(); }catch{ j={error:'server error ('+r.status+')'}; } return j; }
+// Direct/dev-market api (namespaced -> lib/devmarket.js)
+async function dapi(body){ return capi({ns:'devmarket',...body}); }
+async function dapiSigned(action,extra={}){ if(!await ensureWallet()) return {error:'wallet required'}; let sig; try{ sig=await signMsg(action);}catch(e){return{error:'signature cancelled'};} return dapi({action,wallet:OWNER,message:sig.message,signature:sig.signature,...extra}); }
+
+// ---------- tabs ----------
+function showTab(name){
+  TAB=name;
+  document.querySelectorAll('.tb').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  $('view-resale').classList.toggle('hide',name!=='resale');
+  $('view-direct').classList.toggle('hide',name!=='direct');
+  if(name==='resale') loadResale();
+  if(name==='direct') loadDirect();
+}
+function openKeys(){ $('keysOv').classList.remove('hide'); loadLibrary(); }
+function closeKeys(){ $('keysOv').classList.add('hide'); }
+document.querySelectorAll('.tb').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
+
+// ---------- RESALE (P2P) ----------
+function renderResale(d){
+  const grid=$('resaleGrid'), note=$('resaleNote');
+  const L=(d&&d.listings)||[];
+  note.textContent=L.length?(L.length+' key'+(L.length===1?'':'s')+' listed · live $DROP ≈ $'+(d.dropUsd||0).toFixed(6)):'';
+  if(!L.length){ grid.innerHTML='<div class="empty">No keys listed yet — when holders list a won game, it shows up here.</div>'; return; }
+  grid.innerHTML=L.map(it=>{
+    const rc=RC[it.rarity]||'var(--muted)';
+    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.game));
+    return '<div class="card" style="--rc:'+rc+'"><div class="cover">'+cover+'</div><div class="body">'+
+      '<div class="tag" style="color:'+rc+'">'+esc(it.rarity)+' · '+esc(it.crate)+' crate</div>'+
+      '<div class="title">'+esc(it.game)+'</div>'+
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP'+(it.msrp_cents?(' · MSRP '+usd(it.msrp_cents)):'')+'</div></div>'+
+      '<div class="seller">seller '+esc(shortW(it.seller))+'</div>'+
+      '<button class="buy" data-rid="'+it.id+'">Buy with $DROP</button></div></div>';
+  }).join('');
+}
+async function loadResale(){ const d=await capi({action:'market'}); if(d&&!d.error) renderResale(d); else $('resaleNote').textContent=''; }
+$('resaleGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-rid]'); if(b) buyResale(b.dataset.rid,b); });
+async function buyResale(id,btn){
+  if(!await ensureWallet()) return;
+  if(btn){btn.disabled=true;btn.textContent='Working…';}
+  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent='Buy with $DROP';} };
+  toast('Preparing your purchase…');
   const o=await capi({action:'buy-open',pullId:Number(id),buyer:OWNER});
-  if(o.error){ window.toast(o.error); return; }
+  if(o.error){ toast(o.error); restore(); return; }
   const bp=await capi({action:'buy-buildpay',reference:o.reference,payer:OWNER});
-  if(bp.error){ window.toast('Could not build payment: '+bp.error); return; }
-  let tx; try{ tx=web3.Transaction.from(b64ToBytes(bp.transaction)); }
-  catch(e){ window.toast('Could not read the transaction.'); return; }
-  window.toast('Approve the payment in your wallet…');
-  try{ await wallet.signAndSendTransaction(tx); }
-  catch(e){ window.toast('Payment rejected in wallet.'); return; }
-  window.toast('Payment sent · confirming on-chain…');
+  if(bp.error){ toast('Could not build payment: '+bp.error); restore(); return; }
+  let tx; try{ tx=web3.Transaction.from(b64ToBytes(bp.transaction)); }catch(e){ toast('Could not read the transaction.'); restore(); return; }
+  toast('Approve the payment in your wallet…');
+  try{ await wallet.signAndSendTransaction(tx); }catch(e){ toast('Payment rejected in wallet.'); restore(); return; }
+  toast('Payment sent · confirming on-chain…');
   for(let i=0;i<45;i++){
     const c=await capi({action:'buy-confirm',reference:o.reference});
-    if(c.state==='settled'){ window.toast('🎉 Bought! Your key is in My Wins on the Crates page.'); window.load(); return; }
-    if(c.state==='refunded'){ window.toast('That one sold first — you were refunded in full.'); window.load(); return; }
-    if(c.error && c.error!=='payment-not-found'){ window.toast(c.error); return; }
-    await new Promise(function(r){ setTimeout(r,2000); });
+    if(c.state==='settled'){ toast('🎉 Bought! Your key is in My Wins on the Crates page.'); restore(); loadResale(); return; }
+    if(c.state==='refunded'){ toast('That one sold first — you were refunded in full.'); restore(); loadResale(); return; }
+    if(c.error && c.error!=='payment-not-found'){ toast(c.error); restore(); return; }
+    await new Promise(r=>setTimeout(r,2000));
   }
-  window.toast('Payment not detected yet — if it went through, it settles shortly.');
+  restore(); toast('Payment not detected yet — if it went through, it settles shortly.');
 }
-window.__buy=buy;
-const cb=document.getElementById('connectBtn'); if(cb) cb.addEventListener('click',connect);
+
+// ---------- DIRECT (dev keys) ----------
+function renderDirect(d){
+  const grid=$('directGrid'), note=$('directNote');
+  const L=(d&&d.listings)||[];
+  note.textContent=L.length?(L.length+' game'+(L.length===1?'':'s')+' from developers'):'';
+  if(!L.length){ grid.innerHTML='<div class="empty">No games listed yet — developers are onboarding. Check back soon.</div>'; return; }
+  grid.innerHTML=L.map(it=>{
+    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
+    const drop=it.drop_est!=null?('≈ '+Number(it.drop_est).toLocaleString('en-US')+' $DROP'):'';
+    return '<div class="card" style="--rc:var(--gold)"><div class="cover">'+cover+'</div><div class="body">'+
+      '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+(it.edition?(' · '+esc(it.edition)):'')+(it.trusted?' · ★':'')+'</div>'+
+      '<div class="title">'+esc(it.title)+'</div>'+
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+drop+' · '+it.available+' in stock</div></div>'+
+      '<button class="buy" data-did="'+it.id+'">Buy with $DROP</button></div></div>';
+  }).join('');
+}
+async function loadDirect(){ const d=await dapi({action:'market'}); if(d&&!d.error) renderDirect(d); else $('directNote').textContent=(d&&d.error)||''; }
+$('directGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-did]'); if(b) buyDirect(Number(b.dataset.did),b); });
+async function buyDirect(productId,btn){
+  if(!await ensureWallet()) return;
+  if(btn){btn.disabled=true;btn.textContent='Working…';}
+  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent='Buy with $DROP';} };
+  toast('Preparing your purchase…');
+  const o=await dapi({action:'buy-open',buyer:OWNER,product_id:productId});
+  if(o.error){ toast(o.error==='out of stock'?'Just sold out — try another.':o.error); restore(); return; }
+  const bp=await dapi({action:'buy-buildpay',order_id:o.order_id,buyer:OWNER});
+  if(bp.error){ toast('Could not build payment: '+bp.error); restore(); return; }
+  let tx; try{ tx=web3.Transaction.from(b64ToBytes(bp.transaction)); }catch(e){ toast('Could not read the transaction.'); restore(); return; }
+  toast('Approve the payment in your wallet…');
+  try{ await wallet.signAndSendTransaction(tx); }catch(e){ toast('Payment rejected in wallet.'); restore(); return; }
+  toast('Payment sent · confirming on-chain…');
+  let delivered=false;
+  for(let i=0;i<45;i++){
+    const c=await dapi({action:'buy-confirm',order_id:o.order_id});
+    if(c.state==='delivered'){ delivered=true; break; }
+    if(c.error && c.error!=='payment-not-found'){ toast(c.error); restore(); return; }
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  restore();
+  if(!delivered){ toast('Payment not detected yet — your key appears in My Keys shortly.'); return; }
+  toast('🎉 Purchased! Revealing your key…');
+  const rev=await dapiSigned('key-reveal',{order_id:o.order_id});
+  if(rev.error){ toast('Bought — find it in My Keys.'); } else { showReveal(rev.code); }
+  loadDirect();
+}
+function showReveal(code){
+  const ov=document.createElement('div'); ov.className='reveal-ov';
+  ov.innerHTML='<div class="reveal-card"><div style="font-family:var(--display);color:var(--gold-2);font-size:13px;letter-spacing:.14em;text-transform:uppercase">🔑 Your Steam key</div>'+
+    '<div class="k" title="click to copy">'+esc(code)+'</div>'+
+    '<div class="note2">Redeem on Steam → Add a Game → Activate a Product. Saved in <b>My Keys</b> too.</div>'+
+    '<button class="buy" style="margin-top:16px" data-close="1">Done</button></div>';
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov){ ov.remove(); return; } const k=e.target.closest('.k'); if(k){ if(navigator.clipboard) navigator.clipboard.writeText(code); toast('Key copied.'); } });
+  document.body.appendChild(ov);
+}
+
+// ---------- MY KEYS (Direct library) ----------
+async function loadLibrary(){
+  const grid=$('keysGrid');
+  grid.innerHTML='<div class="empty">Sign to load your keys…</div>';
+  const d=await dapiSigned('my-keys');
+  if(d.error){ grid.innerHTML='<div class="empty">'+esc(d.error)+'</div>'; return; }
+  const items=d.items||[];
+  if(!items.length){ grid.innerHTML='<div class="empty">No Direct purchases yet — grab a game from the Direct tab.</div>'; return; }
+  grid.innerHTML=items.map(it=>{
+    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
+    const code=it.code?('<div class="code" data-code="'+esc(it.code)+'" title="click to copy">'+esc(it.code)+'</div>'):'<div class="seller">key pending…</div>';
+    return '<div class="card" style="--rc:var(--gold)"><div class="cover">'+cover+'</div><div class="body">'+
+      '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+(it.edition?(' · '+esc(it.edition)):'')+'</div>'+
+      '<div class="title">'+esc(it.title)+'</div>'+code+'</div></div>';
+  }).join('');
+}
+$('keysGrid').addEventListener('click',e=>{ const c=e.target.closest('[data-code]'); if(c){ if(navigator.clipboard) navigator.clipboard.writeText(c.dataset.code); toast('Key copied.'); } });
+
+// ---------- boot ----------
+(function(){ const mb=$('menuBtn'), nv=$('nav'); if(mb) mb.addEventListener('click',()=>nv.classList.toggle('open')); })();
+$('myKeysBtn').addEventListener('click',openKeys);
+$('keysClose').addEventListener('click',closeKeys);
+$('keysOv').addEventListener('click',e=>{ if(e.target===$('keysOv')) closeKeys(); });
+$('connectBtn').addEventListener('click',async()=>{ if(await connect() && TAB!=='resale') showTab(TAB); });
+showTab('resale');
+setInterval(()=>{ if(TAB==='resale') loadResale(); if(TAB==='direct') loadDirect(); }, 20000);
 </script>
 </body>
 </html>
