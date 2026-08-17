@@ -342,6 +342,64 @@ async function api(body){
 }
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);}
 
+// ---------- listing modal (on-brand replacement for the browser prompt) ----------
+let DROP_USD=null; // USD price of 1 $DROP, cached from the price endpoint
+async function ensureDropUsd(){
+  if(DROP_USD!=null) return DROP_USD;
+  try{
+    const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'price'})});
+    const j=await r.json(); if(j&&j.dropUsd) DROP_USD=j.dropUsd;
+  }catch{}
+  return DROP_USD;
+}
+// Returns a Promise resolving to the price in cents, or null if cancelled.
+function listModal(title, defCents){
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=v=>{ if(done)return; done=true; document.removeEventListener('keydown',onKey); ov.remove(); resolve(v); };
+    const def=(defCents!=null)?(defCents/100).toFixed(2):'';
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(2,4,12,.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:95;padding:20px';
+    ov.innerHTML=
+      '<div style="background:#0c1024;border:1px solid var(--line-2,rgba(255,255,255,.15));border-radius:18px;padding:24px;width:min(400px,92vw);box-shadow:0 30px 80px -30px #000">'
+      +'<div style="font-family:var(--mono,monospace);letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--gold-2,#FCD05B)">🏷 List on marketplace</div>'
+      +'<div style="font-family:var(--display,inherit);font-weight:700;font-size:22px;color:var(--ink,#EDEFF9);margin:8px 0 4px">'+esc(title||'this game')+'</div>'
+      +'<div style="font-size:13px;color:var(--muted,#98A1C6);line-height:1.5;margin-bottom:18px">Set your price in USD — buyers pay the live $DROP equivalent. You keep 100%.</div>'
+      +'<div id="lmfield" style="display:flex;align-items:center;gap:8px;background:#070a18;border:1px solid var(--line-2,rgba(255,255,255,.15));border-radius:12px;padding:12px 14px;transition:border-color .15s">'
+        +'<span style="font-family:var(--mono,monospace);font-size:20px;color:var(--muted,#98A1C6)">$</span>'
+        +'<input id="lmprice" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" value="'+def+'" style="flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink,#EDEFF9);font-family:var(--mono,monospace);font-size:22px;font-weight:700">'
+        +'<span style="font-family:var(--mono,monospace);font-size:11px;letter-spacing:.1em;color:var(--muted,#98A1C6)">USD</span>'
+      +'</div>'
+      +'<div id="lmdrop" style="font-family:var(--mono,monospace);font-size:12.5px;color:var(--muted,#98A1C6);margin:12px 2px 0;min-height:16px">≈ — $DROP</div>'
+      +'<div style="display:flex;gap:10px;margin-top:22px">'
+        +'<button data-x="1" style="flex:1;padding:13px;border-radius:12px;border:1px solid var(--line-2,rgba(255,255,255,.15));background:transparent;color:var(--muted,#98A1C6);font:inherit;font-size:14px;cursor:pointer">Cancel</button>'
+        +'<button data-go="1" style="flex:1.4;padding:13px;border-radius:12px;border:0;background:linear-gradient(180deg,var(--gold-2,#FCD05B),var(--gold,#F6AC29));color:#12152b;font:inherit;font-weight:700;font-size:14px;cursor:pointer">List it</button>'
+      +'</div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    const input=ov.querySelector('#lmprice'), dropLine=ov.querySelector('#lmdrop'), field=ov.querySelector('#lmfield');
+    const parse=()=>{ const n=parseFloat(String(input.value).replace(/[^0-9.]/g,'')); return Number.isFinite(n)?n:NaN; };
+    const paint=()=>{
+      const d=parse();
+      if(!Number.isFinite(d)||d<=0){ dropLine.innerHTML='≈ — $DROP'; dropLine.style.color='var(--muted,#98A1C6)'; return; }
+      if(DROP_USD&&DROP_USD>0){
+        const toks=Math.round(d/DROP_USD);
+        dropLine.innerHTML='≈ <b style="color:var(--ink,#EDEFF9)">'+toks.toLocaleString()+'</b> $DROP <span style="color:var(--muted,#98A1C6)">· locked at checkout</span>';
+      }else{
+        dropLine.innerHTML='live $DROP amount locked at checkout';
+      }
+      dropLine.style.color='var(--gold-2,#FCD05B)';
+    };
+    const submit=()=>{ const d=parse(); if(!Number.isFinite(d)||d<=0){ field.style.borderColor='#ff6b6b'; input.focus(); return; } finish(Math.round(d*100)); };
+    input.addEventListener('input',()=>{ field.style.borderColor='var(--line-2,rgba(255,255,255,.15))'; paint(); });
+    ov.addEventListener('click',e=>{ if(e.target===ov||e.target.dataset.x){ finish(null); return; } if(e.target.dataset.go){ submit(); } });
+    const onKey=e=>{ if(e.key==='Escape') finish(null); else if(e.key==='Enter') submit(); };
+    document.addEventListener('keydown',onKey);
+    setTimeout(()=>{ input.focus(); input.select(); },30);
+    ensureDropUsd().then(paint); paint();
+  });
+}
+
 // ---------- wallet (picker: Phantom / Solflare) ----------
 function detectWallets(){
   const list=[];
@@ -614,12 +672,9 @@ async function handleGate(a){
     toast(`↺ Refund ${r.sent?'sent':'queued'} · ${fmt(toks)} $DROP · key back in the pool.`);
     syncStage();
   }else if(a==='list'){
-    const def=(last.win&&last.win.msrp_cents!=null)?(last.win.msrp_cents/100).toFixed(2):'';
-    const inp=prompt('List "'+(last.title||'this game')+'" on the marketplace.\nSet your price in USD — buyers pay the live $DROP equivalent:', def);
-    if(inp==null){ return; }
-    const dollars=parseFloat(String(inp).replace(/[^0-9.]/g,''));
-    if(!Number.isFinite(dollars)||dollars<=0){ toast('Enter a valid price.'); return; }
-    const cents=Math.round(dollars*100);
+    const defCents=(last.win&&last.win.msrp_cents!=null)?last.win.msrp_cents:null;
+    const cents=await listModal(last.title, defCents);
+    if(cents==null){ return; }
     $('status').innerHTML='listing…';
     const r=await api({action:'list',pullId:last.pullId,owner:OWNER,price_cents:cents});
     if(r.error){ toast(r.error); return; }
@@ -635,6 +690,7 @@ async function updateDropPrices(){
     const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'price'})});
     const j=await r.json();
     if(!j||!j.crates) return;
+    if(j.dropUsd) DROP_USD=j.dropUsd;
     const dec=j.decimals||6;
     for(const [k,info] of Object.entries(j.crates)){
       const el=document.getElementById('dp-'+k);
@@ -746,12 +802,8 @@ async function revealFromWins(i){
 }
 async function listFromWins(i){
   const it=WINS_CACHE[i]; if(!it||!OWNER) return;
-  const def=it.msrp_cents!=null?(it.msrp_cents/100).toFixed(2):'';
-  const inp=prompt('List "'+(it.game||'this game')+'" for sale.\nSet your price in USD — buyers pay the live $DROP equivalent:', def);
-  if(inp==null) return;
-  const dollars=parseFloat(String(inp).replace(/[^0-9.]/g,''));
-  if(!Number.isFinite(dollars)||dollars<=0){ toast('Enter a valid price.'); return; }
-  const cents=Math.round(dollars*100);
+  const cents=await listModal(it.game, it.msrp_cents!=null?it.msrp_cents:null);
+  if(cents==null) return;
   try{ await crateApi({action:'list',pullId:it.id,owner:OWNER,price_cents:cents});
     it.listed=true; it.list_price_cents=cents; renderWins(WINS_CACHE);
     toast('🏷 Listed for $'+(cents/100).toFixed(2)+'.');
