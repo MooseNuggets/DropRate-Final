@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketplace — DROPRATE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-0:#0A0D1E; --navy-1:#121736; --navy-2:#1D2445; --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.15);
+    --gold:#F6AC29; --gold-2:#FCD05B; --ink:#EDEFF9; --muted:#98A1C6; --spark:#8B7DF0;
+    --c-common:#9AA6C7; --c-rare:#43C9F0; --c-epic:#A48BF5; --c-legendary:#F6AC29;
+    --font:'Poppins',sans-serif; --display:'Chakra Petch',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:linear-gradient(180deg,#0E1330 0%,var(--navy-0) 72%);color:var(--ink);font-family:var(--font);min-height:100vh}
+  a{color:inherit}
+  header{display:flex;align-items:center;justify-content:space-between;max-width:1080px;margin:0 auto;padding:18px 24px;position:relative}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .brand .drop{width:22px;height:28px}
+  .brand .word{font-family:var(--display);font-weight:700;font-size:20px;color:var(--ink)} .brand .word b{color:var(--gold)}
+  nav{display:flex;gap:22px}
+  nav .mono{font-family:var(--mono);font-size:13px;color:var(--muted);text-decoration:none;letter-spacing:.02em}
+  nav .mono:hover,nav .mono.active{color:var(--gold-2)}
+  .menu-btn{display:none;background:none;border:0;color:var(--ink);font-size:24px;cursor:pointer}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px}
+  .kicker{font-family:var(--mono);color:var(--c-rare);letter-spacing:.28em;font-size:11px;text-transform:uppercase;margin-bottom:10px}
+  h1{font-family:var(--display);font-size:34px;letter-spacing:.02em;margin-bottom:8px}
+  h1 .g{color:var(--gold)}
+  .lede{color:var(--muted);font-size:15px;max-width:640px;line-height:1.6;margin-bottom:8px}
+  .note{font-family:var(--mono);font-size:11px;color:var(--spark);margin-bottom:26px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+  .card{background:var(--navy-1);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;--rc:var(--muted);transition:transform .12s,border-color .2s}
+  .card:hover{transform:translateY(-3px);border-color:var(--rc)}
+  .cover{aspect-ratio:16/9;background:linear-gradient(140deg,var(--rc),#0a0e1e);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:34px;color:rgba(10,13,30,.55);overflow:hidden}
+  .cover img{width:100%;height:100%;object-fit:cover}
+  .body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--rc);font-weight:700}
+  .title{font-weight:600;font-size:15px;color:var(--ink);line-height:1.25}
+  .price{margin-top:2px}
+  .price .usd{font-family:var(--display);font-weight:700;font-size:20px;color:var(--gold)}
+  .price .drop{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+  .seller{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .buy{margin-top:auto;font-family:var(--font);font-weight:700;font-size:13px;border:0;border-radius:10px;padding:11px;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b}
+  .buy.soon{background:transparent;border:1px dashed var(--line-2);color:var(--muted);cursor:default}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;padding:60px 20px;border:1px dashed var(--line);border-radius:16px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#12152b;border:1px solid var(--line-2);color:var(--ink);
+    font-size:13px;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(max-width:700px){ nav{display:none;position:absolute;top:100%;right:12px;left:12px;flex-direction:column;gap:14px;background:#0c1024;border:1px solid var(--line-2);border-radius:14px;padding:16px;z-index:20} nav.open{display:flex} .menu-btn{display:block} }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/">
+    <svg class="drop" viewBox="0 0 100 116" aria-hidden="true"><path d="M50 8 C50 40 82 58 82 82 a32 32 0 0 1-64 0 C18 58 50 40 50 8Z" fill="#F6AC29"/></svg>
+    <span class="word">DROP<b>RATE</b></span>
+  </a>
+  <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <nav id="nav">
+    <a class="mono" href="/draws.html">Draws</a>
+    <a class="mono" href="/crates.html">Crates</a>
+    <a class="mono" href="/docs.html">Docs</a>
+    <a class="mono" href="/verify.html">Verify</a>
+    <a class="mono active" href="/marketplace.html">Marketplace</a>
+  </nav>
+</header>
+<div class="wrap">
+  <div class="kicker">Player-to-player</div>
+  <h1>The <span class="g">Marketplace</span></h1>
+  <p class="lede">Won a game you already own? List it. Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
+  <div class="note" id="note">Loading listings…</div>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var RC={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function ini(g){return (g||'?').split(' ').map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase();}
+function shortW(w){return w&&w.length>10?(w.slice(0,4)+'…'+w.slice(-4)):(w||'');}
+function usd(c){return '$'+((c||0)/100).toFixed(2);}
+function fmtDrop(raw,dec){ var n=Number(raw)/Math.pow(10,dec||6); if(n>=1000) return Math.round(n).toLocaleString('en-US'); return n.toLocaleString('en-US',{maximumFractionDigits:2}); }
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2600);}
+function render(d){
+  var grid=document.getElementById('grid'), note=document.getElementById('note');
+  var L=(d&&d.listings)||[];
+  note.textContent = L.length ? (L.length+' key'+(L.length===1?'':'s')+' listed · live $DROP ≈ $'+(d.dropUsd||0).toFixed(6)) : '';
+  if(!L.length){ grid.innerHTML='<div class="empty">No keys listed yet — when holders list a won game, it shows up here.</div>'; return; }
+  grid.innerHTML=L.map(function(it){
+    var rc=RC[it.rarity]||'var(--muted)';
+    var cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.game));
+    return '<div class="card" style="--rc:'+rc+'">'+
+      '<div class="cover">'+cover+'</div>'+
+      '<div class="body">'+
+        '<div class="tag" style="color:'+rc+'">'+esc(it.rarity)+' · '+esc(it.crate)+' crate</div>'+
+        '<div class="title">'+esc(it.game)+'</div>'+
+        '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div>'+
+          '<div class="drop">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP'+(it.msrp_cents?(' · MSRP '+usd(it.msrp_cents)):'')+'</div></div>'+
+        '<div class="seller">seller '+esc(shortW(it.seller))+'</div>'+
+        '<button class="buy soon" data-id="'+it.id+'">Buy · opens soon</button>'+
+      '</div></div>';
+  }).join('');
+}
+function load(){
+  fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'market'})})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&!d.error){ render(d); } else { document.getElementById('note').textContent=''; } })
+    .catch(function(){ document.getElementById('note').textContent='Could not load the marketplace.'; });
+}
+document.getElementById('grid').addEventListener('click',function(e){
+  var b=e.target.closest('.buy'); if(!b) return;
+  toast('Buying with $DROP goes live shortly — listings are open now.');
+});
+(function(){ var mb=document.getElementById('menuBtn'), nv=document.getElementById('nav');
+  if(mb) mb.addEventListener('click',function(){ nv.classList.toggle('open'); }); })();
+load(); setInterval(load, 20000);
+</script>
+</body>
+</html>
