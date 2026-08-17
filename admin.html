@@ -43,6 +43,23 @@ font-size:.85rem;color:var(--red);margin-top:14px}
 .err{color:var(--red);font-size:.82rem;margin-top:10px}
 .status-claimed{color:var(--green)} .status-assigned{color:var(--gold)} .status-expired{color:var(--dim)} .status-void{color:var(--red)}
 #panel{display:none}
+.tabs{display:flex;gap:6px;margin:26px 0 4px;border-bottom:1px solid var(--line)}
+.tabbtn{background:none;color:var(--dim);border:0;border-bottom:2px solid transparent;border-radius:0;padding:12px 10px;font-weight:600;letter-spacing:.04em}
+.tabbtn.on{color:var(--gold);border-bottom-color:var(--gold)}
+.pill{display:inline-block;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.pill.pending{color:var(--gold);border-color:var(--gold)}
+.pill.approved{color:var(--green);border-color:var(--green)}
+.pill.rejected,.pill.suspended{color:var(--red);border-color:var(--red)}
+.approw{border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+.approw .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.approw .studio{font-weight:600;font-size:.95rem}
+.approw .meta{font-size:.78rem;color:var(--dim);line-height:1.9;margin-top:8px;word-break:break-word}
+.approw .meta b{color:var(--white);font-weight:500}
+.approw .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn-sm{padding:8px 14px;font-size:.78rem}
+.btn-approve{background:linear-gradient(180deg,var(--green),#22a355);color:#06210f}
+.btn-reject{background:linear-gradient(180deg,var(--red),#c23b3b);color:#fff}
+.btn-ghost{background:none;border:1px solid var(--line);color:var(--dim)}
 h1,h2,.brand{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;letter-spacing:.04em}
 code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!important}
 </style>
@@ -60,6 +77,11 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
     <div id="autherr"></div>
   </div>
   <div id="panel">
+    <div class="tabs">
+      <button class="tabbtn on" id="tt-raffle">Raffle &amp; Gacha</button>
+      <button class="tabbtn" id="tt-dev">Dev Portal</button>
+    </div>
+    <div id="tab-raffle">
     <h1>Dashboard</h1>
     <div class="grid3" id="stats"></div>
     <div id="stockwarn"></div>
@@ -134,6 +156,28 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
       <p style="color:#98A1C6;font-size:12px;margin:0 0 6px">Danger zone — wipes ALL gacha keys, pulls & history (never the raffle). Type WIPE to enable.</p>
       <input id="gk-wipe" placeholder="type WIPE" style="max-width:150px">
       <button id="gk-wipebtn">Wipe gacha data</button>
+    </div>
+    </div><!-- /tab-raffle -->
+
+    <div id="tab-dev" style="display:none">
+      <h1>Dev Portal</h1>
+      <div class="grid3" id="dev-stats"></div>
+      <h2>Seller applications</h2>
+      <div class="card">
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+          <select id="dev-filter" style="max-width:210px;margin:0">
+            <option value="pending">Pending only</option>
+            <option value="all">All sellers</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="suspended">Suspended</option>
+          </select>
+          <button class="btn-sm btn-ghost" id="dev-refresh" style="margin:0">Refresh</button>
+        </div>
+        <div id="dev-apps">—</div>
+      </div>
+      <h2>Open disputes</h2>
+      <div class="card"><div id="dev-disputes">—</div></div>
     </div>
   </div>
 </div>
@@ -385,6 +429,105 @@ async function gkWipe(){
 if($('gk-load')) $('gk-load').onclick=gkLoad;
 if($('gk-refresh')) $('gk-refresh').onclick=gkStock;
 if($('gk-wipebtn')) $('gk-wipebtn').onclick=gkWipe;
+
+/* ---------- Dev Portal tab ---------- */
+// Dev-market admin actions live at /api/crate under ns:devmarket (keeps Vercel's
+// function count down) — same ADMIN_SECRET bearer as /api/admin.
+async function devapi(body){
+  const res = await fetch("/api/crate",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${SECRET}` },
+    body: JSON.stringify({ ns:"devmarket", ...body }),
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || "request failed");
+  return data;
+}
+function showTab(which){
+  const dev = which==='dev';
+  $('tab-raffle').style.display = dev?'none':'block';
+  $('tab-dev').style.display    = dev?'block':'none';
+  $('tt-raffle').classList.toggle('on',!dev);
+  $('tt-dev').classList.toggle('on',dev);
+  if(dev) loadDev();
+}
+async function loadDev(){
+  const box=$('dev-apps'); box.textContent='Loading…';
+  try{ const q=await devapi({action:'seller-queue'}); renderApps(q.sellers||[]); }
+  catch(e){ box.innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  const dbox=$('dev-disputes'); dbox.textContent='Loading…';
+  try{ const d=await devapi({action:'dispute-queue'}); renderDisputes(d.disputes||[]); }
+  catch(e){ dbox.innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+}
+function renderApps(sellers){
+  const pending  = sellers.filter(s=>s.status==='pending').length;
+  const approved = sellers.filter(s=>s.status==='approved').length;
+  $('dev-stats').innerHTML=`
+    <div class="stat"><b>${pending}</b><span>Pending</span></div>
+    <div class="stat"><b>${approved}</b><span>Approved</span></div>
+    <div class="stat"><b>${sellers.length}</b><span>Total sellers</span></div>`;
+  const f=$('dev-filter').value;
+  const list = f==='all' ? sellers : sellers.filter(s=>s.status===f);
+  if(!list.length){ $('dev-apps').innerHTML='<p style="color:var(--dim);font-size:.85rem">No sellers in this view.</p>'; return; }
+  $('dev-apps').innerHTML=list.map(s=>{
+    const w=esc(s.wallet);
+    const acts = s.status==='pending'
+      ? `<button class="btn-sm btn-approve" data-act="approve" data-w="${w}">Approve</button>
+         <button class="btn-sm btn-reject" data-act="reject" data-w="${w}">Reject</button>`
+      : s.status==='approved'
+      ? `<button class="btn-sm btn-reject" data-act="suspend" data-w="${w}">Suspend</button>`
+      : `<button class="btn-sm btn-approve" data-act="approve" data-w="${w}">Approve</button>`;
+    const site = s.website
+      ? `<a href="${esc(s.website)}" target="_blank" rel="noopener" style="color:var(--purple)">${esc(s.website)}</a>` : '—';
+    return `<div class="approw">
+      <div class="top"><span class="studio">${esc(s.studio||'(no studio name)')}</span><span class="pill ${esc(s.status)}">${esc(s.status)}</span></div>
+      <div class="meta">
+        Wallet: <b class="mono">${esc(short(s.wallet))}</b><br>
+        Contact: <b>${esc(s.contact||'—')}</b><br>
+        Socials: <b>${esc(s.socials||'—')}</b><br>
+        Website: <b>${site}</b><br>
+        Steam App IDs: <b>${esc(s.steam_appids||'—')}</b><br>
+        Payout: <b>${esc(s.payout_currency||'DROP')}</b> · Sold: <b>${s.sold_count||0}</b> · Disputes: <b>${s.dispute_count||0}</b> · Standing: <b>${esc(s.standing||'new')}</b>
+      </div>
+      <div class="btns">${acts}<button class="btn-sm btn-ghost" data-copy="${w}">Copy wallet</button></div>
+    </div>`;
+  }).join('');
+}
+function renderDisputes(list){
+  if(!list.length){ $('dev-disputes').innerHTML='<p style="color:var(--dim);font-size:.85rem">No open disputes.</p>'; return; }
+  $('dev-disputes').innerHTML=list.map(d=>`<div class="approw">
+    <div class="top"><span class="studio">Order #${d.order_id} · ${esc(d.product_title||'')}</span><span class="pill pending">${esc(d.order_status)}</span></div>
+    <div class="meta">
+      Buyer: <b class="mono">${esc(short(d.buyer))}</b><br>
+      Seller: <b>${esc(d.studio||'—')}</b> (<span class="mono">${esc(short(d.seller_wallet))}</span>)<br>
+      Reason: <b>${esc(d.reason||'—')}</b><br>
+      Evidence: <b>${esc(d.evidence||'—')}</b><br>
+      Price: <b>$${(((d.price_cents)||0)/100).toFixed(2)}</b> · Paid in <b>${esc(d.pay_currency)}</b> · Opened <b>${esc(fmtT(d.created_at))}</b>
+    </div>
+    <div class="btns">
+      <button class="btn-sm btn-reject" data-disp="refund" data-oid="${d.order_id}">Refund buyer</button>
+      <button class="btn-sm btn-approve" data-disp="deny" data-oid="${d.order_id}">Deny · release to seller</button>
+    </div>
+  </div>`).join('');
+}
+if($('tt-raffle')) $('tt-raffle').onclick=()=>showTab('raffle');
+if($('tt-dev'))    $('tt-dev').onclick=()=>showTab('dev');
+if($('dev-refresh')) $('dev-refresh').onclick=loadDev;
+if($('dev-filter'))  $('dev-filter').onchange=loadDev;
+if($('dev-apps')) $('dev-apps').addEventListener('click', async e=>{
+  const cp=e.target.closest('[data-copy]');
+  if(cp){ if(navigator.clipboard) navigator.clipboard.writeText(cp.dataset.copy); const t=cp.textContent; cp.textContent='Copied'; setTimeout(()=>cp.textContent=t,1200); return; }
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  b.disabled=true;
+  try{ await devapi({action:'seller-review',wallet:b.dataset.w,decision:b.dataset.act}); await loadDev(); }
+  catch(err){ b.disabled=false; b.textContent='Retry'; console.error(err); }
+});
+if($('dev-disputes')) $('dev-disputes').addEventListener('click', async e=>{
+  const b=e.target.closest('[data-disp]'); if(!b) return;
+  b.disabled=true;
+  try{ await devapi({action:'dispute-resolve',order_id:Number(b.dataset.oid),decision:b.dataset.disp}); await loadDev(); }
+  catch(err){ b.disabled=false; b.textContent='Retry'; console.error(err); }
+});
 </script>
 </body>
 </html>
