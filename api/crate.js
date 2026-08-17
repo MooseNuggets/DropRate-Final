@@ -6,7 +6,6 @@
 // whole route until GACHA_ENABLED=1, and to an allowlist while GACHA_ALLOWLIST is
 // set — so it runs live but only for you until you flip it public.
 // ============================================================================
-
 import { randomUUID } from "node:crypto";
 import { sql } from "../lib/db.js";
 import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
@@ -16,10 +15,8 @@ import { quoteCrate, splitPayment, validateTransfer, verifySplitLegs } from "../
 import { fetchRandomness } from "../lib/draw.js";
 import { decryptCode, verifyWalletSignature } from "../lib/vault.js";
 import { currentDropUsd } from "../lib/oracle.js";
-
 const nowUnix = () => Math.floor(Date.now() / 1000);
 const DECIMALS = Number(process.env.DROP_DECIMALS || 6);
-
 // --- HIDDEN-DEPLOY GATE -----------------------------------------------------
 const ALLOWLIST = (process.env.GACHA_ALLOWLIST || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -30,7 +27,6 @@ function gateOrDie(owner) {
     const e = new Error("not-on-allowlist"); e.http = 403; throw e;
   }
 }
-
 // --- on-chain / oracle SEAMS (wired to lib/oracle.js + lib/solana.js) --------
 async function fetchPaidTransfer(reference, expected) {
   const { findPaymentByReference, resolveSplitAtas } = await import("../lib/solana.js");
@@ -55,13 +51,17 @@ async function dispatchRefund(toWallet, amountRaw) {
   const { sendTreasuryTransfer } = await import("../lib/solana.js");
   return sendTreasuryTransfer(toWallet, amountRaw);
 }
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   try {
     await migrateGacha();
+    // --- MARKETPLACE columns (idempotent; additive on top of migrateGacha) ---
+    // `listed` boolean already exists on pulls; add the seller's asking price
+    // (USD cents) and when it was listed. No new table — a listing is just a
+    // sealed/kept pull flagged listed=true with a price.
+    await sql`ALTER TABLE pulls ADD COLUMN IF NOT EXISTS list_price_cents int`;
+    await sql`ALTER TABLE pulls ADD COLUMN IF NOT EXISTS listed_at timestamptz`;
     const b = req.body ?? {};
-
    // ---- PRICE: public live $DROP price + per-crate token amounts ---------
     if (b.action === "price") {
       const dropUsd = await currentDropUsd();
@@ -71,17 +71,15 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, crates });
     }
-    
+
     // ---- OPEN ------------------------------------------------------------
     if (b.action === "open") {
       const crate = CRATES[b.crate];
       if (!crate) return res.status(400).json({ error: "unknown crate" });
       if (!b.owner) return res.status(400).json({ error: "owner required" });
       gateOrDie(b.owner);
-
       const stock = await bucketCounts();
       if (!canOpen(b.crate, stock)) return res.status(409).json({ error: "out-of-stock", stock });
-
       const dropUsd = await currentDropUsd();
       const q = quoteCrate(b.crate, dropUsd, { nowMs: Date.now(), decimals: DECIMALS });
       const ins = await sql`
@@ -101,7 +99,6 @@ export default async function handler(req, res) {
         expiresAt: q.expiresAt,
       });
     }
-
     // ---- CONFIRM ---------------------------------------------------------
     if (b.action === "confirm") {
       const qy = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
@@ -109,18 +106,15 @@ export default async function handler(req, res) {
       if (!pull) return res.status(404).json({ error: "no such pull" });
       gateOrDie(pull.owner);
       if (pull.state !== "awaiting_payment") return res.status(200).json({ state: pull.state });
-
       const transfer = await fetchPaidTransfer(pull.reference, { amountRaw: pull.amount_quoted_raw });
       if (!transfer) return res.status(402).json({ error: "payment-not-found" });
       if (!transfer.splitOk) return res.status(400).json({ error: "invalid-payment", reasons: transfer.splitReasons });
-
       const v = validateTransfer(transfer, {
         mint: process.env.DROP_MINT, destination: transfer.destination,
         amountRaw: pull.amount_quoted_raw, reference: pull.reference,
         expiresAt: new Date(pull.quote_expires_at).getTime(),
       }, { nowMs: Date.now(), underpayToleranceBps: 0 });
       if (!v.ok) return res.status(400).json({ error: "invalid-payment", reasons: v.reasons });
-
       try {
         await sql`UPDATE pulls SET paid = true, paid_sig = ${transfer.signature}, paid_raw = ${v.amountRaw} WHERE id = ${pull.id}`;
       } catch {
@@ -131,12 +125,10 @@ export default async function handler(req, res) {
         await sql`INSERT INTO settlements(pull_id, type, amount_raw, status, sig, sent_at)
                   VALUES (${pull.id}, ${type}, ${amt.toString()}, 'confirmed', ${transfer.signature}, now()) ON CONFLICT DO NOTHING`;
       }
-
       const round = commitRound(nowUnix());
       await sql`UPDATE pulls SET drand_round = ${round}, state = 'committing' WHERE id = ${pull.id}`;
       return res.status(200).json({ ok: true, state: "committing", round, readyAt: roundReadyAt(round) });
     }
-
     // ---- BUILDPAY: server-build the 4-way split tx for the buyer to sign ---
     if (b.action === "buildpay") {
       const qy = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
@@ -145,7 +137,6 @@ export default async function handler(req, res) {
       gateOrDie(pull.owner);
       if (pull.state !== "awaiting_payment") return res.status(409).json({ error: `not awaiting payment (${pull.state})` });
       if (!b.payer) return res.status(400).json({ error: "payer required" });
-
       const s = splitPayment(pull.amount_quoted_raw);
       const { buildSplitPaymentTx } = await import("../lib/solana.js");
       const built = await buildSplitPaymentTx(b.payer, pull.reference, {
@@ -154,7 +145,6 @@ export default async function handler(req, res) {
       });
       return res.status(200).json({ ok: true, pullId: pull.id, amountRaw: pull.amount_quoted_raw, ...built });
     }
-
     // ---- RESOLVE ---------------------------------------------------------
     if (b.action === "resolve") {
       const q = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
@@ -166,21 +156,17 @@ export default async function handler(req, res) {
         return res.status(425).json({ error: "too-early", readyAt: roundReadyAt(Number(pull.drand_round)) });
       }
       const seed = await fetchRandomness(Number(pull.drand_round));
-
       const pityRow = await sql`SELECT misses FROM pity WHERE owner = ${pull.owner} AND crate = ${pull.crate}`;
       const misses = pityRow.rows[0]?.misses ?? 0;
       const roll = resolveRarity(pull.crate, seed, pull.nonce, misses);
-
       const claim = await sql`
         UPDATE crate_keys SET status = 'sealed'
         WHERE id = (SELECT id FROM crate_keys WHERE rarity = ${roll.rarity} AND status = 'available'
                     ORDER BY id ASC LIMIT 1 FOR UPDATE SKIP LOCKED)
         RETURNING id, game_title, image, msrp_cents`;
-
       await sql`
         INSERT INTO pity(owner, crate, misses) VALUES (${pull.owner}, ${pull.crate}, ${roll.missesSinceEpic})
         ON CONFLICT (owner, crate) DO UPDATE SET misses = ${roll.missesSinceEpic}`;
-
       if (!claim.rows.length) {
         await sql`UPDATE pulls SET rarity = ${roll.rarity}, seed = ${seed}, state = 'owed', resolved_at = now() WHERE id = ${pull.id}`;
         return res.status(200).json({ state: "owed", rarity: roll.rarity });
@@ -198,7 +184,6 @@ export default async function handler(req, res) {
         decision_deadline: deadlineSec * 1000, claim_window_sec: CLAIM_WINDOW_SEC,
       });
     }
-
 // ---- SWEEP: finalize expired pulls + retry any stuck refunds (cron) ---
     if (b.action === "sweep") {
       if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -206,7 +191,6 @@ export default async function handler(req, res) {
       }
       // sealed + past deadline -> kept (sell-back closes; key still claimable)
       const r = await sql`UPDATE pulls SET state = 'kept' WHERE state = 'sealed' AND decision_deadline < now()`;
-
       // Self-healing refunds: any refund settlement still 'pending' after 2 minutes
       // (the immediate dispatch failed — e.g. treasury briefly out of SOL, RPC blip)
       // gets retried here. The 2-minute floor avoids racing a live sell-back request.
@@ -228,7 +212,6 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, finalized: r.rowCount ?? 0, refundsSent, refundsFailed });
     }
-
     // ---- reveal / sellback ----------------------------------------------
     if (b.action === "reveal" || b.action === "sellback") {
       const q = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
@@ -236,7 +219,6 @@ export default async function handler(req, res) {
       if (!pull) return res.status(404).json({ error: "no such pull" });
       if (pull.owner !== b.owner) return res.status(403).json({ error: "not your pull" });
       gateOrDie(b.owner);
-
       if (b.action === "reveal") {
         if (pull.state !== "sealed" && pull.state !== "kept") {
           return res.status(409).json({ error: `cannot reveal (${pull.state})` });
@@ -244,10 +226,11 @@ export default async function handler(req, res) {
         const kq = await sql`SELECT code_encrypted FROM crate_keys WHERE id = ${pull.key_id}`;
         const code = decryptCode(kq.rows[0].code_encrypted, process.env.CODE_VAULT_KEY);
         await sql`UPDATE crate_keys SET status = 'revealed' WHERE id = ${pull.key_id}`;
-        await sql`UPDATE pulls SET state = 'revealed', resolved_at = now() WHERE id = ${pull.id}`;
+        // Revealing exposes the code to the owner -> the key can never be resold,
+        // so it is auto-delisted from the marketplace here.
+        await sql`UPDATE pulls SET state = 'revealed', listed = false, list_price_cents = NULL, listed_at = NULL, resolved_at = now() WHERE id = ${pull.id}`;
         return res.status(200).json({ ok: true, code });
       }
-
       if (pull.state !== "sealed") {
         return res.status(409).json({ error: `cannot sell back (${pull.state})` });
       }
@@ -257,7 +240,7 @@ export default async function handler(req, res) {
       }
       const refund = buybackRaw(pull.paid_raw);
       await sql`UPDATE crate_keys SET status = 'available' WHERE id = ${pull.key_id}`;
-      await sql`UPDATE pulls SET state = 'sold_back', refund_raw = ${refund.toString()}, resolved_at = now() WHERE id = ${pull.id}`;
+      await sql`UPDATE pulls SET state = 'sold_back', listed = false, list_price_cents = NULL, listed_at = NULL, refund_raw = ${refund.toString()}, resolved_at = now() WHERE id = ${pull.id}`;
       await sql`INSERT INTO settlements(pull_id, type, amount_raw) VALUES (${pull.id}, 'refund', ${refund.toString()}) ON CONFLICT DO NOTHING`;
       try {
         const sig = await dispatchRefund(pull.owner, refund.toString());
@@ -268,14 +251,69 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, refundRaw: refund.toString(), sent: false, queued: true });
       }
     }
-
+    // ---- MARKETPLACE: list a sealed/kept key for sale (owner-set USD price) ---
+    if (b.action === "list") {
+      const q = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
+      const pull = q.rows[0];
+      if (!pull) return res.status(404).json({ error: "no such pull" });
+      if (pull.owner !== b.owner) return res.status(403).json({ error: "not your pull" });
+      gateOrDie(b.owner);
+      // Only an unrevealed key can be listed: sealed or kept, and the key itself
+      // must still be sealed (never decrypted). Revealed/sold_back/owed can't list.
+      if (pull.state !== "sealed" && pull.state !== "kept") {
+        return res.status(409).json({ error: `cannot list (${pull.state})` });
+      }
+      if (!pull.key_id) return res.status(409).json({ error: "no key on this pull" });
+      const ks = await sql`SELECT status FROM crate_keys WHERE id = ${pull.key_id}`;
+      if (ks.rows[0]?.status !== "sealed") return res.status(409).json({ error: "key is not sealed" });
+      const cents = Math.round(Number(b.price_cents));
+      if (!Number.isFinite(cents) || cents < 1 || cents > 100000000) {
+        return res.status(400).json({ error: "price_cents must be a positive USD-cents amount" });
+      }
+      await sql`UPDATE pulls SET listed = true, list_price_cents = ${cents}, listed_at = now() WHERE id = ${pull.id}`;
+      return res.status(200).json({ ok: true, listed: true, price_cents: cents });
+    }
+    // ---- MARKETPLACE: pull your own listing --------------------------------
+    if (b.action === "delist") {
+      const q = await sql`SELECT owner, listed FROM pulls WHERE id = ${Number(b.pullId)}`;
+      const pull = q.rows[0];
+      if (!pull) return res.status(404).json({ error: "no such pull" });
+      if (pull.owner !== b.owner) return res.status(403).json({ error: "not your pull" });
+      gateOrDie(b.owner);
+      await sql`UPDATE pulls SET listed = false, list_price_cents = NULL, listed_at = NULL WHERE id = ${Number(b.pullId)}`;
+      return res.status(200).json({ ok: true, listed: false });
+    }
+    // ---- MARKETPLACE: public browse of active listings ---------------------
+    if (b.action === "market") {
+      const dropUsd = await currentDropUsd();
+      const rows = await sql`
+        SELECT p.id, p.owner, p.crate, p.rarity, p.list_price_cents, p.listed_at,
+               k.game_title, k.image, k.msrp_cents
+        FROM pulls p JOIN crate_keys k ON k.id = p.key_id
+        WHERE p.listed = true AND p.state IN ('sealed','kept') AND k.status = 'sealed'
+              AND p.list_price_cents IS NOT NULL
+        ORDER BY p.listed_at DESC NULLS LAST, p.id DESC
+        LIMIT 200`;
+      const listings = rows.rows.map((r) => ({
+        id: r.id,
+        seller: r.owner,
+        crate: r.crate,
+        rarity: r.rarity,
+        game: r.game_title || "Mystery game",
+        image: r.image || null,
+        msrp_cents: r.msrp_cents,
+        price_cents: r.list_price_cents,
+        drop_raw: tokensForCrate(r.list_price_cents, dropUsd, DECIMALS).toString(),
+        listed_at: r.listed_at,
+      }));
+      return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, listings });
+    }
     // ---- VERIFY ----------------------------------------------------------
     if (b.action === "verify") {
       const q = await sql`SELECT crate, drand_round, nonce, seed, rarity, misses_since_floor, state FROM pulls WHERE id = ${Number(b.pullId)}`;
       if (!q.rows.length) return res.status(404).json({ error: "no such pull" });
       return res.status(200).json(q.rows[0]);
     }
-
  // ---- HISTORY: a wallet's own pulls, gated by a wallet SIGNATURE ---------
     if (b.action === "history") {
       const { owner, message, signature } = b;
@@ -287,34 +325,35 @@ export default async function handler(req, res) {
       let ok = false;
       try { ok = verifyWalletSignature(message, String(signature), owner); } catch { ok = false; }
       if (!ok) return res.status(401).json({ error: "signature verification failed" });
-
       const rows = await sql`
         SELECT p.id, p.crate, p.rarity, p.state, p.resolved_at, p.created_at, p.refund_raw,
+               p.listed, p.list_price_cents,
                k.game_title, k.image, k.msrp_cents, k.code_encrypted, k.status AS key_status
         FROM pulls p LEFT JOIN crate_keys k ON k.id = p.key_id
         WHERE p.owner = ${owner} AND p.state IN ('revealed','kept','sold_back','owed')
         ORDER BY COALESCE(p.resolved_at, p.created_at) DESC, p.id DESC
         LIMIT 200`;
       const items = rows.rows.map((r) => {
-        // A code is returned ONLY for a key the wallet still owns: the pull must be
-        // revealed/kept AND the key must still be theirs (status sealed/revealed).
-        // A sold-back key (state 'sold_back', key returned to 'available') NEVER
-        // shows a code — both locks must pass.
-        const owned = (r.state === "revealed" || r.state === "kept") &&
-                      (r.key_status === "sealed" || r.key_status === "revealed");
+        // The plaintext code is returned ONLY once the key is explicitly REVEALED.
+        // A 'kept' key is still sealed (never shown) so it stays resale-eligible —
+        // returning its code here would let a seller extract it and still sell the
+        // "sealed" key. So: code only for state === 'revealed'.
         let code = null;
-        if (owned && r.code_encrypted) { try { code = decryptCode(r.code_encrypted, process.env.CODE_VAULT_KEY); } catch { code = null; } }
+        if (r.state === "revealed" && r.code_encrypted) {
+          try { code = decryptCode(r.code_encrypted, process.env.CODE_VAULT_KEY); } catch { code = null; }
+        }
         return {
           id: r.id, crate: r.crate, rarity: r.rarity, state: r.state,
           game: r.game_title, image: r.image, msrp_cents: r.msrp_cents,
           date: r.resolved_at || r.created_at,
           refund_raw: r.refund_raw ? String(r.refund_raw) : null,
+          listed: !!r.listed, list_price_cents: r.list_price_cents ?? null,
           code,
         };
       });
       return res.status(200).json({ ok: true, items });
     }
-    
+
     return res.status(400).json({ error: `unknown action ${b.action}` });
   } catch (err) {
     if (err && err.http) return res.status(err.http).json({ error: String(err.message) });
