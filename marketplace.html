@@ -39,6 +39,8 @@
   .tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
   .tb{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px 12px;cursor:pointer;transition:.15s}
   .tb:hover{color:var(--ink)} .tb.active{color:var(--gold-2);border-bottom-color:var(--gold)}
+  .tblink{margin-left:auto;align-self:center;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-2);text-decoration:none;padding:10px 14px 12px;border-bottom:2px solid transparent;transition:.15s}
+  .tblink:hover{color:var(--gold);border-bottom-color:var(--gold)}
   .lede{color:var(--muted);font-size:15px;max-width:660px;line-height:1.6;margin-bottom:8px}
   .lede b{color:var(--ink)}
   .note{font-family:var(--mono);font-size:11px;color:var(--spark);margin-bottom:22px;min-height:14px}
@@ -110,23 +112,23 @@
 <div class="wrap">
   <h1>The <span class="g">Marketplace</span></h1>
   <div class="tabbar">
-    <button class="tb active" data-tab="resale">Resale</button>
-    <button class="tb" data-tab="direct">Direct</button>
+    <button class="tb active" data-tab="direct">Direct</button>
+    <button class="tb" data-tab="resale">Resale</button>
+    <a class="tblink" href="/devportal.html">Dev Portal ↗</a>
   </div>
 
+  <!-- DIRECT (buy keys straight from developers) -->
+  <section id="view-direct">
+    <p class="lede">Buy game keys <b>straight from the developer</b>.</p>
+    <div class="note" id="directNote"></div>
+    <div class="grid" id="directGrid"></div>
+  </section>
+
   <!-- RESALE (player-to-player won keys) -->
-  <section id="view-resale">
+  <section id="view-resale" class="hide">
     <p class="lede">Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
     <div class="note" id="resaleNote">Loading listings…</div>
     <div class="grid" id="resaleGrid"></div>
-  </section>
-
-  <!-- DIRECT (buy keys straight from developers) -->
-  <section id="view-direct" class="hide">
-    <p class="lede">Buy game keys <b>straight from the developer</b> — they keep up to 98.5% instead of Steam's 70%, so prices are keener. Every key is escrowed and only released to you on payment.</p>
-    <a class="devlink" href="/devportal.html">Develop games? List your keys in the Dev Portal →</a>
-    <div class="note" id="directNote"></div>
-    <div class="grid" id="directGrid"></div>
   </section>
 
 </div>
@@ -145,7 +147,7 @@
 <script type="module">
 import * as web3 from 'https://esm.sh/@solana/web3.js@1.95.3';
 
-let OWNER=null, wallet=null, TAB='resale';
+let OWNER=null, wallet=null, TAB='direct';
 const $=id=>document.getElementById(id);
 const RC={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -350,7 +352,7 @@ $('myKeysBtn').addEventListener('click',openKeys);
 $('keysClose').addEventListener('click',closeKeys);
 $('keysOv').addEventListener('click',e=>{ if(e.target===$('keysOv')) closeKeys(); });
 $('connectBtn').addEventListener('click',async()=>{ if(await connect() && TAB!=='resale') showTab(TAB); });
-showTab('resale');
+showTab('direct');
 setInterval(()=>{ if(TAB==='resale') loadResale(); if(TAB==='direct') loadDirect(); }, 20000);
 </script>
 </body>
