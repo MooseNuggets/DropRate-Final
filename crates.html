@@ -67,6 +67,11 @@
   .winstab .cnt{opacity:.65;font-size:10.5px;margin-left:4px}
   .winbought{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
     color:var(--spark);border:1px solid color-mix(in srgb,var(--spark) 45%,transparent);border-radius:6px;padding:2px 6px}
+  .winsold{margin-top:8px;font-family:var(--mono);font-size:12px;color:#2ee6a6}
+  .winsold b{color:#5cffc2;font-size:13px}
+  .winpill{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;padding:2px 7px}
+  .winpill.paid{color:#2ee6a6;border:1px solid color-mix(in srgb,#2ee6a6 45%,transparent)}
+  .winpill.pend{color:var(--gold-2);border:1px solid color-mix(in srgb,var(--gold-2) 45%,transparent)}
   .hero{padding:36px 0 6px} .kicker{color:var(--spark)}
   h1{font-size:clamp(30px,5vw,50px);line-height:1.02;margin:12px 0 8px;font-weight:800;letter-spacing:-.005em;font-family:var(--display)}
   .brand .word,.rip,.gtitle,.crate .price{font-family:var(--display)}
@@ -225,7 +230,6 @@
     </a>
     <nav>
       <a class="mono" href="/#how" style="text-decoration:none">How it works</a>
-      <a class="mono" href="/#loot" style="text-decoration:none">Loot table</a>
       <a class="mono" href="/draws.html" style="text-decoration:none">Draws</a>
       <a class="mono active" href="/crates.html" style="text-decoration:none">Crates</a>
       <a class="mono" href="/docs.html" style="text-decoration:none">Docs</a>
@@ -758,24 +762,52 @@ async function openWins(){
     const j=await r.json();
     const body=document.getElementById('winsbody'); if(!body) return;
     if(j.error){ body.innerHTML='<div class="winempty">'+esc(j.error)+'</div>'; return; }
+    SALES_CACHE=j.sales||[]; SALES_DEC=j.decimals||6;
     renderWins(j.items||[]);
   }catch(e){ const b=document.getElementById('winsbody'); if(b) b.innerHTML='<div class="winempty">network error</div>'; }
 }
 function renderWins(items){
   const body=document.getElementById('winsbody'); if(!body) return;
-  WINS_CACHE=items||[];
+  if(items!=null) WINS_CACHE=items;
   const money=c=>c!=null?('$'+(c/100).toFixed(2)):'';
   const dt=d=>{ try{ return new Date(d).toLocaleDateString(); }catch{ return ''; } };
+  const fmtDrop=raw=>{ if(raw==null) return '—'; const w=Number(raw)/Math.pow(10,SALES_DEC||6); return Math.round(w).toLocaleString(); };
   // keep the GLOBAL index (into WINS_CACHE) on each entry so reveal/list/delist still resolve
   const pulled=[], bought=[];
   WINS_CACHE.forEach((it,i)=>{ (it.bought?bought:pulled).push([it,i]); });
-  if(WINS_TAB==='bought'&&!bought.length&&pulled.length) WINS_TAB='pulled';
+  const sold=SALES_CACHE||[];
+  // if the active tab is empty but another has content, fall back sensibly
+  if(WINS_TAB==='bought'&&!bought.length&&(pulled.length||sold.length)) WINS_TAB='pulled';
+  if(WINS_TAB==='sold'&&!sold.length&&(pulled.length||bought.length)) WINS_TAB='pulled';
   const tabs=`<div class="winstabs">
-    <button class="winstab ${WINS_TAB!=='bought'?'active':''}" data-tab="pulled">My Wins<span class="cnt">${pulled.length}</span></button>
+    <button class="winstab ${WINS_TAB==='pulled'?'active':''}" data-tab="pulled">My Wins<span class="cnt">${pulled.length}</span></button>
     <button class="winstab ${WINS_TAB==='bought'?'active':''}" data-tab="bought">Purchased<span class="cnt">${bought.length}</span></button>
+    <button class="winstab ${WINS_TAB==='sold'?'active':''}" data-tab="sold">Sold<span class="cnt">${sold.length}</span></button>
   </div>`;
+  if(!WINS_CACHE.length&&!sold.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
+  // ---- Sold tab: read-only sale receipts (game + $DROP received + date) ----
+  if(WINS_TAB==='sold'){
+    if(!sold.length){ body.innerHTML=tabs+'<div class="winempty">No sales yet — list a key and your payouts land here.</div>'; return; }
+    const scard=(s)=>{
+      const rc=RC_HEX[s.rarity]||'var(--muted)';
+      const title=esc(s.game||'Mystery game');
+      const ini=((s.game||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCase())||'?';
+      const cover=s.image?`<img src="${esc(s.image)}" alt="">`:esc(ini);
+      const pill=s.status==='settled'
+        ? '<span class="winpill paid">✓ Paid out</span>'
+        : '<span class="winpill pend">⏳ Payout processing</span>';
+      const vlink=(s.id!=null)?`<a class="winverify" href="/verify.html?pull=${encodeURIComponent(s.id)}" target="_blank" rel="noopener">verify #${esc(s.id)} ↗</a>`:'';
+      return `<div class="wincard" style="--rc:${rc}"><div class="wincover">${cover}</div><div class="winbody">
+        <div class="wintag">${esc(s.rarity)} · ${esc(s.crate)}</div>
+        <div class="wintitle">${title}</div>
+        <div class="winmeta">${money(s.price_cents)}${s.date?(' · '+esc(dt(s.date))):''}</div>
+        <div class="winsold">+ <b>${fmtDrop(s.drop_raw)}</b> $DROP received</div>
+        <div>${pill}</div>${vlink}</div></div>`;
+    };
+    body.innerHTML=tabs+'<div class="wingrid">'+sold.map(scard).join('')+'</div>';
+    return;
+  }
   const list=WINS_TAB==='bought'?bought:pulled;
-  if(!WINS_CACHE.length){ body.innerHTML='<div class="winempty">No pulls yet — open a crate and your wins land here.</div>'; return; }
   if(!list.length){
     const msg=WINS_TAB==='bought'
       ? 'No purchases yet — buy a listing on the marketplace and it lands here.'
@@ -848,7 +880,9 @@ async function delistFromWins(i){
 /* ===== win share cards (client-side canvas → X) ===== */
 const RC_SOLID={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
 let WINS_CACHE=[];
-let WINS_TAB='pulled'; // 'pulled' = My Wins, 'bought' = Purchased
+let SALES_CACHE=[]; // sales made by this wallet (Sold tab)
+let SALES_DEC=6;    // $DROP decimals for formatting payout amounts
+let WINS_TAB='pulled'; // 'pulled' = My Wins, 'bought' = Purchased, 'sold' = Sold
 const SHARE_ORIGIN=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'https://droprate.xyz';
 function shareText(win){
   const r=(win.rarity||'').toUpperCase();
