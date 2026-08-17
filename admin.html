@@ -469,16 +469,20 @@ function renderApps(sellers){
   const f=$('dev-filter').value;
   const list = f==='all' ? sellers : sellers.filter(s=>s.status===f);
   if(!list.length){ $('dev-apps').innerHTML='<p style="color:var(--dim);font-size:.85rem">No sellers in this view.</p>'; return; }
+  const escA=x=>esc(x).replace(/"/g,'&quot;');
+  const opt=(v,cur)=>`<option value="${v}"${v===cur?' selected':''}>${v}</option>`;
   $('dev-apps').innerHTML=list.map(s=>{
     const w=esc(s.wallet);
     const acts = s.status==='pending'
       ? `<button class="btn-sm btn-approve" data-act="approve" data-w="${w}">Approve</button>
          <button class="btn-sm btn-reject" data-act="reject" data-w="${w}">Reject</button>`
       : s.status==='approved'
-      ? `<button class="btn-sm btn-reject" data-act="suspend" data-w="${w}">Suspend</button>`
+      ? `<button class="btn-sm btn-reject" data-act="suspend" data-w="${w}">Revoke (suspend)</button>`
       : `<button class="btn-sm btn-approve" data-act="approve" data-w="${w}">Approve</button>`;
     const site = s.website
-      ? `<a href="${esc(s.website)}" target="_blank" rel="noopener" style="color:var(--purple)">${esc(s.website)}</a>` : '—';
+      ? `<a href="${escA(s.website)}" target="_blank" rel="noopener" style="color:var(--purple)">${esc(s.website)}</a>` : '—';
+    const payoutSel = ['DROP','USDC','SOL'].map(c=>opt(c,s.payout_currency||'DROP')).join('');
+    const standingSel = ['new','trusted'].map(c=>opt(c,s.standing||'new')).join('');
     return `<div class="approw">
       <div class="top"><span class="studio">${esc(s.studio||'(no studio name)')}</span><span class="pill ${esc(s.status)}">${esc(s.status)}</span></div>
       <div class="meta">
@@ -489,7 +493,32 @@ function renderApps(sellers){
         Steam App IDs: <b>${esc(s.steam_appids||'—')}</b><br>
         Payout: <b>${esc(s.payout_currency||'DROP')}</b> · Sold: <b>${s.sold_count||0}</b> · Disputes: <b>${s.dispute_count||0}</b> · Standing: <b>${esc(s.standing||'new')}</b>
       </div>
-      <div class="btns">${acts}<button class="btn-sm btn-ghost" data-copy="${w}">Copy wallet</button></div>
+      <div class="btns">${acts}
+        <button class="btn-sm btn-ghost" data-edit="${w}">Edit</button>
+        <button class="btn-sm btn-ghost" data-copy="${w}">Copy wallet</button>
+      </div>
+      <div class="editform" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <div class="grid2">
+          <div><label>Studio</label><input data-ef="studio" value="${escA(s.studio||'')}"></div>
+          <div><label>Contact email</label><input data-ef="contact" value="${escA(s.contact||'')}"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Socials</label><input data-ef="socials" value="${escA(s.socials||'')}"></div>
+          <div><label>Website</label><input data-ef="website" value="${escA(s.website||'')}"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Steam App IDs</label><input data-ef="steam_appids" value="${escA(s.steam_appids||'')}"></div>
+          <div><label>Payout rail</label><select data-ef="payout_currency">${payoutSel}</select></div>
+        </div>
+        <div class="grid2">
+          <div><label>Standing · holdback tier</label><select data-ef="standing">${standingSel}</select></div>
+          <div></div>
+        </div>
+        <div class="btns">
+          <button class="btn-sm btn-approve" data-save="${w}">Save changes</button>
+          <button class="btn-sm btn-ghost" data-cancel="${w}">Cancel</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -517,6 +546,19 @@ if($('dev-filter'))  $('dev-filter').onchange=loadDev;
 if($('dev-apps')) $('dev-apps').addEventListener('click', async e=>{
   const cp=e.target.closest('[data-copy]');
   if(cp){ if(navigator.clipboard) navigator.clipboard.writeText(cp.dataset.copy); const t=cp.textContent; cp.textContent='Copied'; setTimeout(()=>cp.textContent=t,1200); return; }
+  const ed=e.target.closest('[data-edit]');
+  if(ed){ const f=ed.closest('.approw').querySelector('.editform'); if(f) f.style.display=(f.style.display==='none'?'block':'none'); return; }
+  const cancel=e.target.closest('[data-cancel]');
+  if(cancel){ const f=cancel.closest('.approw').querySelector('.editform'); if(f) f.style.display='none'; return; }
+  const save=e.target.closest('[data-save]');
+  if(save){
+    const row=save.closest('.approw'); const payload={action:'seller-edit',wallet:save.dataset.save};
+    row.querySelectorAll('[data-ef]').forEach(inp=>{ payload[inp.dataset.ef]=inp.value.trim(); });
+    save.disabled=true;
+    try{ await devapi(payload); await loadDev(); }
+    catch(err){ save.disabled=false; save.textContent='Retry'; console.error(err); }
+    return;
+  }
   const b=e.target.closest('[data-act]'); if(!b) return;
   b.disabled=true;
   try{ await devapi({action:'seller-review',wallet:b.dataset.w,decision:b.dataset.act}); await loadDev(); }
