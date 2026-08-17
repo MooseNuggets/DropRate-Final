@@ -6,7 +6,7 @@
 // whole route until GACHA_ENABLED=1, and to an allowlist while GACHA_ALLOWLIST is
 // set — so it runs live but only for you until you flip it public.
 // ============================================================================
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { sql } from "../lib/db.js";
 import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
 import { CRATES, buybackRaw, CLAIM_WINDOW_SEC, tokensForCrate } from "../lib/gacha.js";
@@ -17,6 +17,23 @@ import { decryptCode, verifyWalletSignature } from "../lib/vault.js";
 import { currentDropUsd } from "../lib/oracle.js";
 const nowUnix = () => Math.floor(Date.now() / 1000);
 const DECIMALS = Number(process.env.DROP_DECIMALS || 6);
+// Self-contained Solana-Pay reference: base58 of 32 random bytes (a valid pubkey
+// the buyer attaches to the escrow transfer). Inlined so this route never depends
+// on payment.js's export surface.
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function makeReference() {
+  const bytes = randomBytes(32);
+  let zeros = 0; while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) { carry += digits[j] << 8; digits[j] = carry % 58; carry = (carry / 58) | 0; }
+    while (carry > 0) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+  }
+  let out = "1".repeat(zeros);
+  for (let k = digits.length - 1; k >= 0; k--) out += B58[digits[k]];
+  return out;
+}
 // --- HIDDEN-DEPLOY GATE -----------------------------------------------------
 const ALLOWLIST = (process.env.GACHA_ALLOWLIST || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -61,6 +78,27 @@ export default async function handler(req, res) {
     // sealed/kept pull flagged listed=true with a price.
     await sql`ALTER TABLE pulls ADD COLUMN IF NOT EXISTS list_price_cents int`;
     await sql`ALTER TABLE pulls ADD COLUMN IF NOT EXISTS listed_at timestamptz`;
+    // ripped_by preserves the ORIGINAL puller after a resale flips owner -> buyer
+    // (provenance + verify stay intact). purchases is the escrow ledger for P2P
+    // sales: buyer pays treasury, treasury forwards to seller once the key flips.
+    await sql`ALTER TABLE pulls ADD COLUMN IF NOT EXISTS ripped_by text`;
+    await sql`CREATE TABLE IF NOT EXISTS purchases(
+      id serial PRIMARY KEY,
+      pull_id int NOT NULL REFERENCES pulls(id),
+      buyer text NOT NULL,
+      seller text NOT NULL,
+      reference text NOT NULL,
+      amount_quoted_raw numeric NOT NULL,
+      price_cents int NOT NULL,
+      quote_expires_at timestamptz NOT NULL,
+      status text NOT NULL DEFAULT 'awaiting_payment',
+      paid_sig text,
+      payout_sig text,
+      refund_sig text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      settled_at timestamptz
+    )`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS uniq_purchase_paid_sig ON purchases(paid_sig) WHERE paid_sig IS NOT NULL`;
     const b = req.body ?? {};
    // ---- PRICE: public live $DROP price + per-crate token amounts ---------
     if (b.action === "price") {
@@ -210,7 +248,25 @@ export default async function handler(req, res) {
           refundsFailed++;
         }
       }
-      return res.status(200).json({ ok: true, finalized: r.rowCount ?? 0, refundsSent, refundsFailed });
+      // Marketplace escrow self-heal: retry stuck seller payouts + buyer refunds.
+      let payoutsSent = 0, mktRefundsSent = 0;
+      const pp = await sql`SELECT id, seller, amount_quoted_raw FROM purchases WHERE status = 'payout_pending' ORDER BY id ASC LIMIT 25`;
+      for (const row of pp.rows) {
+        try {
+          const sig = await dispatchRefund(row.seller, String(row.amount_quoted_raw));
+          await sql`UPDATE purchases SET status = 'settled', payout_sig = ${sig} WHERE id = ${row.id}`;
+          payoutsSent++;
+        } catch (e) { console.error("sweep payout retry failed:", e.message); }
+      }
+      const rp = await sql`SELECT id, buyer, amount_quoted_raw FROM purchases WHERE status = 'refund_pending' ORDER BY id ASC LIMIT 25`;
+      for (const row of rp.rows) {
+        try {
+          const sig = await dispatchRefund(row.buyer, String(row.amount_quoted_raw));
+          await sql`UPDATE purchases SET status = 'refunded', refund_sig = ${sig} WHERE id = ${row.id}`;
+          mktRefundsSent++;
+        } catch (e) { console.error("sweep mkt refund retry failed:", e.message); }
+      }
+      return res.status(200).json({ ok: true, finalized: r.rowCount ?? 0, refundsSent, refundsFailed, payoutsSent, mktRefundsSent });
     }
     // ---- reveal / sellback ----------------------------------------------
     if (b.action === "reveal" || b.action === "sellback") {
@@ -223,6 +279,18 @@ export default async function handler(req, res) {
         if (pull.state !== "sealed" && pull.state !== "kept") {
           return res.status(409).json({ error: `cannot reveal (${pull.state})` });
         }
+        // Wallet-signature gate. A revealed code has cash value (resale), so we
+        // require proof the caller controls the owning wallet — not just knowledge
+        // of its (public) address. The signed message binds the wallet AND pull id.
+        const { message, signature } = b;
+        if (!message || !signature) return res.status(400).json({ error: "message + signature required to reveal" });
+        if (!message.includes(`wallet:${b.owner}`) || !message.includes(`pull:${pull.id}`)) {
+          return res.status(401).json({ error: "reveal message must bind wallet + pull id" });
+        }
+        const rm = /ts:(\d+)/.exec(message); const rts = rm ? Number(rm[1]) : 0;
+        if (!rts || Math.abs(Date.now() / 1000 - rts) > 300) return res.status(401).json({ error: "signature expired — retry" });
+        let rok = false; try { rok = verifyWalletSignature(message, String(signature), b.owner); } catch { rok = false; }
+        if (!rok) return res.status(401).json({ error: "signature verification failed" });
         const kq = await sql`SELECT code_encrypted FROM crate_keys WHERE id = ${pull.key_id}`;
         const code = decryptCode(kq.rows[0].code_encrypted, process.env.CODE_VAULT_KEY);
         await sql`UPDATE crate_keys SET status = 'revealed' WHERE id = ${pull.key_id}`;
@@ -282,6 +350,108 @@ export default async function handler(req, res) {
       gateOrDie(b.owner);
       await sql`UPDATE pulls SET listed = false, list_price_cents = NULL, listed_at = NULL WHERE id = ${Number(b.pullId)}`;
       return res.status(200).json({ ok: true, listed: false });
+    }
+    // ---- MARKETPLACE BUY (escrow): quote a purchase + lock a reference ------
+    if (b.action === "buy-open") {
+      if (!b.buyer) return res.status(400).json({ error: "buyer required" });
+      gateOrDie(b.buyer);
+      const q = await sql`SELECT * FROM pulls WHERE id = ${Number(b.pullId)}`;
+      const pull = q.rows[0];
+      if (!pull) return res.status(404).json({ error: "no such listing" });
+      if (!pull.listed || !(pull.state === "sealed" || pull.state === "kept") || !pull.list_price_cents) {
+        return res.status(409).json({ error: "listing is not active" });
+      }
+      if (pull.owner === b.buyer) return res.status(400).json({ error: "can't buy your own listing" });
+      const ks = await sql`SELECT status FROM crate_keys WHERE id = ${pull.key_id}`;
+      if (ks.rows[0]?.status !== "sealed") return res.status(409).json({ error: "key is not sealed" });
+      // one live checkout per listing (soft lock; escrow refunds cover any race)
+      const live = await sql`
+        SELECT id FROM purchases WHERE pull_id = ${pull.id}
+          AND status = 'awaiting_payment' AND quote_expires_at > now()`;
+      if (live.rows.length) return res.status(409).json({ error: "another buyer is checking out — try again shortly" });
+      const dropUsd = await currentDropUsd();
+      const amountRaw = tokensForCrate(pull.list_price_cents, dropUsd, DECIMALS).toString();
+      const reference = makeReference();
+      const ttlMs = 120000;
+      const ins = await sql`
+        INSERT INTO purchases(pull_id, buyer, seller, reference, amount_quoted_raw, price_cents, quote_expires_at)
+        VALUES (${pull.id}, ${b.buyer}, ${pull.owner}, ${reference}, ${amountRaw}, ${pull.list_price_cents},
+                to_timestamp(${(Date.now() + ttlMs) / 1000}))
+        RETURNING id`;
+      return res.status(200).json({
+        ok: true, purchaseId: ins.rows[0].id, reference, amountRaw,
+        price_cents: pull.list_price_cents, seller: pull.owner, dropUsd, decimals: DECIMALS,
+        expiresAt: Date.now() + ttlMs,
+      });
+    }
+    // ---- MARKETPLACE BUY: build the buyer's escrow payment tx (to treasury) --
+    if (b.action === "buy-buildpay") {
+      if (!b.payer) return res.status(400).json({ error: "payer required" });
+      const q = await sql`SELECT * FROM purchases WHERE reference = ${String(b.reference)}`;
+      const pur = q.rows[0];
+      if (!pur) return res.status(404).json({ error: "no such purchase" });
+      gateOrDie(b.payer);
+      if (pur.buyer !== b.payer) return res.status(403).json({ error: "not your purchase" });
+      if (pur.status !== "awaiting_payment") return res.status(409).json({ error: `purchase ${pur.status}` });
+      if (new Date(pur.quote_expires_at).getTime() < Date.now()) return res.status(409).json({ error: "quote expired — start again" });
+      const { buildDirectPaymentTx } = await import("../lib/solana.js");
+      const built = await buildDirectPaymentTx(b.payer, pur.reference, process.env.TREASURY_WALLET, String(pur.amount_quoted_raw));
+      return res.status(200).json({ ok: true, purchaseId: pur.id, amountRaw: String(pur.amount_quoted_raw), ...built });
+    }
+    // ---- MARKETPLACE BUY: confirm escrow, flip owner, forward to seller ------
+    if (b.action === "buy-confirm") {
+      const q = await sql`SELECT * FROM purchases WHERE reference = ${String(b.reference)}`;
+      const pur = q.rows[0];
+      if (!pur) return res.status(404).json({ error: "no such purchase" });
+      gateOrDie(pur.buyer);
+      if (pur.status === "settled") return res.status(200).json({ ok: true, state: "settled", already: true, pullId: pur.pull_id });
+      if (pur.status === "refunded") return res.status(200).json({ ok: false, state: "refunded", already: true });
+      if (pur.status !== "awaiting_payment") return res.status(409).json({ error: `purchase ${pur.status}` });
+      const { findPaymentByReference, resolveWalletAta } = await import("../lib/solana.js");
+      const found = await findPaymentByReference(pur.reference);
+      if (!found) return res.status(402).json({ error: "payment-not-found" });
+      const treasuryAta = await resolveWalletAta(process.env.TREASURY_WALLET);
+      const legToTreasury = (found.legs || [])
+        .filter((l) => String(l.destination) === String(treasuryAta))
+        .reduce((a, l) => a + BigInt(l.amountRaw), 0n);
+      const v = validateTransfer(
+        { mint: found.mint, destination: treasuryAta, amountRaw: legToTreasury.toString(), reference: pur.reference, sender: found.sender },
+        { mint: process.env.DROP_MINT, destination: treasuryAta, amountRaw: String(pur.amount_quoted_raw),
+          reference: pur.reference, expiresAt: new Date(pur.quote_expires_at).getTime() },
+        { nowMs: Date.now(), underpayToleranceBps: 0 }
+      );
+      if (!v.ok) return res.status(400).json({ error: "invalid-payment", reasons: v.reasons });
+      try {
+        await sql`UPDATE purchases SET paid_sig = ${found.signature}, status = 'paid' WHERE id = ${pur.id} AND status = 'awaiting_payment'`;
+      } catch {
+        return res.status(409).json({ error: "payment-already-used" });
+      }
+      // ATOMIC delivery: flip owner ONLY if the listing is still deliverable.
+      const deliver = await sql`
+        UPDATE pulls SET owner = ${pur.buyer}, ripped_by = COALESCE(ripped_by, owner),
+               listed = false, list_price_cents = NULL, listed_at = NULL
+        WHERE id = ${pur.pull_id} AND listed = true AND state IN ('sealed','kept') AND owner = ${pur.seller}
+        RETURNING id`;
+      if (deliver.rows.length) {
+        // the key is the buyer's now — forward the full escrow to the seller (no fee)
+        try {
+          const sig = await dispatchRefund(pur.seller, String(pur.amount_quoted_raw));
+          await sql`UPDATE purchases SET status = 'settled', payout_sig = ${sig}, settled_at = now() WHERE id = ${pur.id}`;
+        } catch (e) {
+          console.error("seller payout deferred:", e.message);
+          await sql`UPDATE purchases SET status = 'payout_pending', settled_at = now() WHERE id = ${pur.id}`;
+        }
+        return res.status(200).json({ ok: true, state: "settled", pullId: pur.pull_id });
+      }
+      // undeliverable (already sold / revealed / delisted) -> refund the buyer in full
+      try {
+        const sig = await dispatchRefund(pur.buyer, String(pur.amount_quoted_raw));
+        await sql`UPDATE purchases SET status = 'refunded', refund_sig = ${sig}, settled_at = now() WHERE id = ${pur.id}`;
+      } catch (e) {
+        console.error("buyer refund deferred:", e.message);
+        await sql`UPDATE purchases SET status = 'refund_pending', settled_at = now() WHERE id = ${pur.id}`;
+      }
+      return res.status(200).json({ ok: false, state: "refunded", reason: "listing was no longer available — you've been refunded" });
     }
     // ---- MARKETPLACE: public browse of active listings ---------------------
     if (b.action === "market") {
