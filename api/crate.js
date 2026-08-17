@@ -525,7 +525,30 @@ export default async function handler(req, res) {
           code,
         };
       });
-      return res.status(200).json({ ok: true, items });
+      // Sales made BY this wallet (as the seller). The pull's owner has flipped to
+      // the buyer, so these no longer appear in `items` — they live in `purchases`.
+      // amount_quoted_raw is the full $DROP the buyer paid = what the seller received
+      // (no house fee). 'settled' = paid out; 'payout_pending' = payout retrying.
+      const saleRows = await sql`
+        SELECT pu.id AS purchase_id, pu.pull_id, pu.price_cents, pu.amount_quoted_raw,
+               pu.status, pu.settled_at, pu.created_at,
+               p.crate, p.rarity, k.game_title, k.image
+        FROM purchases pu
+        JOIN pulls p ON p.id = pu.pull_id
+        LEFT JOIN crate_keys k ON k.id = p.key_id
+        WHERE pu.seller = ${owner} AND pu.status IN ('settled','payout_pending')
+        ORDER BY COALESCE(pu.settled_at, pu.created_at) DESC, pu.id DESC
+        LIMIT 200`;
+      const sales = saleRows.rows.map((r) => ({
+        id: r.pull_id,
+        crate: r.crate, rarity: r.rarity,
+        game: r.game_title, image: r.image,
+        price_cents: r.price_cents ?? null,
+        drop_raw: r.amount_quoted_raw != null ? String(r.amount_quoted_raw) : null,
+        date: r.settled_at || r.created_at,
+        status: r.status, // 'settled' | 'payout_pending'
+      }));
+      return res.status(200).json({ ok: true, items, sales, decimals: DECIMALS });
     }
 
     return res.status(400).json({ error: `unknown action ${b.action}` });
