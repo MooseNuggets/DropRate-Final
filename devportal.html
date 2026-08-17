@@ -68,6 +68,10 @@ background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b;trans
 .imgdrop-cta{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:14px;line-height:1.5;pointer-events:none}
 .imgdrop.avatar{width:104px;height:104px;border-radius:50%;flex:0 0 auto}
 .imgdrop.cover{width:100%;height:160px}
+.gstrip{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.thumb{position:relative;width:78px;height:78px;border-radius:8px;overflow:hidden;border:1px solid var(--line2)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb button{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(0,0,0,.62);color:#fff;cursor:pointer;font-size:14px;line-height:20px;padding:0;text-align:center}
 .empty{color:var(--muted);text-align:center;padding:50px 0;font-family:'JetBrains Mono',monospace;font-size:.88rem}
 .res{font-family:'JetBrains Mono',monospace;font-size:.78rem;margin-top:10px}
 #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#0c1024;border:1px solid var(--line2);
@@ -228,6 +232,30 @@ function imageField(prefix,opts={}){
   render();
   return { get:()=>value, set:v=>{ value=v||''; render(); } };
 }
+// Multi-image gallery manager: drag/drop or click to add up to 8 resized images,
+// each with a remove button. IDs: <prefix>-zone / -file / -strip. Returns { get }.
+function galleryField(prefix,initial){
+  const zone=$(prefix+'-zone'), file=$(prefix+'-file'), strip=$(prefix+'-strip');
+  let items=(initial||[]).slice();
+  function render(){
+    strip.innerHTML = items.length
+      ? items.map((src,i)=>`<div class="thumb"><img src="${esc(src)}" alt=""><button data-rm="${i}" title="Remove">×</button></div>`).join('')
+      : '<div class="mini" style="padding:4px 0">No extra images yet.</div>';
+  }
+  async function add(f){
+    if(!f||!/^image\//.test(f.type)) return;
+    if(items.length>=8){ toast('Up to 8 gallery images.'); return; }
+    try{ items.push(await resizeImage(f,1000,.8)); render(); }catch{ toast('Could not read that image.'); }
+  }
+  zone.addEventListener('click',()=>file.click());
+  file.addEventListener('change',e=>{ [...(e.target.files||[])].forEach(add); file.value=''; });
+  ['dragenter','dragover'].forEach(ev=>zone.addEventListener(ev,e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave','dragend'].forEach(ev=>zone.addEventListener(ev,e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop',e=>{ e.preventDefault(); zone.classList.remove('drag'); [...(e.dataTransfer.files||[])].forEach(add); });
+  strip.addEventListener('click',e=>{ const b=e.target.closest('[data-rm]'); if(b){ items.splice(Number(b.dataset.rm),1); render(); } });
+  render();
+  return { get:()=>items.slice() };
+}
 function renderDashboard(products){
   const rows=products.length?products.map(p=>`
     <div class="prodrow" data-pid="${p.id}">
@@ -236,6 +264,7 @@ function renderDashboard(products){
         <div class="mini">${p.available} available · ${p.sold} sold · ${p.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>'}</div>
       </div>
       <div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn ghost" data-edit="${p.id}">Edit page</button>
         <button class="btn ghost" data-up="${p.id}" data-title="${esc(p.title)}">Upload keys</button>
         <button class="btn ghost" data-pull="${p.id}" data-title="${esc(p.title)}" data-avail="${p.available}">Pull keys</button>
         <button class="btn danger" data-del="${p.id}">Delete</button>
@@ -278,11 +307,19 @@ function renderDashboard(products){
       <label class="f">Cover image</label>
       <div class="imgdrop cover" id="npimg-zone"><img class="imgprev" id="npimg-prev" alt=""><div class="imgdrop-cta" id="npimg-cta">Drag &amp; drop a cover image, or click to browse</div><input type="file" accept="image/*" hidden id="npimg-file"></div>
       <input id="npimg-url" placeholder="…or paste an image URL" style="margin-top:8px">
+      <label class="f">Gallery images <span style="opacity:.6">· optional, up to 8 screenshots</span></label>
+      <div class="imgdrop cover" id="npgal-zone" style="height:96px"><div class="imgdrop-cta" id="npgal-cta">Drag &amp; drop screenshots, or click to add</div><input type="file" accept="image/*" multiple hidden id="npgal-file"></div>
+      <div class="gstrip" id="npgal-strip"></div>
+      <label class="f">Trailer / video links <span style="opacity:.6">· optional, one URL per line — YouTube, Vimeo, MP4…</span></label>
+      <textarea id="np-videos" placeholder="https://www.youtube.com/watch?v=…" style="min-height:60px"></textarea>
+      <label class="f">Game description</label>
+      <textarea id="np-desc" placeholder="What is your game? Tell buyers what makes it worth playing…" style="min-height:110px"></textarea>
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
     </div>`;
   const pfAvatar=imageField('pfav',{maxDim:512,quality:.85,initial:s.avatar||''});
   const npCover=imageField('npimg',{maxDim:1000,quality:.82});
+  const npGallery=galleryField('npgal',[]);
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
     const r=await apiSigned('profile-set',{ studio:$('pf-studio').value.trim(), contact:$('pf-contact').value.trim(),
@@ -299,12 +336,15 @@ function renderDashboard(products){
     if(!$('np-title').value.trim()){ $('np-res').innerHTML='<span style="color:var(--red)">Title required.</span>'; return; }
     if(!Number.isFinite(dollars)||dollars<=0){ $('np-res').innerHTML='<span style="color:var(--red)">Enter a valid price.</span>'; return; }
     if(!cover){ $('np-res').innerHTML='<span style="color:var(--red)">Add a cover image.</span>'; return; }
+    const videos=$('np-videos').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     const r=await apiSigned('product-create',{ title:$('np-title').value.trim(), price_cents:Math.round(dollars*100),
-      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:cover });
+      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:cover,
+      media:npGallery.get(), videos, description:$('np-desc').value.trim() });
     if(r.error){ $('np-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     toast('Product created.'); loadSell();
   };
   $('prodList').addEventListener('click',e=>{
+    const ed=e.target.closest('[data-edit]'); if(ed){ const p=products.find(x=>x.id===Number(ed.dataset.edit)); if(p) openEditProduct(p); return; }
     const u=e.target.closest('[data-up]'); if(u){ openUpload(Number(u.dataset.up), u.dataset.title); return; }
     const pl=e.target.closest('[data-pull]'); if(pl){ openPull(Number(pl.dataset.pull), pl.dataset.title, Number(pl.dataset.avail)); return; }
     const del=e.target.closest('[data-del]');
@@ -349,6 +389,51 @@ function openPull(productId,title,avail){
     const out=$('pl-out'); out.style.display='block'; out.value=(r.keys||[]).join('\n'); out.focus(); out.select();
     $('pl-res').innerHTML=`<span style="color:var(--green)">Pulled ${r.count} key${r.count==1?'':'s'}.</span> Copy them now — they're no longer stored on DropRate.`;
     toast(`Pulled ${r.count} key${r.count==1?'':'s'}.`);
+  };
+}
+function openEditProduct(p){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML=`<div class="ovcard" style="max-width:580px;max-height:88vh;overflow:auto">
+    <h3 class="disp" style="font-size:1rem">Edit store page — ${esc(p.title)}</h3>
+    <p class="hint" style="color:var(--muted);font-size:.82rem;margin:8px 0 12px">This is the page buyers see when they open your game in the marketplace.</p>
+    <div class="row"><div><label class="f">Game title</label><input id="ep-title" value="${esc(p.title||'')}"></div>
+    <div><label class="f">Price (USD)</label><input id="ep-price" value="${p.price_cents!=null?(p.price_cents/100).toFixed(2):''}" inputmode="decimal"></div></div>
+    <div class="row"><div><label class="f">Region</label><input id="ep-region" value="${esc(p.region||'GLOBAL')}"></div>
+    <div><label class="f">Steam App ID</label><input id="ep-appid" value="${esc(p.appid||'')}"></div></div>
+    <label class="f">Cover image</label>
+    <div class="imgdrop cover" id="epimg-zone"><img class="imgprev" id="epimg-prev" alt=""><div class="imgdrop-cta" id="epimg-cta">Drag &amp; drop a cover, or click</div><input type="file" accept="image/*" hidden id="epimg-file"></div>
+    <input id="epimg-url" placeholder="…or paste an image URL" style="margin-top:8px">
+    <label class="f">Gallery images <span style="opacity:.6">· up to 8</span></label>
+    <div class="imgdrop cover" id="epgal-zone" style="height:90px"><div class="imgdrop-cta" id="epgal-cta">Drag &amp; drop screenshots, or click to add</div><input type="file" accept="image/*" multiple hidden id="epgal-file"></div>
+    <div class="gstrip" id="epgal-strip"></div>
+    <label class="f">Trailer / video links <span style="opacity:.6">· one URL per line</span></label>
+    <textarea id="ep-videos" style="min-height:60px" placeholder="https://www.youtube.com/watch?v=…">${esc((p.videos||[]).join('\n'))}</textarea>
+    <label class="f">Game description</label>
+    <textarea id="ep-desc" style="min-height:120px" placeholder="What is your game?">${esc(p.description||'')}</textarea>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="ep-save">Save changes</button>
+      <button class="btn ghost" data-close="1" style="flex:0 0 auto">Cancel</button>
+    </div>
+    <div class="res" id="ep-res"></div>
+  </div>`;
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const epCover=imageField('epimg',{maxDim:1000,quality:.82,initial:p.image||''});
+  const epGallery=galleryField('epgal',p.media||[]);
+  $('ep-save').onclick=async()=>{
+    const dollars=parseFloat(String($('ep-price').value).replace(/[^0-9.]/g,''));
+    const cover=epCover.get();
+    if(!$('ep-title').value.trim()){ $('ep-res').innerHTML='<span style="color:var(--red)">Title required.</span>'; return; }
+    if(!Number.isFinite(dollars)||dollars<=0){ $('ep-res').innerHTML='<span style="color:var(--red)">Enter a valid price.</span>'; return; }
+    if(!cover){ $('ep-res').innerHTML='<span style="color:var(--red)">A cover image is required.</span>'; return; }
+    $('ep-save').disabled=true; $('ep-res').textContent='Saving…';
+    const videos=$('ep-videos').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const r=await apiSigned('product-set',{ product_id:p.id, title:$('ep-title').value.trim(), price_cents:Math.round(dollars*100),
+      region:$('ep-region').value.trim()||'GLOBAL', appid:$('ep-appid').value.trim()||null, image:cover,
+      media:epGallery.get(), videos, description:$('ep-desc').value.trim() });
+    $('ep-save').disabled=false;
+    if(r.error){ $('ep-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    toast('Store page updated.'); ov.remove(); loadSell();
   };
 }
 function openUpload(productId,title){
