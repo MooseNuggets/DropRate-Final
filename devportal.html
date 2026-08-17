@@ -160,13 +160,15 @@ function renderApply(){
     <label class="f">Studio / publisher name</label><input id="ap-studio" placeholder="Your studio">
     <div class="row"><div><label class="f">Contact email</label><input id="ap-contact" placeholder="you@studio.com"></div>
     <div><label class="f">Website</label><input id="ap-web" placeholder="https://"></div></div>
+    <label class="f">Socials — X / Discord / Telegram</label><input id="ap-socials" placeholder="@yourstudio · discord.gg/… · t.me/…">
     <label class="f">Steam App IDs (comma-separated)</label><input id="ap-appids" placeholder="e.g. 413150, 892970">
     <button class="btn" id="ap-submit" style="margin-top:18px">Submit application</button>
     <div class="res" id="ap-res"></div>
   </div>`;
   $('ap-submit').onclick=async()=>{
     const r=await apiSigned('seller-apply',{ studio:$('ap-studio').value.trim(), contact:$('ap-contact').value.trim(),
-      website:$('ap-web').value.trim(), steam_appids:$('ap-appids').value.trim(), payout_currency:'DROP' });
+      website:$('ap-web').value.trim(), socials:$('ap-socials').value.trim(),
+      steam_appids:$('ap-appids').value.trim(), payout_currency:'DROP' });
     if(r.error){ $('ap-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     toast('Application submitted!'); loadSell();
   };
