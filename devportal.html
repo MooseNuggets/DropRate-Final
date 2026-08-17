@@ -50,6 +50,8 @@ textarea{min-height:120px;resize:vertical}
 background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b;transition:.15s}
 .btn:hover{filter:brightness(1.05)} .btn:disabled{opacity:.5;cursor:wait}
 .btn.ghost{background:transparent;border:1px solid var(--line2);color:var(--ink)}
+.btn.danger{background:transparent;border:1px solid color-mix(in srgb,var(--red) 55%,transparent);color:var(--red)}
+.btn.danger:hover{background:color-mix(in srgb,var(--red) 12%,transparent);filter:none}
 .pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:7px}
 .pill.ok{color:var(--green);border:1px solid color-mix(in srgb,var(--green) 45%,transparent)}
 .pill.warn{color:var(--gold-2);border:1px solid color-mix(in srgb,var(--gold-2) 45%,transparent)}
@@ -182,18 +184,34 @@ function renderStatus(title,pill,msg,reapply){
 }
 function renderDashboard(products){
   const rows=products.length?products.map(p=>`
-    <div class="prodrow">
+    <div class="prodrow" data-pid="${p.id}">
       <div>
         <div style="font-weight:600">${esc(p.title)} <span class="mini">· ${usd(p.price_cents)} · ${esc(p.region||'GLOBAL')}</span></div>
         <div class="mini">${p.available} available · ${p.sold} sold · ${p.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>'}</div>
       </div>
-      <div style="flex:0 0 auto"><button class="btn ghost" data-up="${p.id}" data-title="${esc(p.title)}">Upload keys</button></div>
+      <div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn ghost" data-up="${p.id}" data-title="${esc(p.title)}">Upload keys</button>
+        <button class="btn ghost" data-pull="${p.id}" data-title="${esc(p.title)}" data-avail="${p.available}">Pull keys</button>
+        <button class="btn danger" data-del="${p.id}">Delete</button>
+      </div>
     </div>`).join(''):'<div class="mini" style="padding:12px 0">No products yet — create your first below.</div>';
+  const s=SELLER||{};
   $('sellBody').innerHTML=`
     <div class="panel">
       <h3>Seller dashboard <span class="pill ok" style="margin-left:8px">approved</span></h3>
-      <p class="hint">Payouts land in this wallet as $DROP. Fee is 1.5%. ${SELLER.sold_count?('You\'ve sold '+SELLER.sold_count+' key'+(SELLER.sold_count==1?'':'s')+'.'):''}</p>
+      <p class="hint">Payouts land in this wallet as $DROP. Fee is 1.5%. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
       <div id="prodList">${rows}</div>
+    </div>
+    <div class="panel">
+      <h3>Your profile</h3>
+      <p class="hint">How you appear to buyers and to the DropRate team. Keep it current.</p>
+      <div class="row"><div><label class="f">Studio / publisher name</label><input id="pf-studio" value="${esc(s.studio||'')}" placeholder="Your studio"></div>
+      <div><label class="f">Contact email</label><input id="pf-contact" value="${esc(s.contact||'')}" placeholder="you@studio.com"></div></div>
+      <div class="row"><div><label class="f">Website</label><input id="pf-web" value="${esc(s.website||'')}" placeholder="https://"></div>
+      <div><label class="f">Socials — X / Discord / Telegram</label><input id="pf-socials" value="${esc(s.socials||'')}" placeholder="@yourstudio · discord.gg/…"></div></div>
+      <label class="f">Steam App IDs (comma-separated)</label><input id="pf-appids" value="${esc(s.steam_appids||'')}" placeholder="e.g. 413150, 892970">
+      <button class="btn" id="pf-save" style="margin-top:18px">Save profile</button>
+      <div class="res" id="pf-res"></div>
     </div>
     <div class="panel">
       <h3>New product</h3>
@@ -201,20 +219,75 @@ function renderDashboard(products){
       <div><label class="f">Price (USD)</label><input id="np-price" placeholder="19.99" inputmode="decimal"></div></div>
       <div class="row"><div><label class="f">Region</label><input id="np-region" placeholder="GLOBAL" value="GLOBAL"></div>
       <div><label class="f">Steam App ID (optional)</label><input id="np-appid" placeholder="413150"></div></div>
-      <label class="f">Cover image URL (optional)</label><input id="np-image" placeholder="https://…/cover.jpg">
+      <label class="f">Cover image URL <span style="color:var(--red)">· required</span></label><input id="np-image" placeholder="https://…/cover.jpg">
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
     </div>`;
+  $('pf-save').onclick=async()=>{
+    $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
+    const r=await apiSigned('profile-set',{ studio:$('pf-studio').value.trim(), contact:$('pf-contact').value.trim(),
+      website:$('pf-web').value.trim(), socials:$('pf-socials').value.trim(), steam_appids:$('pf-appids').value.trim() });
+    $('pf-save').disabled=false;
+    if(r.error){ $('pf-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    if(r.seller) SELLER={...SELLER,...r.seller};
+    $('pf-res').innerHTML='<span style="color:var(--green)">Profile saved.</span>'; toast('Profile saved.');
+  };
   $('np-submit').onclick=async()=>{
     const dollars=parseFloat(String($('np-price').value).replace(/[^0-9.]/g,''));
     if(!$('np-title').value.trim()){ $('np-res').innerHTML='<span style="color:var(--red)">Title required.</span>'; return; }
     if(!Number.isFinite(dollars)||dollars<=0){ $('np-res').innerHTML='<span style="color:var(--red)">Enter a valid price.</span>'; return; }
+    if(!$('np-image').value.trim()){ $('np-res').innerHTML='<span style="color:var(--red)">Cover image URL is required.</span>'; return; }
     const r=await apiSigned('product-create',{ title:$('np-title').value.trim(), price_cents:Math.round(dollars*100),
-      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:$('np-image').value.trim()||null });
+      region:$('np-region').value.trim()||'GLOBAL', appid:$('np-appid').value.trim()||null, image:$('np-image').value.trim() });
     if(r.error){ $('np-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     toast('Product created.'); loadSell();
   };
-  $('prodList').addEventListener('click',e=>{ const u=e.target.closest('[data-up]'); if(u) openUpload(Number(u.dataset.up), u.dataset.title); });
+  $('prodList').addEventListener('click',e=>{
+    const u=e.target.closest('[data-up]'); if(u){ openUpload(Number(u.dataset.up), u.dataset.title); return; }
+    const pl=e.target.closest('[data-pull]'); if(pl){ openPull(Number(pl.dataset.pull), pl.dataset.title, Number(pl.dataset.avail)); return; }
+    const del=e.target.closest('[data-del]');
+    if(del){
+      const row=del.closest('.prodrow'), acts=row.querySelector('.prodacts');
+      if(del.dataset.confirm){
+        del.disabled=true; del.textContent='Deleting…';
+        apiSigned('product-delete',{product_id:Number(del.dataset.del)}).then(r=>{
+          if(r.error){ del.disabled=false; del.textContent='Delete'; del.removeAttribute('data-confirm'); toast(r.error); return; }
+          toast('Product deleted.'); loadSell();
+        });
+      } else {
+        del.dataset.confirm='1'; del.textContent='Confirm delete';
+        const cancel=document.createElement('button'); cancel.className='btn ghost'; cancel.textContent='Cancel';
+        cancel.addEventListener('click',ev=>{ ev.stopPropagation(); loadSell(); });
+        acts.appendChild(cancel);
+      }
+      return;
+    }
+  });
+}
+function openPull(productId,title,avail){
+  let pulled=false;
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML=`<div class="ovcard">
+    <h3 class="disp" style="font-size:1rem">Pull keys — ${esc(title)}</h3>
+    <p class="hint" style="color:var(--muted);font-size:.82rem;margin:8px 0 10px">Removes your <b>${avail||0}</b> still-available key${avail==1?'':'s'} from sale and hands the codes back to you. Sold keys are never touched — those belong to the buyer.</p>
+    <div class="row">
+      <button class="btn danger" id="pl-go"${avail>0?'':' disabled'}>Pull ${avail||0} key${avail==1?'':'s'}</button>
+      <button class="btn ghost" data-close="1" style="flex:0 0 auto">Cancel</button>
+    </div>
+    <div class="res" id="pl-res"></div>
+    <textarea id="pl-out" style="display:none;margin-top:12px" readonly placeholder="Your pulled keys will appear here"></textarea>
+  </div>`;
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov){ ov.remove(); if(pulled) loadSell(); } });
+  document.body.appendChild(ov);
+  $('pl-go').onclick=async()=>{
+    $('pl-go').disabled=true; $('pl-res').textContent='Pulling…';
+    const r=await apiSigned('keys-pull',{product_id:productId});
+    if(r.error){ $('pl-go').disabled=false; $('pl-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    pulled=true;
+    const out=$('pl-out'); out.style.display='block'; out.value=(r.keys||[]).join('\n'); out.focus(); out.select();
+    $('pl-res').innerHTML=`<span style="color:var(--green)">Pulled ${r.count} key${r.count==1?'':'s'}.</span> Copy them now — they're no longer stored on DropRate.`;
+    toast(`Pulled ${r.count} key${r.count==1?'':'s'}.`);
+  };
 }
 function openUpload(productId,title){
   const ov=document.createElement('div'); ov.className='ov';
