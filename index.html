@@ -28,7 +28,6 @@ a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 .disp{font-family:'Chakra Petch',sans-serif;text-transform:uppercase}
 .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
-
 /* grid floor + grain */
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
@@ -36,11 +35,9 @@ background-size:44px 44px;opacity:.16;
 mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 0%,transparent 75%)}
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.05;
 background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E")}
-
 #rain{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .bg-drop{position:absolute;top:-120px;animation:fall linear infinite;opacity:.1}
 @keyframes fall{to{transform:translateY(115vh)}}
-
 /* header */
 header{position:sticky;top:0;z-index:20;background:rgba(13,16,32,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
@@ -59,19 +56,16 @@ color:var(--gold);font-size:1.3rem;padding:4px 12px;cursor:pointer;line-height:1
   .nav-links a{padding:14px 24px;border-top:1px solid var(--line);font-size:.95rem}
   .menu-btn{display:block}
 }
-
 .ticker{background:var(--gold);color:#231a05;font-weight:600;font-size:.72rem;letter-spacing:.14em;
 overflow:hidden;white-space:nowrap;padding:7px 0;position:relative;z-index:19;font-family:'JetBrains Mono',monospace}
 .ticker-track{display:inline-block;animation:tick 30s linear infinite}
 @keyframes tick{to{transform:translateX(-50%)}}
 .ticker span{margin:0 18px}
-
 /* ambient lighting zones */
 .amb{position:absolute;pointer-events:none;z-index:0;filter:blur(90px);opacity:.5}
 .amb-gold{width:560px;height:560px;background:radial-gradient(circle,rgba(255,194,75,.16),transparent 65%);top:-120px;right:-140px}
 .amb-cyan{width:480px;height:480px;background:radial-gradient(circle,rgba(78,201,255,.10),transparent 65%);top:340px;left:-180px}
 .amb-violet{width:520px;height:520px;background:radial-gradient(circle,rgba(139,123,255,.12),transparent 65%);bottom:-160px;left:30%}
-
 /* hero — split stage */
 .hero{position:relative;z-index:1;padding:58px 0 72px}
 .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center;text-align:left}
@@ -91,7 +85,6 @@ font-family:'JetBrains Mono',monospace;clip-path:polygon(10px 0,100% 0,100% calc
 .dot-gold{background:var(--gold);box-shadow:0 0 8px var(--gold)}
 .dot-violet{background:var(--violet);box-shadow:0 0 8px var(--violet)}
 @keyframes pulse{50%{opacity:.4}}
-
 /* reticle drop — the signature */
 .reticle{position:relative;width:290px;height:315px}
 .reticle .drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation:float 5s ease-in-out infinite}
@@ -114,7 +107,6 @@ animation:scan 4.5s ease-in-out infinite;top:10%}
 .reticle .tag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--void);
 border:1px solid var(--cyan);color:var(--cyan);font-size:.62rem;letter-spacing:.26em;padding:3px 12px;
 font-family:'JetBrains Mono',monospace}
-
 h1{font-family:'Chakra Petch',sans-serif;font-size:clamp(2.2rem,5.4vw,4rem);font-weight:700;letter-spacing:.03em;line-height:1.05}
 h1 .rate{background:linear-gradient(180deg,var(--gold-hi),var(--gold) 45%,var(--gold-deep));
 -webkit-background-clip:text;background-clip:text;color:transparent}
@@ -125,14 +117,12 @@ h1:hover{text-shadow:3px 0 rgba(78,201,255,.55),-3px 0 rgba(139,123,255,.55);ani
 .tagline .q{color:var(--violet)}
 .sub{color:var(--dim);max-width:520px;margin:18px 0 0;line-height:1.75;font-size:.95rem}
 .sub b{color:var(--ice);font-weight:600}
-
 .count{display:flex;gap:12px;margin-top:34px}
 .cbox{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
 min-width:86px;padding:14px 8px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
 .cbox b{display:block;font-family:'JetBrains Mono',monospace;font-size:1.9rem;font-weight:600;color:var(--gold)}
 .cbox span{font-size:.62rem;letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
 .count-label{margin-top:12px;font-size:.72rem;color:var(--cyan);letter-spacing:.22em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
-
 .cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
 .btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:8px;padding:15px 30px;
 font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;
@@ -145,7 +135,6 @@ background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
 @keyframes shine{0%,55%{left:-80%}75%,100%{left:130%}}
 .btn-ghost{border-color:var(--line);color:var(--ice);background:rgba(22,27,49,.7)}
 .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
-
 .console{width:300px;background:var(--panel);border:1px solid var(--line);
 clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,0 100%)}
 .console .sec{padding:15px 18px}
@@ -171,7 +160,6 @@ border:1px dashed var(--line);padding:11px 16px;font-size:.78rem;color:var(--dim
 .ca:hover{border-color:var(--gold)}
 .ca code{font-family:'JetBrains Mono',monospace;color:var(--ice);word-break:break-all;font-size:.72rem}
 .ca .copy{color:var(--gold);font-weight:600;white-space:nowrap}
-
 /* sections */
 section{position:relative;z-index:1;padding:78px 0}
 .eyebrow{font-family:'JetBrains Mono',monospace;color:var(--cyan);letter-spacing:.3em;font-size:.66rem;
@@ -181,7 +169,6 @@ h2{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;font-size:clam
 font-weight:700;margin-bottom:14px;letter-spacing:.03em}
 .section-sub{color:var(--dim);line-height:1.75;max-width:600px;font-size:.93rem}
 .section-sub b{color:var(--ice)}
-
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
 @media(max-width:760px){.steps{grid-template-columns:1fr}}
 .step{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));
@@ -198,7 +185,6 @@ transform:scaleX(0);transform-origin:left;transition:transform .3s}
 .step h3{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;font-size:.98rem;margin-bottom:10px;letter-spacing:.05em}
 .step p{color:var(--dim);font-size:.87rem;line-height:1.7}
 .step .hl{color:var(--gold);font-weight:600}
-
 .hud{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
 @media(max-width:860px){.hud{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.hud{grid-template-columns:1fr}}
@@ -210,7 +196,6 @@ transform:scaleX(0);transform-origin:left;transition:transform .3s}
 .hudbox::after{bottom:-2px;right:-2px;border-left:none;border-top:none}
 .hudbox b{display:block;font-family:'JetBrains Mono',monospace;font-size:2.1rem;color:var(--gold);font-weight:600}
 .hudbox small{display:block;color:var(--dim);font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;margin-top:5px}
-
 /* loot table */
 .mystery{background:linear-gradient(180deg,rgba(139,123,255,.06),transparent);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .loot-flex{display:flex;align-items:center;gap:52px;margin-top:14px}
@@ -234,7 +219,6 @@ border-left:3px solid transparent;font-size:.87rem;transition:background .2s,bor
 .lt-row .rate{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:600}
 .t-common{color:var(--dim)} .t-rare{color:var(--cyan)} .t-epic{color:var(--violet)} .t-legend{color:var(--gold)}
 .loot .lt-foot{padding:12px 22px;border-top:1px dashed var(--line);font-size:.74rem;color:var(--dim);font-style:italic}
-
 /* receipt */
 .receipt{max-width:680px;margin-top:36px;background:var(--panel);border:1px dashed var(--gold);
 padding:32px 32px 26px;font-family:'JetBrains Mono',monospace}
@@ -247,7 +231,6 @@ padding:9px 0;border-bottom:1px dotted var(--line);color:var(--dim)}
 .receipt .total{margin-top:16px;padding-top:13px;border-top:2px solid var(--line);
 display:flex;justify-content:space-between;font-size:.8rem;color:var(--ice);font-weight:600}
 .receipt .total span:last-child{color:var(--gold)}
-
 .faq{max-width:720px;margin-top:34px}
 details{border-bottom:1px solid var(--line);padding:19px 4px}
 summary{cursor:pointer;font-weight:600;font-size:.94rem;list-style:none;display:flex;justify-content:space-between;align-items:center}
@@ -256,12 +239,10 @@ summary::after{content:"+";color:var(--gold);font-size:1.3rem;font-weight:400;tr
 details[open] summary::after{transform:rotate(45deg)}
 details p{color:var(--dim);font-size:.87rem;line-height:1.75;padding-top:12px;max-width:640px}
 details p b{color:var(--ice)}
-
 footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index:1}
 .foot{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .foot small{color:var(--dim);font-size:.73rem;line-height:1.6;max-width:520px}
 .foot .tag{color:var(--gold);font-style:italic;font-size:.78rem;margin-top:4px}
-
 ::selection{background:var(--gold);color:#231a05}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
 /* ---------- mobile breathing room ---------- */
@@ -309,9 +290,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
 </style>
 </head>
 <body>
-
 <div id="rain" aria-hidden="true"></div>
-
 <header>
   <div class="wrap nav">
     <a class="brand disp" href="/">
@@ -323,9 +302,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </a>
     <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
 <nav class="nav-links" id="nav-links">
-      <a href="#how">How it works</a>
-      <a href="#loot">Loot table</a>
-      <a href="#verify">Receipts</a>
       <a href="/draws.html">Draws</a>
       <a href="/crates.html">Crates</a>
 <a href="/docs.html">Docs</a>
@@ -334,13 +310,11 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </nav>
   </div>
 </header>
-
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track">
     <span>◆ 3 MYSTERY DRAWS EVERY DAY</span><span>◆ HOLD 10K $DROP = 1 TICKET</span><span>◆ CAPPED AT 100 TICKETS</span><span>◆ SELLING TRIGGERS COOLDOWN — DIAMOND HANDS ONLY</span><span>◆ PROVABLY RANDOM — RE-RUN THE MATH YOURSELF</span><span>◆ NOBODY KNOWS WHAT'S IN THE KEYS. NOBODY.</span><span>◆ SNAPSHOTS STRIKE WITHOUT WARNING</span><span>◆ 3 MYSTERY DRAWS EVERY DAY</span><span>◆ HOLD 10K $DROP = 1 TICKET</span><span>◆ CAPPED AT 100 TICKETS</span><span>◆ SELLING TRIGGERS COOLDOWN — DIAMOND HANDS ONLY</span><span>◆ PROVABLY RANDOM — RE-RUN THE MATH YOURSELF</span><span>◆ NOBODY KNOWS WHAT'S IN THE KEYS. NOBODY.</span><span>◆ SNAPSHOTS STRIKE WITHOUT WARNING</span>
   </div>
 </div>
-
 <main>
 <section class="hero wrap">
   <div class="amb amb-gold"></div><div class="amb amb-cyan"></div>
@@ -425,13 +399,11 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </div>
   </div>
 </section>
-
 <section id="how">
   <div class="wrap">
     <div class="eyebrow">01 // How it works</div>
     <h2>Hold. Snapshot. Win.</h2>
     <p class="section-sub">No staking. No forms. No gas wars at 3am. If you hold, <b>you're automatically in every single draw.</b></p>
-
     <div class="steps">
       <div class="step">
         <div class="num">STEP_01</div>
@@ -455,7 +427,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
            draw locks. Sign one message, get your key, find out what you won.</p>
       </div>
     </div>
-
     <div class="hud">
       <div class="hudbox hb-cyan"><b data-count="3">3</b><small>Draws per day</small></div>
       <div class="hudbox hb-gold"><b data-count="10" data-suffix="k">10k</b><small>$DROP per ticket</small></div>
@@ -464,7 +435,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </div>
   </div>
 </section>
-
 <section id="loot" class="mystery">
   <div class="amb amb-violet"></div>
   <div class="wrap">
@@ -489,13 +459,11 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </div>
   </div>
 </section>
-
 <section id="verify">
   <div class="wrap">
     <div class="eyebrow">03 // Trust, but verify</div>
     <h2>Don't trust us. Check us.</h2>
     <p class="section-sub">Every draw publishes its receipts. If the numbers don't reproduce, we can't hide it — <b>that's the design.</b></p>
-
     <div class="receipt">
       <h3>★ DRAW RECEIPT ★</h3>
       <div class="ritem"><span class="k">Snapshot merkle root</span><span class="v">published ✓</span></div>
@@ -508,7 +476,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     </div>
   </div>
 </section>
-
 <section id="faq">
   <div class="wrap">
     <div class="eyebrow">04 // Player FAQ</div>
@@ -542,7 +509,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
   </div>
 </section>
 </main>
-
 <footer>
   <div class="wrap foot">
     <div>
@@ -555,7 +521,6 @@ footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index
     <small>$DROP is a community token. Draws are giveaways — holding is the only entry, prizes are game keys, and nothing here is financial advice. Play games, have fun.</small>
   </div>
 </footer>
-
 <script>
 /* ================= CONFIG — edit these ================= */
 const CONFIG = {
@@ -567,13 +532,11 @@ const CONFIG = {
 };
 /* ======================================================= */
 /* Everything below is progressive enhancement — the page is complete without it. */
-
 document.getElementById("menu-btn").addEventListener("click", () => {
   document.getElementById("nav-links").classList.toggle("open");
 });
 document.getElementById("buy-link").href = CONFIG.buyUrl;
 document.getElementById("x-link").href   = CONFIG.xUrl;
-
 const caText = document.getElementById("ca-text");
 const caCopy = document.getElementById("ca-copy");
 if (CONFIG.contract) caText.textContent = CONFIG.contract;
@@ -587,7 +550,6 @@ function copyCA(){
 const caBox = document.getElementById("ca");
 caBox.addEventListener("click", copyCA);
 caBox.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") copyCA(); });
-
 /* countdown — targets the next scheduled draw */
 let nextDrawAt = null, nextDrawId = null;
 async function loadNextDraw(){
@@ -639,7 +601,6 @@ function tick(){
 loadNextDraw();
 setInterval(tick, 1000);
 setInterval(loadNextDraw, 60_000);
-
 /* live stats: claimed keys + holders */
 (function liveStats(){
   const setN = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = Number(v).toLocaleString("en-US"); };
@@ -662,7 +623,6 @@ setInterval(loadNextDraw, 60_000);
   }
   load(); setInterval(load, 20000);
 })();
-
 /* hero entry console */
 (function heroEntry(){
   const go = document.getElementById("entry-go");
@@ -687,7 +647,6 @@ setInterval(loadNextDraw, 60_000);
   });
   document.getElementById("entry-wallet").addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
 })();
-
 /* loot table: drop rates taunt you */
 (function scramble(){
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -704,7 +663,6 @@ setInterval(loadNextDraw, 60_000);
     }, 55);
   }, 1400);
 })();
-
 /* HUD count-up on first view (static values remain without JS) */
 (function countUp(){
   const els = document.querySelectorAll("[data-count]");
@@ -724,7 +682,6 @@ setInterval(loadNextDraw, 60_000);
   }, { threshold: 0.6 });
   els.forEach((c) => io.observe(c));
 })();
-
 /* falling droplets */
 (function rain(){
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
