@@ -51,6 +51,13 @@
   .winstat{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .winverify{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--c-rare);text-decoration:none;font-weight:700}
   .winverify:hover{text-decoration:underline}
+  .winacts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .winreveal,.winlist,.windelist{font-family:var(--font);font-weight:700;cursor:pointer;border-radius:9px;font-size:11px;padding:8px 12px;transition:transform .12s,filter .2s,border-color .2s}
+  .winreveal{border:0;background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#12152b}
+  .winlist{border:1px solid var(--spark);background:transparent;color:var(--spark)}
+  .windelist{border:1px solid var(--line-2);background:transparent;color:var(--muted)}
+  .winreveal:hover,.winlist:hover,.windelist:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .winlisted{font-family:var(--mono);font-size:11px;color:var(--gold-2);display:flex;align-items:center;gap:6px}
   .winempty{color:var(--muted);text-align:center;padding:44px 0;font-family:var(--mono);font-size:13px}
   .hero{padding:36px 0 6px} .kicker{color:var(--spark)}
   h1{font-size:clamp(30px,5vw,50px);line-height:1.02;margin:12px 0 8px;font-weight:800;letter-spacing:-.005em;font-family:var(--display)}
@@ -638,6 +645,12 @@ function winsShell(inner){
   o.addEventListener('click',e=>{
     const f=e.target.closest('.winflex');
     if(f&&f.dataset.flex!=null){ openShare(WINS_CACHE[Number(f.dataset.flex)]); return; }
+    const rv=e.target.closest('.winreveal');
+    if(rv&&rv.dataset.i!=null){ revealFromWins(Number(rv.dataset.i)); return; }
+    const ls=e.target.closest('.winlist');
+    if(ls&&ls.dataset.i!=null){ listFromWins(Number(ls.dataset.i)); return; }
+    const dl=e.target.closest('.windelist');
+    if(dl&&dl.dataset.i!=null){ delistFromWins(Number(dl.dataset.i)); return; }
     if(e.target===o||e.target.dataset.x){ closeWins(); return; }
     const c=e.target.closest('.wincode');
     if(c&&c.dataset.code){ if(navigator.clipboard) navigator.clipboard.writeText(c.dataset.code); toast('Key copied.'); }
@@ -674,6 +687,13 @@ function renderWins(items){
     if(it.code) foot=`<div class="wincode" data-code="${esc(it.code)}" title="click to copy">${esc(it.code)}</div>`;
     else if(it.state==='sold_back') foot='<div class="winstat">↺ sold back · refunded</div>';
     else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
+    else if(it.state==='kept'){
+      const reveal=`<button class="winreveal" data-i="${i}">Reveal &amp; keep key</button>`;
+      const listctl = it.listed
+        ? `<div class="winlisted">🏷 Listed · $${(((it.list_price_cents||0))/100).toFixed(2)} · <button class="windelist" data-i="${i}">Delist</button></div>`
+        : `<button class="winlist" data-i="${i}">List for sale</button>`;
+      foot=`<div class="winacts">${reveal}${listctl}</div>`;
+    }
     else foot='<div class="winstat">key pending</div>';
     const vlink=(it.id!=null)?`<a class="winverify" href="/verify.html?pull=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">verify #${esc(it.id)} ↗</a>`:'';
     const flex=(it.game&&it.state!=='sold_back')?`<button class="winflex" data-flex="${i}">🔥 Flex on X</button>`:'';
@@ -683,6 +703,41 @@ function renderWins(items){
       <div class="winmeta">${money(it.msrp_cents)}${it.date?(' · '+esc(dt(it.date))):''}</div>
       ${foot}${vlink}${flex}</div></div>`;
   }).join('')+'</div>';
+}
+
+/* ===== marketplace: reveal / list / delist a kept (sealed) key ===== */
+async function crateApi(body){
+  const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok||j.error) throw new Error(j.error||'request failed');
+  return j;
+}
+async function revealFromWins(i){
+  const it=WINS_CACHE[i]; if(!it||!OWNER) return;
+  if(!confirm('Reveal the key for '+(it.game||'this pull')+'?\n\nThis shows you the code and permanently removes it from the marketplace — a revealed key can\'t be resold.')) return;
+  try{ const j=await crateApi({action:'reveal',pullId:it.id,owner:OWNER});
+    it.code=j.code; it.state='revealed'; it.listed=false; it.list_price_cents=null;
+    renderWins(WINS_CACHE); toast('🔑 Key revealed — it\'s yours.');
+  }catch(e){ toast(e.message); }
+}
+async function listFromWins(i){
+  const it=WINS_CACHE[i]; if(!it||!OWNER) return;
+  const def=it.msrp_cents!=null?(it.msrp_cents/100).toFixed(2):'';
+  const inp=prompt('List "'+(it.game||'this game')+'" for sale.\nSet your price in USD — buyers pay the live $DROP equivalent:', def);
+  if(inp==null) return;
+  const dollars=parseFloat(String(inp).replace(/[^0-9.]/g,''));
+  if(!Number.isFinite(dollars)||dollars<=0){ toast('Enter a valid price.'); return; }
+  const cents=Math.round(dollars*100);
+  try{ await crateApi({action:'list',pullId:it.id,owner:OWNER,price_cents:cents});
+    it.listed=true; it.list_price_cents=cents; renderWins(WINS_CACHE);
+    toast('🏷 Listed for $'+(cents/100).toFixed(2)+'.');
+  }catch(e){ toast(e.message); }
+}
+async function delistFromWins(i){
+  const it=WINS_CACHE[i]; if(!it||!OWNER) return;
+  try{ await crateApi({action:'delist',pullId:it.id,owner:OWNER});
+    it.listed=false; it.list_price_cents=null; renderWins(WINS_CACHE); toast('Listing pulled.');
+  }catch(e){ toast(e.message); }
 }
 
 /* ===== win share cards (client-side canvas → X) ===== */
