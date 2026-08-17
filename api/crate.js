@@ -429,7 +429,7 @@ export default async function handler(req, res) {
       // ATOMIC delivery: flip owner ONLY if the listing is still deliverable.
       const deliver = await sql`
         UPDATE pulls SET owner = ${pur.buyer}, ripped_by = COALESCE(ripped_by, owner),
-               listed = false, list_price_cents = NULL, listed_at = NULL
+               state = 'kept', listed = false, list_price_cents = NULL, listed_at = NULL, resolved_at = now()
         WHERE id = ${pur.pull_id} AND listed = true AND state IN ('sealed','kept') AND owner = ${pur.seller}
         RETURNING id`;
       if (deliver.rows.length) {
@@ -497,10 +497,13 @@ export default async function handler(req, res) {
       if (!ok) return res.status(401).json({ error: "signature verification failed" });
       const rows = await sql`
         SELECT p.id, p.crate, p.rarity, p.state, p.resolved_at, p.created_at, p.refund_raw,
-               p.listed, p.list_price_cents,
+               p.listed, p.list_price_cents, p.ripped_by,
                k.game_title, k.image, k.msrp_cents, k.code_encrypted, k.status AS key_status
         FROM pulls p LEFT JOIN crate_keys k ON k.id = p.key_id
-        WHERE p.owner = ${owner} AND p.state IN ('revealed','kept','sold_back','owed')
+        WHERE p.owner = ${owner} AND (
+                p.state IN ('revealed','kept','sold_back','owed')
+                OR (p.state = 'sealed' AND p.ripped_by IS NOT NULL AND p.ripped_by <> p.owner)
+              )
         ORDER BY COALESCE(p.resolved_at, p.created_at) DESC, p.id DESC
         LIMIT 200`;
       const items = rows.rows.map((r) => {
@@ -518,6 +521,7 @@ export default async function handler(req, res) {
           date: r.resolved_at || r.created_at,
           refund_raw: r.refund_raw ? String(r.refund_raw) : null,
           listed: !!r.listed, list_price_cents: r.list_price_cents ?? null,
+          bought: !!(r.ripped_by && r.ripped_by !== owner),
           code,
         };
       });
