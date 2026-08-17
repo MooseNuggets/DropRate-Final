@@ -25,14 +25,14 @@ header{position:sticky;top:0;z-index:40;background:rgba(13,16,32,.88);backdrop-f
 .nav-links{display:flex;align-items:center;gap:26px;font-size:.8rem;color:var(--muted);letter-spacing:.08em}
 .nav-links a{text-decoration:none;color:var(--muted);transition:color .2s}
 .nav-links a:hover{color:var(--gold)}
-.nav-links .linkbtn{background:none;border:0;cursor:pointer;font-family:'Poppins',sans-serif;font-size:.8rem;letter-spacing:.08em;color:var(--muted);padding:0;transition:color .2s}
-.nav-links .linkbtn:hover{color:var(--gold)}
-.nav-links .linkbtn.gold{color:var(--gold)}
+.navright{display:flex;align-items:center;gap:18px}
+.wallet{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:12.5px;border:0;padding:10px 16px;border-radius:10px;color:#12152b;cursor:pointer;background:linear-gradient(180deg,var(--gold-2),var(--gold));box-shadow:0 10px 24px -12px var(--gold);transition:transform .12s,filter .2s}
+.wallet:hover{transform:translateY(-1px);filter:brightness(1.05)}
 .menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:8px;color:var(--gold);font-size:1.3rem;padding:4px 12px;cursor:pointer;line-height:1.4}
-@media(max-width:760px){
-  .nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:var(--navy2);border-bottom:1px solid var(--line);flex-direction:column;align-items:flex-start;gap:0;padding:8px 0;z-index:30}
-  .nav-links.open{display:flex}
-  .nav-links a,.nav-links .linkbtn{padding:14px 24px;border-top:1px solid var(--line);font-size:.95rem;width:100%;text-align:left}
+@media(max-width:820px){
+  .navright{display:none;position:absolute;top:64px;left:0;right:0;background:var(--navy2);border-bottom:1px solid var(--line);flex-direction:column;align-items:flex-start;gap:14px;padding:16px 24px;z-index:30}
+  .navright.open{display:flex}
+  .nav-links{flex-direction:column;align-items:flex-start;gap:14px}
   .menu-btn{display:block}
 }
 h1{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;font-size:1.8rem;margin:30px 0 4px}
@@ -77,15 +77,13 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
       <span>DROP<span class="rate">RATE</span></span>
     </a>
     <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
-    <nav class="nav-links" id="nav">
-      <a href="/draws.html">Draws</a>
-      <a href="/crates.html">Crates</a>
-      <a href="/marketplace.html">Marketplace</a>
-      <a href="/docs.html">Docs</a>
-      <a href="/verify.html">Verify</a>
-      <a href="/check.html" style="color:var(--gold)">Check eligibility</a>
-      <button class="linkbtn gold" id="connectBtn">Connect Wallet</button>
-    </nav>
+    <div class="navright" id="nav">
+      <nav class="nav-links">
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/docs.html">Docs</a>
+      </nav>
+      <button class="wallet" id="connectBtn">Connect Wallet</button>
+    </div>
   </div>
 </header>
 
