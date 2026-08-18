@@ -117,6 +117,20 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, crates });
     }
+        // ---- SHOWCASE: public list of games currently in the crate pool -------
+    if (b.action === "showcase") {
+      const r = await sql`
+        SELECT game_title, image, appid, rarity, count(*)::int AS available
+        FROM crate_keys
+        WHERE status = 'available' AND game_title IS NOT NULL
+        GROUP BY game_title, image, appid, rarity
+        ORDER BY max(loaded_at) DESC
+        LIMIT 60`;
+      return res.status(200).json({ ok: true, showcase: r.rows.map(x => ({
+        game: x.game_title, image: x.image || null, appid: x.appid,
+        rarity: x.rarity, available: Number(x.available),
+      })) });
+    }
 
     // ---- OPEN ------------------------------------------------------------
     if (b.action === "open") {
