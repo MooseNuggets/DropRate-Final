@@ -131,8 +131,8 @@
     animation:gbob var(--dur,9s) ease-in-out infinite;animation-delay:var(--dl,0s);opacity:0}
   .gtile.in{opacity:var(--op,.7);transition:opacity 1.1s ease}
   .gtile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  .gtile .gph{width:100%;height:100%;display:grid;place-items:center;font-family:var(--display),'Chakra Petch',sans-serif;font-weight:700;font-size:15px;color:#0c1024;background:linear-gradient(140deg,var(--tc),#0a0e1e)}
-  .gtile .glabel{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono),monospace;font-size:8.5px;letter-spacing:.03em;color:#eef1fc;background:linear-gradient(0deg,rgba(4,6,15,.9),transparent);padding:12px 6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gtile .gph{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display),'Chakra Petch',sans-serif;font-weight:700;font-size:15px;color:#0c1024;background:linear-gradient(140deg,var(--tc),#0a0e1e)}
+  .gtile .glabel{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono),monospace;font-size:8px;letter-spacing:.03em;color:#eef1fc;background:linear-gradient(0deg,rgba(4,6,15,.82),transparent);padding:10px 6px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @keyframes gbob{0%,100%{transform:translate(0,0) rotate(var(--rot,0deg))}50%{transform:translate(var(--dx,0px),var(--dy,-18px)) rotate(var(--rot,0deg))}}
   .flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 42%,#fff,transparent 42%);opacity:0;transition:opacity .1s}
   .reel-wrap{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%);height:190px;overflow:hidden;z-index:2;opacity:0;pointer-events:none;transition:opacity .3s;
@@ -334,27 +334,29 @@
     /* Floating live showcase of games currently in the crate pool */
     (function(){
       var RCT={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
-      var sig='';
       function ini2(s){return (s||'?').split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase();}
       function esc2(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
       function place(games){
         var host=document.getElementById('gshow'); if(!host) return;
-        var isM=window.innerWidth<640, N=Math.min(games.length, isM?7:14);
+        var isM=window.innerWidth<640, N=Math.min(games.length, isM?10:20);
         host.innerHTML='';
         for(var i=0;i<N;i++){
           var g=games[i], col=RCT[g.rarity]||'#334a6b';
-          var size=Math.round((isM?52:62)+Math.random()*(isM?26:46));
-          var x=(5+Math.random()*(isM?76:84)).toFixed(1), y=(7+Math.random()*54).toFixed(1);
-          var op=(.42+Math.random()*.4).toFixed(2);
-          var dx=(Math.random()*24-12).toFixed(0), dy=(-(9+Math.random()*16)).toFixed(0);
+          // Steam header banners are ~2.14:1 — match that so the full cover shows, uncropped.
+          var w=Math.round((isM?120:150)+Math.random()*(isM?46:78));
+          var h=Math.round(w/2.14);
+          var x=(2+Math.random()*(isM?68:82)).toFixed(1), y=(4+Math.random()*62).toFixed(1);
+          var op=(.44+Math.random()*.42).toFixed(2);
+          var dx=(Math.random()*26-13).toFixed(0), dy=(-(9+Math.random()*17)).toFixed(0);
           var rot=(Math.random()*6-3).toFixed(1), dur=(7+Math.random()*7).toFixed(1), dl=(Math.random()*5).toFixed(1);
           var t=document.createElement('div'); t.className='gtile';
           t.style.cssText='--tc:'+col+';--op:'+op+';--dx:'+dx+'px;--dy:'+dy+'px;--rot:'+rot+'deg;--dur:'+dur+'s;--dl:'+dl+'s;'+
-            'width:'+size+'px;height:'+Math.round(size*1.32)+'px;left:'+x+'%;top:'+y+'%;z-index:'+(Math.random()<.5?0:1);
+            'width:'+w+'px;height:'+h+'px;left:'+x+'%;top:'+y+'%;z-index:'+(Math.random()<.5?0:1);
           var img=g.image||(g.appid?('https://cdn.cloudflare.steamstatic.com/steam/apps/'+g.appid+'/header.jpg'):'');
-          t.innerHTML='<div class="gph">'+ini2(g.game)+'</div>'+
-            (img?('<img src="'+esc2(img)+'" alt="" loading="lazy" onerror="this.remove()">'):'')+
-            '<div class="glabel">'+esc2(g.game)+'</div>';
+          // Full banner when we have art (no label covering it); initials + name only as fallback.
+          t.innerHTML=img
+            ? '<div class="gph">'+ini2(g.game)+'</div><img src="'+esc2(img)+'" alt="" loading="lazy" onerror="this.remove()">'
+            : '<div class="gph">'+ini2(g.game)+'</div><div class="glabel">'+esc2(g.game)+'</div>';
           host.appendChild(t);
           (function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('in');});});})(t);
         }
@@ -364,8 +366,8 @@
           .then(function(r){return r.json();}).then(function(d){
             if(!d||d.error||!Array.isArray(d.showcase))return;
             var games=d.showcase.filter(function(g){return g&&g.game;});
-            var k=games.map(function(g){return g.game+'|'+(g.image?'1':'0');}).join(',');
-            if(k===sig)return; sig=k;
+            // reshuffle every load so the on-screen set rotates on each refresh / poll,
+            // while always reflecting only what's still available in the crates.
             for(var i=games.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=games[i];games[i]=games[j];games[j]=tmp;}
             place(games);
           }).catch(function(){});
