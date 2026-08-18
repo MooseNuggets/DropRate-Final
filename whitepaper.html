@@ -100,12 +100,13 @@
   <article>
 <h1 id="droprate-drop-whitepaper">DropRate ($DROP) — Whitepaper</h1>
 <p><strong>A Solana token that pays its holders in games.</strong></p>
-<p><em>Version 1.0 · August 2026</em></p>
+<p><em>Version 1.1 · August 2026</em></p>
 <hr />
 <h2 id="1-abstract">1. Abstract</h2>
 <p>DropRate is a Solana token, <strong>$DROP</strong>, built around a single idea: holding it should pay you in real games. There are no staking contracts, no lockups, and no forms. If you hold $DROP, you are automatically entered into recurring prize draws for real, redeemable game keys. If you want to press your luck directly, you can open <strong>crates</strong> — a published-odds, provably-fair gacha that pays out the same kind of prizes.</p>
 <p>Two things make DropRate different from the usual "hold and hope" token. First, <strong>every prize is a real game key</strong> — a downloadable game you actually own, not a jpeg, not a points balance. (Keys are sourced and redeemed through Steam today; the model isn't locked to any single store.) Second, <strong>the fairness is verifiable</strong>: draw winners and crate pulls are both resolved from <a href="https://drand.love">drand</a>, a public randomness beacon, using values that are committed <em>before</em> the randomness exists. Anyone can re-run the math and confirm a result was not tampered with.</p>
-<p>This paper documents how all of it actually works — the token, the draws, the crate system, the money flows, and the security model — at the level of the real implementation.</p>
+<p>DropRate is also a <strong>marketplace</strong>: verified developers sell game keys directly to players, and players can resell sealed keys they win — paid in $DROP, USDC, or SOL, with a discount for paying in $DROP. A native <strong>game launcher</strong>, giving players true on-chain ownership of the games they buy, is on the roadmap.</p>
+<p>This paper documents how all of it actually works — the token, the draws, the crate system, the developer marketplace, the money flows, and the security model — at the level of the real implementation.</p>
 <hr />
 <h2 id="2-at-a-glance">2. At a glance</h2>
 <table>
@@ -155,6 +156,22 @@
 <tr>
 <td><strong>Every crate spend</strong></td>
 <td>70% treasury · 10% burned on-chain · 10% liquidity · 10% marketing</td>
+</tr>
+<tr>
+<td><strong>Marketplace</strong></td>
+<td>Verified devs sell keys direct · players resell sealed keys · escrowed both sides</td>
+</tr>
+<tr>
+<td><strong>Payment rails</strong></td>
+<td>$DROP, USDC, or SOL · same-currency settlement · 5% off when you pay in $DROP</td>
+</tr>
+<tr>
+<td><strong>Developer fee</strong></td>
+<td>1.5% in $DROP · 7% in USDC/SOL — vs the big platforms' ~30%</td>
+</tr>
+<tr>
+<td><strong>On the roadmap</strong></td>
+<td>Native game launcher · NFT-owned games · resale with dev royalties</td>
 </tr>
 </tbody>
 </table>
@@ -215,7 +232,7 @@
 <blockquote>
 <p>For each winner slot <em>i</em>: <code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code> → walk the ticket-weighted pool to that index → that wallet wins. The winner is then removed from the pool (all its tickets leave) and the next slot is drawn. One win per wallet per draw.</p>
 </blockquote>
-<p>Selection is <strong>weighted by tickets, without replacement</strong>, and is fully deterministic from the public seed — meaning anyone with the seed and the published holder set can reproduce the exact winners (see §10).</p>
+<p>Selection is <strong>weighted by tickets, without replacement</strong>, and is fully deterministic from the public seed — meaning anyone with the seed and the published holder set can reproduce the exact winners (see §12).</p>
 <h3 id="57-claiming-a-prize">5.7 Claiming a prize</h3>
 <ul>
 <li>Winners have <strong>7 days</strong> to claim before the prize expires.</li>
@@ -302,7 +319,7 @@
 <p><code>u = (top 52 bits of sha256("seed:nonce")) / 2^52</code> → a uniform number in [0,1) → mapped through the crate's odds table (inverse-CDF) to a rarity.</p>
 </blockquote>
 <ol start="3">
-<li><strong>Reproduce.</strong> The result is a pure function of public inputs <code>(crate, seed, nonce, pity-misses)</code>. The site's <code>verify</code> endpoint returns exactly those values so anyone can recompute the rarity and confirm it (see §10). Nothing about the outcome depends on hidden state.</li>
+<li><strong>Reproduce.</strong> The result is a pure function of public inputs <code>(crate, seed, nonce, pity-misses)</code>. The site's <code>verify</code> endpoint returns exactly those values so anyone can recompute the rarity and confirm it (see §12). Nothing about the outcome depends on hidden state.</li>
 </ol>
 <h3 id="65-the-reveal-gate-see-the-game-then-decide">6.5 The reveal gate — see the game, then decide</h3>
 <p>When a pull resolves, you're shown <strong>the game and its store price — but not the key yet</strong>. You then have a <strong>4-minute research window</strong> to decide:</p>
@@ -364,7 +381,41 @@
 </ul>
 <p>Both rise and fall with activity, neither is a fixed draw, and neither is ever paid ahead of prizes. The team is funded by the same thing that funds the prizes — usage — which keeps incentives pointed the same direction as holders'.</p>
 <hr />
-<h2 id="8-the-price-oracle">8. The price oracle</h2>
+<h2 id="8-the-developer-marketplace">8. The developer marketplace</h2>
+<p>Beyond <em>winning</em> games, DropRate is a place to <strong>buy</strong> them. The marketplace has two storefronts that share one escrow engine.</p>
+<h3 id="81-direct-and-resale">8.1 Direct and Resale</h3>
+<p><strong>Direct</strong> is a store where <em>verified developers</em> sell their own game keys straight to players — no 30% platform cut, no middleman. <strong>Resale</strong> is a player-to-player market for sealed, never-revealed keys: a key you won in a draw or crate and don't want can be listed and sold on, because a sealed key still carries its full value.</p>
+<p>Developers apply and are reviewed by a human before they can list. Approved developers also seed a small number of keys (about five) into the draw and crate pools — free exposure for them, more prizes for holders — which ties the store back into the prize engines.</p>
+<h3 id="82-escrow-and-safety">8.2 Escrow and safety</h3>
+<p>Keys in the store are protected the same way DropRate protects prize keys, with an added escrow layer for the money:</p>
+<ul>
+<li><strong>Encrypted on arrival.</strong> Keys are envelope-encrypted the instant they're uploaded — the platform stores ciphertext only, never plaintext — and duplicates are rejected globally by salted hash.</li>
+<li><strong>Both sides escrowed.</strong> On a purchase, the key and the payment are held in escrow. The key is delivered to the buyer on confirmed payment; the developer's proceeds are <strong>held for a dispute window</strong> (72 hours) and released automatically after it, or immediately on buyer confirmation.</li>
+<li><strong>Disputes.</strong> Inside the window a buyer can open a dispute; an operator resolves it as a refund (from the held escrow) or a denial (funds released to the developer). One on-chain payment can settle exactly one order — enforced by payment reference and a unique-signature constraint.</li>
+</ul>
+<h3 id="83-fees-currencies-and-the-drop-advantage">8.3 Fees, currencies, and the $DROP advantage</h3>
+<p>Buyers pay in <strong>$DROP, USDC, or SOL</strong> — whichever a developer accepts — and settlement is <strong>same-currency</strong>: pay USDC, the developer is paid USDC; pay SOL, paid SOL. The escrow never holds one asset against a payout in another, so there is no currency risk on an open order. USD prices are converted at a live rate from the same public price source used for crate pricing (§10), locked for a short window at checkout.</p>
+<p>The fee a developer pays depends on the rail, and it is designed to pull everyone toward $DROP without the platform subsidizing anything:</p>
+<ul>
+<li><strong>$DROP — 1.5% developer fee.</strong> Buyers paying in $DROP also receive a <strong>5% discount</strong> on the price.</li>
+<li><strong>USDC / SOL — 7% developer fee</strong>, with no buyer discount.</li>
+</ul>
+<p>The buyer discount is <strong>self-funding</strong>, not a give-away. It is sized to the fee gap: because USDC/SOL cost a developer 7% while $DROP costs 1.5%, a developer nets about the same on a $DROP sale (after granting the 5% discount) as on a full-price USDC/SOL sale — a touch more, in fact. So the buyer is rewarded for paying in $DROP, the developer is neutral-to-better accepting it, and the treasury never dips into its own funds to cover the discount. Every rail still leaves a developer with far more than the big platforms' ~70% take.</p>
+<h3 id="84-why-these-keys-are-not-nfts">8.4 Why these keys aren't NFTs</h3>
+<p>A redeemable third-party key is deliberately <em>not</em> wrapped in an NFT. Once such a key is revealed and redeemed it is spent, so an NFT "wrapper" around it would guarantee nothing and could be gamed. True on-chain ownership only becomes meaningful for <strong>native games delivered through DropRate's own launcher</strong>, where holding the token is what grants the right to play — that is the roadmap in §9.</p>
+<hr />
+<h2 id="9-roadmap-the-game-launcher">9. Roadmap — the game launcher</h2>
+<p><em>This section describes planned functionality that is not yet live. It is on the record so the direction is clear; it is aspirational, not a promise (see the forward-looking note in §14).</em></p>
+<p>The marketplace above resells <em>keys</em>. The next step is to sell <strong>games you truly own</strong>. DropRate plans a native game launcher — "buy a game and play it" — where the purchase mints an <strong>NFT of ownership to your wallet</strong>. Because the launcher checks that ownership at play time, the NFT <em>is</em> the license: transferring it transfers the game. (This is exactly why redeemable Steam keys can't be wrapped, but launcher-delivered native games can.)</p>
+<ul>
+<li><strong>Real ownership, real resale.</strong> Own your copy like a physical disc and resell it on a secondary market — with the original developer earning a <strong>royalty</strong> on every resale, something disc resale never gave them.</li>
+<li><strong>Developer-set supply.</strong> A developer can release a <strong>finite</strong> run (scarcity, a genuine secondary market) or <strong>infinite</strong> mint-on-demand copies. The same rails extend to DLC and in-game items, which can be made scarce as well.</li>
+<li><strong>Price protection.</strong> Resale is bounded so it can't crater a game's price: developer-set floor prices, a royalty that makes flip-dumping unprofitable, and an optional resale cooldown — all inside house guardrails. The goal is a healthy market, not a race to the bottom.</li>
+<li><strong>Same currencies, separate store.</strong> Purchases and resale run in $DROP, USDC, or SOL. Native games get their own storefront and resale market, distinct from the key marketplace above.</li>
+</ul>
+<p>Ownership here is a transferable <em>license to play</em>, not a transfer of the game's intellectual property. Timing and specifics will be documented when the launcher ships.</p>
+<hr />
+<h2 id="10-the-price-oracle">10. The price oracle</h2>
 <p>Pricing crates in USD means the system needs a trustworthy live $DROP price. It gets one, defensively:</p>
 <ul>
 <li><strong>Source:</strong> Jupiter's public price API.</li>
@@ -374,7 +425,7 @@
 </ul>
 <p>Both guard parameters — the TWAP window and the deviation bound — are operator-tunable. They are deliberately run loose during volatile early trading and tightened as the market stabilizes, trading off manipulation resistance against not blocking sales during genuine rallies.</p>
 <hr />
-<h2 id="9-security-and-trust-model">9. Security and trust model</h2>
+<h2 id="11-security-and-trust-model">11. Security and trust model</h2>
 <p>DropRate's guarantee is "don't trust, verify." Here's the full picture, honestly stated.</p>
 <ul>
 <li><strong>Public randomness (drand).</strong> Both draws and crate pulls draw from drand's <strong>quicknet</strong> beacon (3-second rounds, run by the League of Entropy). The round is always committed <em>before</em> its randomness exists. The backend fetches each value from <strong>multiple independent relays and requires them to agree</strong> before using it. <em>(The current model checks cross-relay agreement; verifying the beacon's BLS signature directly is a candidate future hardening.)</em></li>
@@ -387,16 +438,16 @@
 <li><strong>Operational auth.</strong> Administrative actions and scheduled jobs (snapshots, draws, sweeps) are protected by separate bearer secrets.</li>
 </ul>
 <hr />
-<h2 id="10-verify-it-yourself">10. Verify it yourself</h2>
+<h2 id="12-verify-it-yourself">12. Verify it yourself</h2>
 <p>Nothing here asks for blind trust.</p>
 <p><strong>A draw</strong> is reproducible from three public things: the committed drand round, the snapshot holder set (with its Merkle root), and the deterministic selection rule (<code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code>, without replacement). Fetch the drand value for the committed round, rebuild the ticket-weighted pool from the published holders, and you will land on the exact same winners.</p>
 <p><strong>A crate pull</strong> is reproducible from the values the <code>verify</code> endpoint returns for it: the crate, the drand round, the seed, your nonce, and your pity state. Compute <code>u = (top 52 bits of sha256("seed:nonce")) / 2^52</code>, map it through that crate's published odds, and you'll get the same rarity the site gave you.</p>
 <p>Because the seed comes from a round that was named <em>before</em> it existed, no one — including the team — could have known or steered either result.</p>
 <hr />
-<h2 id="11-team">11. Team</h2>
+<h2 id="13-team">13. Team</h2>
 <p>DropRate is built and operated by a <strong>single anonymous developer</strong>. The team is intentionally lean and pseudonymous. That's a deliberate choice: the project is designed so its guarantees rest on <strong>verifiable mechanics</strong> — public randomness, on-chain burns, reproducible results — rather than on who is behind it. You don't have to trust the builder; you can check the chain. <code>[TODO: add socials/contact here if you want them public.]</code></p>
 <hr />
-<h2 id="12-risks-and-disclaimer">12. Risks and disclaimer</h2>
+<h2 id="14-risks-and-disclaimer">14. Risks and disclaimer</h2>
 <p>This document is for informational purposes only. It is not financial, investment, legal, tax, or accounting advice, and it is not a recommendation to buy, sell, or hold any asset. Nothing here is an offer to sell, or a solicitation of an offer to buy, any security, token, or financial instrument in any jurisdiction.</p>
 <p><strong>$DROP is a speculative digital asset.</strong> Its price can be extremely volatile and may go to zero. You could lose some or all of the value of any $DROP you acquire. Never commit funds you cannot afford to lose entirely. $DROP is not a share, equity, deposit, or debt instrument; holding it grants no ownership, dividend, or profit-sharing right, and no expectation of profit should be derived from the efforts of the team or any other party.</p>
 <p><strong>Crates and draws are entertainment.</strong> Opening a crate is a paid activity with a randomized outcome, offered for entertainment. Outcomes are determined by public randomness as described in this paper; no outcome is guaranteed, and past results do not indicate future results. Prize inventory, odds, tiers, prices, splits, windows, and every other parameter described here may change, and any feature may be paused, modified, or discontinued at any time.</p>
@@ -527,6 +578,30 @@
 <tr>
 <td>Conservative price</td>
 <td>max(spot, TWAP)</td>
+</tr>
+<tr>
+<td>Marketplace fee — $DROP</td>
+<td>1.5% <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Marketplace fee — USDC / SOL</td>
+<td>7% <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Buyer $DROP discount</td>
+<td>5% <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Escrow dispute window</td>
+<td>72 hours <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Purchase quote lock</td>
+<td>15 minutes <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Dev keys seeded to prize pools</td>
+<td>~5 per approved developer</td>
 </tr>
 </tbody>
 </table>
