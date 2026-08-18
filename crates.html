@@ -123,6 +123,17 @@
   @keyframes shake{10%,90%{transform:translate(-1px,0)}20%,80%{transform:translate(2px,0)}30%,50%,70%{transform:translate(-3px,0)}40%,60%{transform:translate(3px,0)}}
   .glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 420px at 50% 44%,var(--rc),transparent 60%);opacity:0;mix-blend-mode:screen;transition:opacity .5s}
   .stage.reveal .glow{opacity:.24}
+  /* live showcase: game covers that could drop, drifting around the crate */
+  .gshow{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;transition:opacity .4s}
+  .gshow.busy{opacity:0}
+  .gtile{position:absolute;border-radius:12px;overflow:hidden;border:1.5px solid var(--tc,#334a6b);
+    box-shadow:0 12px 34px -14px #000,0 0 0 1px rgba(255,255,255,.05) inset;will-change:transform;
+    animation:gbob var(--dur,9s) ease-in-out infinite;animation-delay:var(--dl,0s);opacity:0}
+  .gtile.in{opacity:var(--op,.7);transition:opacity 1.1s ease}
+  .gtile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .gtile .gph{width:100%;height:100%;display:grid;place-items:center;font-family:var(--display),'Chakra Petch',sans-serif;font-weight:700;font-size:15px;color:#0c1024;background:linear-gradient(140deg,var(--tc),#0a0e1e)}
+  .gtile .glabel{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono),monospace;font-size:8.5px;letter-spacing:.03em;color:#eef1fc;background:linear-gradient(0deg,rgba(4,6,15,.9),transparent);padding:12px 6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @keyframes gbob{0%,100%{transform:translate(0,0) rotate(var(--rot,0deg))}50%{transform:translate(var(--dx,0px),var(--dy,-18px)) rotate(var(--rot,0deg))}}
   .flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 42%,#fff,transparent 42%);opacity:0;transition:opacity .1s}
   .reel-wrap{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%);height:190px;overflow:hidden;z-index:2;opacity:0;pointer-events:none;transition:opacity .3s;
     -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
@@ -256,6 +267,7 @@
 
   <div class="stage" id="stage">
     <div class="art" id="art"></div>
+    <div class="gshow" id="gshow"></div>
     <div class="glow"></div>
     <div class="flash" id="flash"></div>
     <div class="reel-wrap" id="reelwrap"><div class="reel" id="reel"></div></div>
@@ -316,6 +328,49 @@
       }
       function load(){fetch("/api/stats-public",{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){if(d&&!d.error)render(d.feed);}).catch(function(){});}
       load();setInterval(load,20000);
+    })();
+    </script>
+    <script>
+    /* Floating live showcase of games currently in the crate pool */
+    (function(){
+      var RCT={common:'#9AA6C7',rare:'#43C9F0',epic:'#A48BF5',legendary:'#F6AC29'};
+      var sig='';
+      function ini2(s){return (s||'?').split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase();}
+      function esc2(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+      function place(games){
+        var host=document.getElementById('gshow'); if(!host) return;
+        var isM=window.innerWidth<640, N=Math.min(games.length, isM?7:14);
+        host.innerHTML='';
+        for(var i=0;i<N;i++){
+          var g=games[i], col=RCT[g.rarity]||'#334a6b';
+          var size=Math.round((isM?52:62)+Math.random()*(isM?26:46));
+          var x=(5+Math.random()*(isM?76:84)).toFixed(1), y=(7+Math.random()*54).toFixed(1);
+          var op=(.42+Math.random()*.4).toFixed(2);
+          var dx=(Math.random()*24-12).toFixed(0), dy=(-(9+Math.random()*16)).toFixed(0);
+          var rot=(Math.random()*6-3).toFixed(1), dur=(7+Math.random()*7).toFixed(1), dl=(Math.random()*5).toFixed(1);
+          var t=document.createElement('div'); t.className='gtile';
+          t.style.cssText='--tc:'+col+';--op:'+op+';--dx:'+dx+'px;--dy:'+dy+'px;--rot:'+rot+'deg;--dur:'+dur+'s;--dl:'+dl+'s;'+
+            'width:'+size+'px;height:'+Math.round(size*1.32)+'px;left:'+x+'%;top:'+y+'%;z-index:'+(Math.random()<.5?0:1);
+          var img=g.image||(g.appid?('https://cdn.cloudflare.steamstatic.com/steam/apps/'+g.appid+'/header.jpg'):'');
+          t.innerHTML='<div class="gph">'+ini2(g.game)+'</div>'+
+            (img?('<img src="'+esc2(img)+'" alt="" loading="lazy" onerror="this.remove()">'):'')+
+            '<div class="glabel">'+esc2(g.game)+'</div>';
+          host.appendChild(t);
+          (function(el){requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('in');});});})(t);
+        }
+      }
+      function load(){
+        fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'showcase'}),cache:'no-store'})
+          .then(function(r){return r.json();}).then(function(d){
+            if(!d||d.error||!Array.isArray(d.showcase))return;
+            var games=d.showcase.filter(function(g){return g&&g.game;});
+            var k=games.map(function(g){return g.game+'|'+(g.image?'1':'0');}).join(',');
+            if(k===sig)return; sig=k;
+            for(var i=games.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=games[i];games[i]=games[j];games[j]=tmp;}
+            place(games);
+          }).catch(function(){});
+      }
+      load(); setInterval(load,45000);
     })();
     </script>
   </section>
@@ -502,6 +557,7 @@ function syncStage(){
   const c=CRATES[selected];
   $('stage').classList.remove('reveal');$('stage').style.setProperty('--rc',RCOLOR[selected]);
   $('reelwrap').classList.remove('on');$('marker').style.opacity=0;
+  { const gs=$('gshow'); if(gs) gs.classList.remove('busy'); }
   $('stageInner').classList.remove('center');
   $('stageInner').innerHTML=`<div class="cta"><button class="rip" id="rip">${OWNER?`OPEN CRATE — $${c.price}`:'CONNECT WALLET TO OPEN'}</button>
     <div class="fair">provably fair · <b>drand</b>-verified · odds published below</div></div>`;
@@ -621,6 +677,7 @@ async function landReveal(pullId,res,round){
   const stage=$('stage'), flash=$('flash');
   const rarity=res.rarity; last.rarity=rarity;
   buildReel(selected,rarity);
+  { const gs=$('gshow'); if(gs) gs.classList.add('busy'); }
   $('reelwrap').classList.add('on');$('marker').style.opacity=1;
   await wait(350);
   spinReel();
