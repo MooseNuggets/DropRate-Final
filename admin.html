@@ -130,7 +130,16 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
       <p style="font-size:.68rem;color:var(--dim);margin-top:10px">Key contents stay encrypted — even here. This ledger shows lifecycle only.</p>
     </div>
     <h2>Upcoming draws</h2>
-    <div class="card list" id="upcoming">—</div>
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <span style="font-size:.82rem;color:var(--dim)">Wrong month? Shift ALL upcoming draws by</span>
+        <input id="shiftdays" type="number" value="-31" style="max-width:88px;margin:0;text-align:center">
+        <span style="font-size:.82rem;color:var(--dim)">days</span>
+        <button class="btn-sm" id="shift-btn" style="margin:0">Apply shift</button>
+        <span id="shift-msg" style="font-size:.8rem"></span>
+      </div>
+      <div class="list" id="upcoming">—</div>
+    </div>
     <h2>Recent winners</h2>
     <div class="card list" id="winners">—</div>
     <h2>Add exclusion</h2>
@@ -190,6 +199,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => { const d = document.createElement("div"); d.textContent = String(s); return d.innerHTML; };
 const short = (w) => w.length > 12 ? w.slice(0,4) + "…" + w.slice(-4) : w;
 const fmtT = (t) => new Date(t).toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+const toLocalInput = (iso) => { const d=new Date(iso), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); };
 async function admin(body){
   const res = await fetch("/api/admin", {
     method: "POST",
@@ -224,7 +234,15 @@ async function refresh(){
     ? `<div class="warn">⚠ Pool has ${s.codes.available} keys but upcoming draws need ${need}. Load ${need - s.codes.available} more or draws will run unstocked.</div>`
     : "";
   $("upcoming").innerHTML = s.upcoming.length ? s.upcoming.map((d) =>
-    `<div>#${d.id} · <b>${fmtT(d.scheduled_at)}</b> · ${esc(d.prize_title)} · ${d.n_winners} winner${d.n_winners===1?"":"s"} · ${d.drand_round ? `round <span class="mono">${d.drand_round}</span>` : "committing…"}</div>`
+    `<div class="approw" style="margin-bottom:10px">
+       <div class="top"><span>#${d.id} · <b>${fmtT(d.scheduled_at)}</b> · ${esc(d.prize_title)} · ${d.n_winners} winner${d.n_winners===1?"":"s"}</span>
+         <span class="pill ${d.drand_round?"approved":"pending"}">${d.drand_round ? "round "+d.drand_round : "committing…"}</span></div>
+       <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+         <input type="datetime-local" data-dt="${d.id}" value="${toLocalInput(d.scheduled_at)}" style="max-width:230px;margin:0">
+         <button class="btn-sm btn-approve" data-resched="${d.id}" style="margin:0">Save time</button>
+         <button class="btn-sm btn-reject" data-deldraw="${d.id}" style="margin:0">Delete</button>
+       </div>
+     </div>`
   ).join("") : "No draws scheduled.";
   try {
     const v = await admin({ action: "keys" });
@@ -569,6 +587,37 @@ if($('dev-disputes')) $('dev-disputes').addEventListener('click', async e=>{
   b.disabled=true;
   try{ await devapi({action:'dispute-resolve',order_id:Number(b.dataset.oid),decision:b.dataset.disp}); await loadDev(); }
   catch(err){ b.disabled=false; b.textContent='Retry'; console.error(err); }
+});
+
+/* ---------- Draw rescheduling ---------- */
+if($('shift-btn')) $('shift-btn').onclick=async()=>{
+  const days=Number($('shiftdays').value);
+  if(!days){ $('shift-msg').innerHTML='<span class="err">Enter a non-zero number of days.</span>'; return; }
+  $('shift-btn').disabled=true; $('shift-msg').textContent='Shifting…';
+  try{ const r=await admin({action:'shift-draws',days}); $('shift-msg').innerHTML='<span class="ok">Moved '+r.shifted+' draw'+(r.shifted===1?'':'s')+' by '+r.days+' days.</span>'; await refresh(); }
+  catch(e){ $('shift-msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  $('shift-btn').disabled=false;
+};
+if($('upcoming')) $('upcoming').addEventListener('click', async e=>{
+  const rs=e.target.closest('[data-resched]');
+  if(rs){
+    const inp=document.querySelector('input[data-dt="'+rs.dataset.resched+'"]');
+    if(!inp||!inp.value) return;
+    let iso; try{ iso=new Date(inp.value).toISOString(); }catch{ return; }
+    rs.disabled=true; rs.textContent='Saving…';
+    try{ await admin({action:'reschedule-draw',draw_id:Number(rs.dataset.resched),scheduled_at:iso}); await refresh(); }
+    catch(err){ rs.disabled=false; rs.textContent='Retry'; console.error(err); }
+    return;
+  }
+  const dl=e.target.closest('[data-deldraw]');
+  if(dl){
+    if(dl.dataset.confirm){
+      dl.disabled=true; dl.textContent='Deleting…';
+      try{ await admin({action:'delete-draw',draw_id:Number(dl.dataset.deldraw)}); await refresh(); }
+      catch(err){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); console.error(err); }
+    } else { dl.dataset.confirm='1'; dl.textContent='Confirm delete'; }
+    return;
+  }
 });
 </script>
 </body>
