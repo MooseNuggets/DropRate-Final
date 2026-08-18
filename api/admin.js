@@ -46,6 +46,39 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ ok: true, created });
     }
+    // ---- DRAWS: reschedule ONE draw (re-arms the drand commit for the new time)
+    if (action === "reschedule-draw") {
+      const { draw_id, scheduled_at } = req.body;
+      if (!draw_id || !scheduled_at) return res.status(400).json({ error: "draw_id + scheduled_at required" });
+      const r = await sql`
+        UPDATE draws SET scheduled_at = ${scheduled_at}, drand_round = NULL, status = 'scheduled'
+        WHERE id = ${Number(draw_id)} AND status != 'drawn'
+        RETURNING id, scheduled_at, status`;
+      if (!r.rows.length) return res.status(400).json({ error: "draw not found or already drawn" });
+      return res.status(200).json({ ok: true, draw: r.rows[0] });
+    }
+    // ---- DRAWS: shift ALL upcoming (non-drawn) draws by N days -------------
+    // Fixes a whole batch scheduled to the wrong month in one shot. Re-arms each
+    // draw's drand commit so the published round matches its new time.
+    if (action === "shift-draws") {
+      const days = Number(req.body.days);
+      if (!Number.isFinite(days) || days === 0) return res.status(400).json({ error: "days (non-zero number) required" });
+      const r = await sql`
+        UPDATE draws
+        SET scheduled_at = scheduled_at + make_interval(days => ${Math.trunc(days)}),
+            drand_round = NULL, status = 'scheduled'
+        WHERE status != 'drawn'
+        RETURNING id`;
+      return res.status(200).json({ ok: true, shifted: r.rows.length, days: Math.trunc(days) });
+    }
+    // ---- DRAWS: delete a scheduled/committed draw (never a drawn one) ------
+    if (action === "delete-draw") {
+      const id = Number(req.body.draw_id);
+      if (!id) return res.status(400).json({ error: "draw_id required" });
+      const r = await sql`DELETE FROM draws WHERE id = ${id} AND status != 'drawn' RETURNING id`;
+      if (!r.rows.length) return res.status(400).json({ error: "draw not found or already drawn" });
+      return res.status(200).json({ ok: true, deleted: id });
+    }
     if (action === "keys") {
       const r = await sql`
         SELECT c.id, c.game_title, c.status, c.draw_id,
