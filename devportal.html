@@ -104,7 +104,7 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
 
 <main class="wrap">
   <h1>Developer Portal</h1>
-  <p class="sub">List your Steam keys and keep up to 98.5% — vs Steam's 70%. Keys are encrypted the moment you upload them, escrowed until sold, and paid out to your wallet in $DROP.</p>
+  <p class="sub">List your Steam keys and keep up to 98.5% — vs Steam's 70%. Keys are encrypted the moment you upload them, escrowed until sold, and paid out to your wallet. Get paid in $DROP for the lowest fee (1.5%), or accept USDC or SOL (4%) — your choice.</p>
   <div id="sellBody"><div class="empty">Connect your wallet to begin.</div></div>
 </main>
 
@@ -171,7 +171,7 @@ async function loadSell(){
 function renderApply(){
   $('sellBody').innerHTML=`<div class="panel">
     <h3>Apply to sell</h3>
-    <p class="hint">Verified developers only — a human reviews each application. You also contribute ~5 keys to the DropRate draws/gacha (great exposure). You keep 98.5% (1.5% fee), paid in $DROP.</p>
+    <p class="hint">Verified developers only — a human reviews each application. You also contribute ~5 keys to the DropRate draws/gacha (great exposure). You keep up to 98.5% — paid in $DROP (1.5% fee), or accept USDC / SOL (4%).</p>
     <label class="f">Studio / publisher name</label><input id="ap-studio" placeholder="Your studio">
     <div class="row"><div><label class="f">Contact email</label><input id="ap-contact" placeholder="you@studio.com"></div>
     <div><label class="f">Website</label><input id="ap-web" placeholder="https://"></div></div>
@@ -294,6 +294,11 @@ function renderDashboard(products){
       <div><label class="f">Website</label><input id="pf-web" value="${esc(s.website||'')}" placeholder="https://"></div></div>
       <label class="f">Socials — X / Discord / Telegram</label><input id="pf-socials" value="${esc(s.socials||'')}" placeholder="@yourstudio · discord.gg/…">
       <label class="f">Steam App IDs (comma-separated)</label><input id="pf-appids" value="${esc(s.steam_appids||'')}" placeholder="e.g. 413150, 892970">
+      <label class="f">Payment methods you accept</label>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:6px">
+        ${['DROP','USDC','SOL'].map(c=>{const on=(s.accepted_currencies||['DROP','USDC','SOL']).includes(c);return '<label style="display:flex;align-items:center;gap:7px;font-family:\'JetBrains Mono\',monospace;font-size:.82rem;color:var(--ink);cursor:pointer;margin:0"><input type="checkbox" data-ccy="'+c+'"'+(on?' checked':'')+' style="width:auto;margin:0"> '+(c==='DROP'?'$DROP':c)+'</label>';}).join('')}
+      </div>
+      <div class="mini" style="margin-bottom:4px">$DROP has the lowest fee (1.5%) and brings buyers in via the discount. USDC/SOL are 4%.</div>
       <label class="f">Bio / description</label><textarea id="pf-bio" placeholder="Tell buyers about your studio and your games…" style="min-height:92px">${esc(s.bio||'')}</textarea>
       <button class="btn" id="pf-save" style="margin-top:18px">Save profile</button>
       <div class="res" id="pf-res"></div>
@@ -322,9 +327,10 @@ function renderDashboard(products){
   const npGallery=galleryField('npgal',[]);
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
+    const accepted=[...document.querySelectorAll('[data-ccy]')].filter(x=>x.checked).map(x=>x.dataset.ccy);
     const r=await apiSigned('profile-set',{ studio:$('pf-studio').value.trim(), contact:$('pf-contact').value.trim(),
       website:$('pf-web').value.trim(), socials:$('pf-socials').value.trim(), steam_appids:$('pf-appids').value.trim(),
-      avatar:pfAvatar.get(), bio:$('pf-bio').value.trim() });
+      avatar:pfAvatar.get(), bio:$('pf-bio').value.trim(), accepted_currencies:accepted.length?accepted:['DROP'] });
     $('pf-save').disabled=false;
     if(r.error){ $('pf-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     if(r.seller) SELLER={...SELLER,...r.seller};
