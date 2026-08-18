@@ -91,6 +91,8 @@
   .gv-thumb .vbadge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.42);color:#fff;font-size:15px}
   .gv-side .price-usd{font-family:var(--display);font-weight:700;font-size:26px;color:var(--gold-2)}
   .gv-side .price-drop{color:var(--muted);font-size:13px;margin:2px 0 14px}
+  .ghostbuy{background:transparent!important;border:1px solid var(--line-2);color:var(--ink)!important}
+  .ghostbuy:hover{border-color:var(--gold)}
   .gv-dev{display:flex;align-items:center;gap:11px;cursor:pointer;padding:11px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:14px;background:var(--navy-1)}
   .gv-dev:hover{border-color:var(--gold)}
   .gv-av{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--navy-2);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:var(--display);color:var(--muted);font-size:15px}
@@ -298,12 +300,13 @@ $('directGrid').addEventListener('click',e=>{
   const b=e.target.closest('[data-did]'); if(b){ buyDirect(Number(b.dataset.did),b); return; }
   const o=e.target.closest('[data-open]'); if(o){ openGame(Number(o.dataset.open)); }
 });
-async function buyDirect(productId,btn){
+async function buyDirect(productId,btn,currency){
   if(!await ensureWallet()) return;
+  const label=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Working…';}
-  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent='Buy with $DROP';} };
+  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent=label||'Buy';} };
   toast('Preparing your purchase…');
-  const o=await dapi({action:'buy-open',buyer:OWNER,product_id:productId});
+  const o=await dapi({action:'buy-open',buyer:OWNER,product_id:productId,pay_currency:currency||'DROP'});
   if(o.error){ toast(o.error==='out of stock'?'Just sold out — try another.':o.error); restore(); return; }
   const bp=await dapi({action:'buy-buildpay',order_id:o.order_id,buyer:OWNER});
   if(bp.error){ toast('Could not build payment: '+bp.error); restore(); return; }
@@ -366,8 +369,16 @@ async function openGame(productId){
   if(p.image) media.push({type:'img',src:p.image});
   (p.media||[]).forEach(m=>media.push({type:'img',src:m}));
   if(!media.length) media.push({type:'img',src:''});
-  const drop=p.drop_est!=null?('≈ '+Number(p.drop_est).toLocaleString('en-US')+' $DROP'):'';
-  const dropDisc=p.drop_est_discounted!=null?('pay in $DROP · '+Number(p.drop_est_discounted).toLocaleString('en-US')+' $DROP'):'';
+  const fmtN=n=>Number(n).toLocaleString('en-US');
+  const curMeta={
+    DROP:{ label:(p.drop_est_discounted!=null?(fmtN(p.drop_est_discounted)+' $DROP · save 5%'):'Pay with $DROP'), cls:'buy' },
+    USDC:{ label:(p.usdc_amount!=null?(p.usdc_amount.toFixed(2)+' USDC'):'Pay with USDC'), cls:'buy ghostbuy' },
+    SOL:{  label:(p.sol_est!=null?(p.sol_est+' SOL'):'Pay with SOL'), cls:'buy ghostbuy' },
+  };
+  const accCur=(p.accepted_currencies||['DROP','USDC','SOL']).filter(c=>curMeta[c]);
+  const payRow = p.available>0
+    ? '<div style="display:flex;flex-direction:column;gap:8px">'+accCur.map(c=>'<button class="'+curMeta[c].cls+'" data-did="'+p.id+'" data-cur="'+c+'" style="width:100%">'+curMeta[c].label+'</button>').join('')+'</div>'
+    : '<button class="buy" disabled style="width:100%;opacity:.5">Sold out</button>';
   const thumbs=media.map((m,i)=>'<div class="gv-thumb'+(i===0?' on':'')+'" data-idx="'+i+'">'+
       (m.type==='video'?'<div class="vbadge">▶</div>':'')+
       (m.src?'<img src="'+esc(m.src)+'" alt="">':'')+'</div>').join('');
@@ -384,10 +395,8 @@ async function openGame(productId){
         '<div style="color:var(--muted);font-size:12px">View developer →</div></div></div>'+
       '<div class="tag" style="color:var(--gold-2);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">'+esc(p.region||'GLOBAL')+'</div>'+
       '<div class="price-usd">'+usd(p.price_cents)+'</div>'+
-      '<div class="price-drop">'+drop+' · '+p.available+' in stock</div>'+
-      (p.available>0
-        ? '<button class="buy" data-did="'+p.id+'" style="width:100%">'+ (dropDisc?('Buy — '+dropDisc):'Buy with $DROP') +'</button>'
-        : '<button class="buy" disabled style="width:100%;opacity:.5">Sold out</button>')+
+      '<div class="price-drop">'+p.available+' in stock · choose how to pay</div>'+
+      payRow+
       '<p style="color:var(--muted);font-size:12px;margin-top:12px;line-height:1.6">Key is escrowed and delivered on payment. Redeem on Steam.</p>'+
     '</div></div>';
   // media viewer
@@ -399,7 +408,7 @@ async function openGame(productId){
   }
   thumbsEl.addEventListener('click',e=>{ const t=e.target.closest('[data-idx]'); if(t) show(Number(t.dataset.idx)); });
   ov.querySelector('#gvBody').addEventListener('click',e=>{
-    const buy=e.target.closest('[data-did]'); if(buy){ buyDirect(Number(buy.dataset.did),buy); return; }
+    const buy=e.target.closest('[data-did]'); if(buy){ buyDirect(Number(buy.dataset.did),buy,buy.dataset.cur); return; }
     const dv=e.target.closest('[data-dev]'); if(dv){ ov.remove(); openDev(dv.dataset.dev); }
   });
   show(0);
