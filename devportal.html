@@ -274,7 +274,7 @@ function renderDashboard(products){
   $('sellBody').innerHTML=`
     <div class="panel">
       <h3>Seller dashboard <span class="pill ok" style="margin-left:8px">approved</span></h3>
-      <p class="hint">Payouts land in this wallet as $DROP. Fee is 1.5%. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
+      <p class="hint">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee). Set which you accept below. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
       <div id="prodList">${rows}</div>
     </div>
     <div class="panel">
