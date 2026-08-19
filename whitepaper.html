@@ -150,6 +150,10 @@
 <td>10,000 $DROP = 1 draw ticket · capped at 100 tickets/wallet</td>
 </tr>
 <tr>
+<td><strong>Loyalty bonus</strong></td>
+<td>Clean-hold streak earns bonus entries · +1/+2/+3/+5 every 2 days by tier · caps at 300</td>
+</tr>
+<tr>
 <td><strong>Crate prices</strong></td>
 <td>$5 / $15 / $25 / $40, priced in USD, paid in $DROP</td>
 </tr>
@@ -221,9 +225,29 @@
 <h3 id="54-diamond-hands-sell-detection">5.4 Diamond hands: sell-detection</h3>
 <p>Holding is the whole point, so the system actively watches for selling across a rolling <strong>12-snapshot</strong> lookback. A wallet stays eligible only if, across that window, its balance never <em>decreases</em> between snapshots and it never exits and re-enters. Sell any meaningful amount and you drop out of eligibility until you re-establish a clean holding streak.</p>
 <p><strong>The important nuance — spending on crates is not selling.</strong> The eligibility engine tracks an <strong>adjusted balance</strong>: your on-chain balance <em>plus</em> everything you've ever spent on crates. Because crate spending is added back in, buying crates can never make you look like a seller and never costs you your draw standing. Only actually transferring tokens out of your wallet counts as a sell. (This is backward-compatible: with no crate activity the math is identical to a pure holdings check.)</p>
-<h3 id="55-free-entry">5.5 Free entry</h3>
+<h3 id="55-diamond-hands-the-loyalty-bonus">5.5 Diamond hands: the loyalty bonus</h3>
+<p>The same clean-hold streak that keeps you <em>eligible</em> also <em>earns</em> you extra draw entries — the longer and higher you hold, the more. A wallet's streak length (measured in time, so a single missed hourly snapshot can't reset a multi-day run) places it in a tier, and each tier accrues bonus entries at its own rate:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Clean hold</th>
+<th>Bonus rate</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><strong>Paper</strong></td><td>0–9 days</td><td>—</td></tr>
+<tr><td><strong>Bronze</strong></td><td>10+ days</td><td>+1 entry every 2 days</td></tr>
+<tr><td><strong>Silver</strong></td><td>25+ days</td><td>+2 entries every 2 days</td></tr>
+<tr><td><strong>Gold</strong></td><td>50+ days</td><td>+3 entries every 2 days</td></tr>
+<tr><td><strong>Diamond</strong></td><td>100+ days</td><td>+5 entries every 2 days</td></tr>
+</tbody>
+</table>
+<p>The bonus <strong>accumulates</strong> across the whole streak, and the rate <strong>steps up as you climb</strong> — a wallet that reaches a higher tier earns the faster rate only from that point forward, never retroactively. The first bonus unlocks at 10 days (Bronze), and the total is capped at <strong>300 bonus entries</strong>, which a wallet fully maxes after roughly six months of unbroken holding.</p>
+<p>These entries stack <em>on top of</em> your balance tickets (which are themselves capped at 100 per wallet, §5.2), so loyalty can be worth up to three times what holdings alone can — a deliberate tilt toward time-held over size-held. They are real entries, not a cosmetic badge: the draw runner folds each wallet's bonus into the ticket-weighted pool, and the exact pool — every wallet's identity and final ticket count, bonus included — is recorded per draw, so results stay fully reproducible (§12). Sell or transfer $DROP out and the streak, and its bonus, resets to zero; buying crates never breaks it (§5.4).</p>
+<h3 id="56-free-entry">5.6 Free entry</h3>
 <p>You don't have to hold to play. Anyone can submit <strong>one free entry per wallet per draw</strong>, worth 1 ticket. Free entries run through anti-abuse (a hidden honeypot field and optional Cloudflare Turnstile), are deduplicated per wallet per draw, and sit in the same pool as held-ticket entries. This keeps the door open for everyone while holders still get proportional weight.</p>
-<h3 id="56-how-a-winner-is-chosen">5.6 How a winner is chosen</h3>
+<h3 id="57-how-a-winner-is-chosen">5.7 How a winner is chosen</h3>
 <p>Each draw is resolved in two committed steps:</p>
 <ol>
 <li><strong>Commit.</strong> When a scheduled draw's time approaches, the system pins the exact <strong>future drand round</strong> it will use and marks the draw committed. The round number is public <em>before</em> that round's randomness exists — so the seed is fixed in advance and can't be shopped for.</li>
@@ -233,7 +257,7 @@
 <p>For each winner slot <em>i</em>: <code>HMAC-SHA256(seed, "drawId:i") mod totalTickets</code> → walk the ticket-weighted pool to that index → that wallet wins. The winner is then removed from the pool (all its tickets leave) and the next slot is drawn. One win per wallet per draw.</p>
 </blockquote>
 <p>Selection is <strong>weighted by tickets, without replacement</strong>, and is fully deterministic from the public seed — meaning anyone with the seed and the published holder set can reproduce the exact winners (see §12).</p>
-<h3 id="57-claiming-a-prize">5.7 Claiming a prize</h3>
+<h3 id="58-claiming-a-prize">5.8 Claiming a prize</h3>
 <ul>
 <li>Winners have <strong>7 days</strong> to claim before the prize expires.</li>
 <li>Claiming requires an <strong>ed25519 wallet signature</strong> over a one-time challenge (<code>DROPRATE claim draw:&lt;id&gt; wallet:&lt;wallet&gt; nonce:&lt;nonce&gt;</code>), with a 10-minute nonce, proving you control the winning wallet.</li>
@@ -602,6 +626,18 @@
 <tr>
 <td>Dev keys seeded to prize pools</td>
 <td>~5 per approved developer</td>
+</tr>
+<tr>
+<td>Loyalty tiers (clean-hold days)</td>
+<td>Paper 0 · Bronze 10 · Silver 25 · Gold 50 · Diamond 100</td>
+</tr>
+<tr>
+<td>Loyalty bonus rate (per 2 days)</td>
+<td>Bronze +1 · Silver +2 · Gold +3 · Diamond +5 <em>(tunable)</em></td>
+</tr>
+<tr>
+<td>Loyalty bonus cap</td>
+<td>300 entries <em>(tunable)</em></td>
 </tr>
 </tbody>
 </table>
