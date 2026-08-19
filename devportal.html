@@ -321,10 +321,17 @@ function renderDashboard(products){
       <textarea id="np-desc" placeholder="What is your game? Tell buyers what makes it worth playing…" style="min-height:110px"></textarea>
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
+    </div>
+    <div class="panel" id="native-panel">
+      <h3>Native games <span class="pill" style="color:var(--spark);border:1px solid var(--line2);margin-left:6px">Launcher · early</span></h3>
+      <p class="hint">List <b>NFT-owned</b> games for the DropRate launcher — buyers own their copy and can resell it, with royalties back to you. Set up your listings now; buying &amp; launching go live when the launcher ships. Web games (HTML5/WebGL) will play in-browser; downloadable games run through the desktop app.</p>
+      <button class="btn ghost" id="nat-load">Manage native games →</button>
+      <div id="nat-body" style="margin-top:16px"></div>
     </div>`;
   const pfAvatar=imageField('pfav',{maxDim:512,quality:.85,initial:s.avatar||''});
   const npCover=imageField('npimg',{maxDim:1000,quality:.82});
   const npGallery=galleryField('npgal',[]);
+  $('nat-load').onclick=loadNative;
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
     const accepted=[...document.querySelectorAll('[data-ccy]')].filter(x=>x.checked).map(x=>x.dataset.ccy);
@@ -440,6 +447,110 @@ function openEditProduct(p){
     $('ep-save').disabled=false;
     if(r.error){ $('ep-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
     toast('Store page updated.'); ov.remove(); loadSell();
+  };
+}
+/* ---------- Native games (launcher) ---------- */
+function natFormHTML(prefix,g){
+  g=g||{};
+  const sm=g.supply_model||'infinite', rt=g.runtime||'web';
+  const opt=(v,cur,label)=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+label+'</option>';
+  return '<div class="row"><div><label class="f">Game title</label><input id="'+prefix+'-title" value="'+esc(g.title||'')+'" placeholder="Game name"></div>'+
+    '<div><label class="f">Price (USD)</label><input id="'+prefix+'-price" value="'+(g.price_cents!=null?(g.price_cents/100).toFixed(2):'')+'" inputmode="decimal" placeholder="19.99"></div></div>'+
+    '<label class="f">Tagline <span style="opacity:.6">· one line</span></label><input id="'+prefix+'-tag" value="'+esc(g.tagline||'')+'" placeholder="A doomed-world survival RPG">'+
+    '<div class="row"><div><label class="f">Runtime</label><select id="'+prefix+'-rt">'+opt('web',rt,'Web (plays in browser)')+opt('native',rt,'Native (launcher download)')+'</select></div>'+
+    '<div><label class="f">Supply</label><select id="'+prefix+'-sm">'+opt('infinite',sm,'Infinite (mint on demand)')+opt('finite',sm,'Finite (limited run)')+'</select></div></div>'+
+    '<div id="'+prefix+'-caprow" style="display:'+(sm==='finite'?'block':'none')+'"><label class="f">Copies (finite cap)</label><input id="'+prefix+'-cap" value="'+(g.supply_cap!=null?g.supply_cap:'')+'" inputmode="numeric" placeholder="10000"></div>'+
+    '<div class="row"><div><label class="f">Resale royalty %</label><input id="'+prefix+'-roy" value="'+(g.royalty_bps!=null?(g.royalty_bps/100):10)+'" inputmode="decimal"></div>'+
+    '<div><label class="f">Resale floor %</label><input id="'+prefix+'-floor" value="'+(g.resale_floor_bps!=null?(g.resale_floor_bps/100):60)+'" inputmode="decimal"></div></div>'+
+    '<label class="f">Resale cooldown (hours) <span style="opacity:.6">· 0 = none</span></label><input id="'+prefix+'-cool" value="'+(g.resale_cooldown_hours!=null?g.resale_cooldown_hours:0)+'" inputmode="numeric">'+
+    '<div class="mini" style="margin:4px 0 2px">Royalty caps at 20%, floor at 100% — DropRate keeps these in a fair band.</div>'+
+    '<label class="f">Cover image</label>'+
+    '<div class="imgdrop cover" id="'+prefix+'img-zone"><img class="imgprev" id="'+prefix+'img-prev" alt=""><div class="imgdrop-cta" id="'+prefix+'img-cta">Drag &amp; drop a cover, or click</div><input type="file" accept="image/*" hidden id="'+prefix+'img-file"></div>'+
+    '<input id="'+prefix+'img-url" placeholder="…or paste an image URL" style="margin-top:8px">'+
+    '<label class="f">Gallery images <span style="opacity:.6">· up to 8</span></label>'+
+    '<div class="imgdrop cover" id="'+prefix+'gal-zone" style="height:90px"><div class="imgdrop-cta" id="'+prefix+'gal-cta">Drag &amp; drop screenshots, or click to add</div><input type="file" accept="image/*" multiple hidden id="'+prefix+'gal-file"></div>'+
+    '<div class="gstrip" id="'+prefix+'gal-strip"></div>'+
+    '<label class="f">Trailer / video links <span style="opacity:.6">· one per line</span></label><textarea id="'+prefix+'-vids" style="min-height:56px" placeholder="https://www.youtube.com/watch?v=…">'+esc((g.videos||[]).join('\n'))+'</textarea>'+
+    '<label class="f">Description</label><textarea id="'+prefix+'-desc" style="min-height:100px" placeholder="What is your game?">'+esc(g.description||'')+'</textarea>';
+}
+function wireNatForm(prefix,g){
+  const cover=imageField(prefix+'img',{maxDim:1000,quality:.82,initial:(g&&g.image)||''});
+  const gallery=galleryField(prefix+'gal',(g&&g.media)||[]);
+  const sm=$(prefix+'-sm'), cap=$(prefix+'-caprow');
+  if(sm&&cap) sm.addEventListener('change',()=>{ cap.style.display=sm.value==='finite'?'block':'none'; });
+  return {cover,gallery};
+}
+function collectNat(prefix,cover,gallery){
+  const title=$(prefix+'-title').value.trim();
+  const dollars=parseFloat(String($(prefix+'-price').value).replace(/[^0-9.]/g,''));
+  if(!title) return {error:'Title required.'};
+  if(!Number.isFinite(dollars)||dollars<=0) return {error:'Enter a valid price.'};
+  const sm=$(prefix+'-sm').value;
+  const p={ title, price_cents:Math.round(dollars*100), tagline:$(prefix+'-tag').value.trim()||null,
+    runtime:$(prefix+'-rt').value, supply_model:sm,
+    royalty_bps:Math.round((parseFloat($(prefix+'-roy').value)||0)*100),
+    resale_floor_bps:Math.round((parseFloat($(prefix+'-floor').value)||0)*100),
+    resale_cooldown_hours:Math.round(parseFloat($(prefix+'-cool').value)||0),
+    image:cover.get()||null, media:gallery.get(),
+    videos:$(prefix+'-vids').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),
+    description:$(prefix+'-desc').value.trim() };
+  if(sm==='finite'){ const cap=Math.round(parseFloat($(prefix+'-cap').value)); if(!Number.isFinite(cap)||cap<1) return {error:'Finite supply needs a cap of 1+.'}; p.supply_cap=cap; }
+  return p;
+}
+async function loadNative(){
+  const body=$('nat-body'); if(!body) return;
+  const btn=$('nat-load'); if(btn) btn.style.display='none';
+  body.innerHTML='<div class="mini">Loading…</div>';
+  const d=await apiSigned('native-mine');
+  if(d.error){ body.innerHTML='<div class="res"><span style="color:var(--red)">'+esc(d.error)+'</span></div>'; if(btn) btn.style.display='inline-block'; return; }
+  renderNative(d.games||[]);
+}
+function renderNative(games){
+  const supplyTxt=g=>g.supply_model==='finite'?(g.available+' of '+g.supply_cap+' left'):'unlimited';
+  const rows=games.length?games.map(g=>'<div class="prodrow"><div>'+
+    '<div style="font-weight:600">'+esc(g.title)+' <span class="mini">· '+usd(g.price_cents)+' · '+(g.runtime==='web'?'web':'download')+'</span></div>'+
+    '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'% · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div></div>'+
+    '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
+      '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
+      '<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'+
+      '<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'+
+    '</div></div>').join(''):'<div class="mini" style="padding:8px 0">No native games yet — create your first below.</div>';
+  $('nat-body').innerHTML='<div id="ngList">'+rows+'</div>'+
+    '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px"><h3 style="font-size:1rem">New native game</h3>'+
+    natFormHTML('ng',{})+'<button class="btn" id="ng-submit" style="margin-top:16px">Create game</button><div class="res" id="ng-res"></div></div>';
+  const wired=wireNatForm('ng',{});
+  $('ng-submit').onclick=async()=>{
+    const p=collectNat('ng',wired.cover,wired.gallery);
+    if(p.error){ $('ng-res').innerHTML='<span style="color:var(--red)">'+esc(p.error)+'</span>'; return; }
+    $('ng-submit').disabled=true; $('ng-res').textContent='Creating…';
+    const r=await apiSigned('native-create',p);
+    $('ng-submit').disabled=false;
+    if(r.error){ $('ng-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    toast('Native game created.'); loadNative();
+  };
+  const gm=games.slice();
+  $('ngList').addEventListener('click',async e=>{
+    const ed=e.target.closest('[data-ngedit]'); if(ed){ const g=gm.find(x=>x.id===Number(ed.dataset.ngedit)); if(g) openEditNative(g); return; }
+    const tg=e.target.closest('[data-ngtoggle]'); if(tg){ tg.disabled=true; const r=await apiSigned('native-set-active',{product_id:Number(tg.dataset.ngtoggle),active:tg.dataset.on!=='1'}); if(r.error){ tg.disabled=false; toast(r.error);} else loadNative(); return; }
+    const dl=e.target.closest('[data-ngdel]'); if(dl){ if(dl.dataset.confirm){ dl.disabled=true; dl.textContent='Deleting…'; const r=await apiSigned('native-delete',{product_id:Number(dl.dataset.ngdel)}); if(r.error){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); toast(r.error);} else loadNative(); } else { dl.dataset.confirm='1'; dl.textContent='Confirm'; } return; }
+  });
+}
+function openEditNative(g){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML='<div class="ovcard" style="max-width:600px;max-height:88vh;overflow:auto"><h3 class="disp" style="font-size:1rem">Edit native game — '+esc(g.title)+'</h3>'+
+    natFormHTML('ne',g)+'<div class="row" style="margin-top:14px"><button class="btn" id="ne-save">Save changes</button><button class="btn ghost" data-close="1" style="flex:0 0 auto">Cancel</button></div><div class="res" id="ne-res"></div></div>';
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const wired=wireNatForm('ne',g);
+  $('ne-save').onclick=async()=>{
+    const p=collectNat('ne',wired.cover,wired.gallery);
+    if(p.error){ $('ne-res').innerHTML='<span style="color:var(--red)">'+esc(p.error)+'</span>'; return; }
+    p.product_id=g.id;
+    $('ne-save').disabled=true; $('ne-res').textContent='Saving…';
+    const r=await apiSigned('native-set',p);
+    $('ne-save').disabled=false;
+    if(r.error){ $('ne-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    toast('Saved.'); ov.remove(); loadNative();
   };
 }
 function openUpload(productId,title){
