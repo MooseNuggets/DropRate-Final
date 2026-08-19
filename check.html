@@ -174,9 +174,10 @@ function renderStreak(d){
   const hold = Number(st.holdDays || 0), bonus = Number(st.bonus || 0), total = base + bonus;
   if (base <= 0 && bonus <= 0 && hold <= 0) { host.innerHTML = ""; return; } // nothing to show
   const START = 10, DAY = 86400000;
+  const rate = (st.tier && st.tier.rate != null) ? Number(st.tier.rate) : 1;
   let pct, nextLabel, nextBonus;
   if (hold < START) { pct = Math.max(0, Math.min(1, hold / START)); nextBonus = 1; nextLabel = "day " + START; }
-  else { pct = ((hold - START) % 2) / 2; nextBonus = bonus + 1; nextLabel = "day " + (START + (Math.floor((hold - START) / 2) + 1) * 2); }
+  else { pct = ((hold - START) % 2) / 2; nextBonus = bonus + rate; nextLabel = "day " + (START + (Math.floor((hold - START) / 2) + 1) * 2); }
   const holdTxt = hold <= 0 ? "—" : (Math.floor(hold) + "d " + Math.floor((hold * 24) % 24) + "h");
   const tier = st.tier || null;
   let tierHTML = "";
@@ -206,7 +207,7 @@ function renderStreak(d){
       '</div>' +
       '<div class="dhs-head"><span>Clean hold</span><span class="dhs-d">' + holdTxt + '</span></div>' +
       '<div class="dhs-bar"><div class="dhs-fill" style="width:' + (pct * 100).toFixed(1) + '%"></div></div>' +
-      (bonus > 0 ? '<div class="dhs-tier">Reward tier: <b>+' + bonus + ' entr' + (bonus === 1 ? "y" : "ies") + '</b> · +1 every 2 days held, forever</div>' : '') +
+      (bonus > 0 ? '<div class="dhs-tier">Reward tier: <b>+' + bonus + ' entr' + (bonus === 1 ? "y" : "ies") + '</b> · +' + rate + ' every 2 days at ' + (st.tier ? st.tier.name : "this") + ' hands</div>' : '') +
       '<div class="dhs-next">' + nextLine + ' Sell or transfer and the streak resets to zero.</div>' +
       '<div class="dhs-rule">First bonus unlocks at 10 days of clean holding. Buying crates never breaks your streak — only selling or moving $DROP out does.</div>' +
     '</div>';
