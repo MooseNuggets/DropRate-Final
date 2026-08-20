@@ -79,6 +79,13 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ov{position:fixed;inset:0;background:rgba(2,4,12,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:90;padding:20px}
 .ovcard{background:#0c1024;border:1px solid var(--line2);border-radius:18px;padding:24px;max-width:480px;width:100%}
+  .gpick{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 4px}
+  .gchip{font-family:inherit;font-size:12px;padding:6px 11px;border-radius:999px;cursor:pointer;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.13);color:#98a1c8;transition:all .15s}
+  .gchip:hover{border-color:rgba(255,194,75,.5);color:#ffe6a8}
+  .gchip.on{background:linear-gradient(180deg,#ffe6a8,#ffc24b);border-color:transparent;color:#241a04;font-weight:600}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;margin:6px 0 0}
+  .chk input{width:16px;height:16px;accent-color:#ffc24b;cursor:pointer}
 </style>
 </head>
 <body>
@@ -450,15 +457,28 @@ function openEditProduct(p){
   };
 }
 /* ---------- Native games (launcher) ---------- */
+const NAT_GENRES=['Action','Adventure','RPG','Shooter','Platformer','Roguelike','Metroidvania',
+  'Strategy','Simulation','Survival','Horror','Puzzle','Racing','Sports',
+  'Fighting','Rhythm','Sandbox','Card & Board','Visual Novel','Co-op','Multiplayer'];
+const NAT_GENRE_MAX=4;
 function natFormHTML(prefix,g){
   g=g||{};
   const sm=g.supply_model||'infinite', rt=g.runtime||'web';
+  const picked=(g.genres||[]);
   const opt=(v,cur,label)=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+label+'</option>';
   return '<div class="row"><div><label class="f">Game title</label><input id="'+prefix+'-title" value="'+esc(g.title||'')+'" placeholder="Game name"></div>'+
     '<div><label class="f">Price (USD)</label><input id="'+prefix+'-price" value="'+(g.price_cents!=null?(g.price_cents/100).toFixed(2):'')+'" inputmode="decimal" placeholder="19.99"></div></div>'+
     '<label class="f">Tagline <span style="opacity:.6">· one line</span></label><input id="'+prefix+'-tag" value="'+esc(g.tagline||'')+'" placeholder="A doomed-world survival RPG">'+
     '<div class="row"><div><label class="f">Runtime</label><select id="'+prefix+'-rt">'+opt('web',rt,'Web (plays in browser)')+opt('native',rt,'Native (launcher download)')+'</select></div>'+
     '<div><label class="f">Supply</label><select id="'+prefix+'-sm">'+opt('infinite',sm,'Infinite (mint on demand)')+opt('finite',sm,'Finite (limited run)')+'</select></div></div>'+
+    '<div id="'+prefix+'-mobrow" style="display:'+(rt==='web'?'block':'none')+';margin-top:2px">'+
+      '<label class="chk"><input type="checkbox" id="'+prefix+'-mob"'+(g.mobile_ready?' checked':'')+'> Also plays on phones and tablets</label>'+
+      '<div class="mini" style="margin:2px 0 6px">Tick this only if your game genuinely works on touch. DropRate lists full games — a mobile-only title, or a desktop game that is unplayable on a phone, will be rejected at review.</div>'+
+    '</div>'+
+    '<label class="f">Genre <span style="opacity:.6">· pick up to '+NAT_GENRE_MAX+'</span></label>'+
+    '<div class="gpick" id="'+prefix+'-genres">'+NAT_GENRES.map(function(x){
+      return '<button type="button" class="gchip'+(picked.indexOf(x)>=0?' on':'')+'" data-g="'+esc(x)+'">'+esc(x)+'</button>';
+    }).join('')+'</div>'+
     '<div id="'+prefix+'-caprow" style="display:'+(sm==='finite'?'block':'none')+'"><label class="f">Copies (finite cap)</label><input id="'+prefix+'-cap" value="'+(g.supply_cap!=null?g.supply_cap:'')+'" inputmode="numeric" placeholder="10000"></div>'+
     '<div class="row"><div><label class="f">Resale royalty %</label><input id="'+prefix+'-roy" value="'+(g.royalty_bps!=null?(g.royalty_bps/100):10)+'" inputmode="decimal"></div>'+
     '<div><label class="f">Resale floor %</label><input id="'+prefix+'-floor" value="'+(g.resale_floor_bps!=null?(g.resale_floor_bps/100):60)+'" inputmode="decimal"></div></div>'+
@@ -478,6 +498,17 @@ function wireNatForm(prefix,g){
   const gallery=galleryField(prefix+'gal',(g&&g.media)||[]);
   const sm=$(prefix+'-sm'), cap=$(prefix+'-caprow');
   if(sm&&cap) sm.addEventListener('change',()=>{ cap.style.display=sm.value==='finite'?'block':'none'; });
+  // a launcher download can't run on a phone — hide and clear the flag when runtime isn't web
+  const rt=$(prefix+'-rt'), mobrow=$(prefix+'-mobrow'), mob=$(prefix+'-mob');
+  if(rt&&mobrow) rt.addEventListener('change',()=>{
+    const web=rt.value==='web'; mobrow.style.display=web?'block':'none'; if(!web&&mob) mob.checked=false; });
+  const gp=$(prefix+'-genres');
+  if(gp) gp.addEventListener('click',e=>{
+    const b=e.target.closest('[data-g]'); if(!b) return;
+    const on=gp.querySelectorAll('.gchip.on').length;
+    if(!b.classList.contains('on') && on>=NAT_GENRE_MAX) return;
+    b.classList.toggle('on');
+  });
   return {cover,gallery};
 }
 function collectNat(prefix,cover,gallery){
@@ -488,6 +519,8 @@ function collectNat(prefix,cover,gallery){
   const sm=$(prefix+'-sm').value;
   const p={ title, price_cents:Math.round(dollars*100), tagline:$(prefix+'-tag').value.trim()||null,
     runtime:$(prefix+'-rt').value, supply_model:sm,
+    mobile_ready: $(prefix+'-rt').value==='web' && !!($(prefix+'-mob')&&$(prefix+'-mob').checked),
+    genres: Array.from($(prefix+'-genres').querySelectorAll('.gchip.on')).map(b=>b.dataset.g),
     royalty_bps:Math.round((parseFloat($(prefix+'-roy').value)||0)*100),
     resale_floor_bps:Math.round((parseFloat($(prefix+'-floor').value)||0)*100),
     resale_cooldown_hours:Math.round(parseFloat($(prefix+'-cool').value)||0),
