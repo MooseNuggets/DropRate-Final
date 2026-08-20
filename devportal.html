@@ -86,6 +86,15 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
   .gchip.on{background:linear-gradient(180deg,#ffe6a8,#ffc24b);border-color:transparent;color:#241a04;font-weight:600}
   .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;margin:6px 0 0}
   .chk input{width:16px;height:16px;accent-color:#ffc24b;cursor:pointer}
+  details.legacy{margin:0}
+  details.legacy>summary.legacy-sum{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;
+    gap:14px;flex-wrap:wrap;transition:border-color .2s}
+  details.legacy>summary.legacy-sum::-webkit-details-marker{display:none}
+  details.legacy>summary.legacy-sum::after{content:"";width:8px;height:8px;flex:0 0 auto;
+    border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+  details.legacy[open]>summary.legacy-sum::after{transform:rotate(225deg) translateY(-2px)}
+  details.legacy>summary.legacy-sum:hover{border-color:rgba(255,255,255,.2)}
+  details.legacy[open]>summary.legacy-sum{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
 </style>
 </head>
 <body>
@@ -163,7 +172,7 @@ async function apiSigned(action, extra={}){
 
 async function loadSell(){
   const body=$('sellBody');
-  if(!OWNER){ body.innerHTML=`<div class="panel"><h3>Sell your keys</h3><p class="hint">Connect your wallet to apply as a developer. Your wallet is your seller identity and where $DROP payouts land.</p><button class="btn" id="sellConnect">Connect wallet</button></div>`;
+  if(!OWNER){ body.innerHTML=`<div class="panel"><h3>Ship your game on DropRate</h3><p class="hint">Connect your wallet to apply as a developer. Your wallet is your identity here and where payouts land.</p><button class="btn" id="sellConnect">Connect wallet</button></div>`;
     $('sellConnect').onclick=async()=>{ if(await connect()) loadSell(); }; return; }
   body.innerHTML=`<div class="empty">Loading your seller status…</div>`;
   const d=await apiSigned('seller-status');
@@ -279,12 +288,11 @@ function renderDashboard(products){
     </div>`).join(''):'<div class="mini" style="padding:12px 0">No products yet — create your first below.</div>';
   const s=SELLER||{};
   $('sellBody').innerHTML=`
-    <div class="panel">
-      <h3>Seller dashboard <span class="pill ok" style="margin-left:8px">approved</span></h3>
-      <p class="hint">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee). Set which you accept below. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
-      <div id="prodList">${rows}</div>
-    </div>
-    <div class="panel">
+    <div class="panel" id="native-panel">
+      <h3>Your games <span class="pill ok" style="margin-left:8px">approved</span><span class="pill" style="color:var(--spark);border:1px solid var(--line2);margin-left:6px">Launcher · early</span></h3>
+      <p class="hint">Your games on DropRate — buyers <b>own</b> their copy and can resell it, and you earn a cut of every resale. List now; buying and play switch on when the launcher ships. Web games (HTML5/WebGL) play in the browser — tick <b>mobile</b> if yours genuinely works on touch. Downloadable games run through the desktop app.</p><p class="hint" style="margin-top:-4px">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee).</p>
+      <div id="nat-body" style="margin-top:16px"></div>
+    </div>    <div class="panel">
       <h3>Your profile</h3>
       <p class="hint">Your public store page — what buyers see when they click your studio. Keep it current.</p>
       <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
@@ -310,6 +318,16 @@ function renderDashboard(products){
       <button class="btn" id="pf-save" style="margin-top:18px">Save profile</button>
       <div class="res" id="pf-res"></div>
     </div>
+    <details class="legacy" id="keys-panel">
+      <summary class="panel legacy-sum">
+        <h3 style="margin:0">Steam keys <span class="pill" style="color:var(--muted);border:1px solid var(--line2);margin-left:6px">secondary</span></h3>
+        <span class="mini">Consign keys for games on other platforms — being wound down as native games come online.</span>
+      </summary>
+    <div class="panel">
+      <h3>Key listings</h3>
+      <p class="hint">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee). Set which you accept below. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
+      <div id="prodList">${rows}</div>
+    </div>
     <div class="panel">
       <h3>New product</h3>
       <div class="row"><div><label class="f">Game title</label><input id="np-title" placeholder="Game name"></div>
@@ -329,16 +347,12 @@ function renderDashboard(products){
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
     </div>
-    <div class="panel" id="native-panel">
-      <h3>Native games <span class="pill" style="color:var(--spark);border:1px solid var(--line2);margin-left:6px">Launcher · early</span></h3>
-      <p class="hint">List <b>NFT-owned</b> games for the DropRate launcher — buyers own their copy and can resell it, with royalties back to you. Set up your listings now; buying &amp; launching go live when the launcher ships. Web games (HTML5/WebGL) will play in-browser; downloadable games run through the desktop app.</p>
-      <button class="btn ghost" id="nat-load">Manage native games →</button>
-      <div id="nat-body" style="margin-top:16px"></div>
-    </div>`;
+    </details>
+`;
   const pfAvatar=imageField('pfav',{maxDim:512,quality:.85,initial:s.avatar||''});
   const npCover=imageField('npimg',{maxDim:1000,quality:.82});
   const npGallery=galleryField('npgal',[]);
-  $('nat-load').onclick=loadNative;
+  loadNative();
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
     const accepted=[...document.querySelectorAll('[data-ccy]')].filter(x=>x.checked).map(x=>x.dataset.ccy);
