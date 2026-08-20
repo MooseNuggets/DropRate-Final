@@ -129,6 +129,8 @@
   @keyframes swipe{0%,66%{background-position:150% 0}100%{background-position:-90% 0}}
   .token-in{position:relative;background:linear-gradient(168deg,#191f3c,#0b0f22 62%);border-radius:22.5px;overflow:hidden;transition:opacity .3s ease}
   .token-in.swap{opacity:0}
+  #spotbody{transition:opacity .3s ease}
+  #spotbody.swap{opacity:0}
   .token .foil{position:absolute;inset:1.5px;border-radius:22.5px;z-index:4;pointer-events:none;mix-blend-mode:overlay;opacity:.42;
     background:
       radial-gradient(46% 38% at var(--fx,50%) var(--fy,38%),rgba(255,255,255,.32),transparent 62%),
@@ -139,7 +141,7 @@
   .tok-art::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(0deg,#101530 2%,rgba(16,21,48,.72) 34%,transparent 76%)}
   .tok-badge{position:absolute;top:12px;left:12px;z-index:2;font-family:var(--mono);font-size:8.5px;letter-spacing:.15em;text-transform:uppercase;
     color:var(--dim);background:rgba(6,9,20,.72);border:1px solid var(--line2);border-radius:7px;padding:4px 9px;backdrop-filter:blur(6px)}
-  .tok-owned{position:absolute;top:12px;right:12px;z-index:2;color:#241a04;background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-radius:7px;padding:4px 10px;
+  .tok-owned{position:absolute;top:12px;right:12px;z-index:2;text-transform:uppercase;color:#241a04;background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-radius:7px;padding:4px 10px;
     font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.15em;box-shadow:0 0 18px -4px var(--gold)}
   .tok-mark{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center}
   .tok-mark svg{position:relative;z-index:1;width:64px;height:74px;filter:drop-shadow(0 12px 30px rgba(255,194,75,.6))}
@@ -156,8 +158,6 @@
   .tok-meta b{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:.01em;color:var(--gold-hi);text-transform:none}
   .token-bar{position:relative;height:4px;border-radius:3px;background:rgba(255,255,255,.08);margin:10px 0 11px;overflow:hidden}
   .token-bar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold-deep),var(--gold-hi));box-shadow:0 0 14px rgba(255,194,75,.85)}
-  .token-bar.inf span{width:100%;background:linear-gradient(90deg,var(--gold-deep),var(--gold-hi),var(--gold-deep),var(--gold-hi));background-size:200% 100%;animation:infflow 2.6s linear infinite}
-  @keyframes infflow{to{background-position:-200% 0}}
   .tok-foot{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim2)}
   .token.live{cursor:pointer}
   .tok-dots{position:absolute;left:50%;bottom:-34px;transform:translateX(-50%);display:flex;gap:7px;z-index:2}
@@ -185,6 +185,27 @@
   .cmp-row .m svg{width:11px;height:11px}
   .cmp-row .m.no{background:rgba(255,255,255,.06);color:var(--dim2);border:1px solid var(--line)}
   .cmp-row .m.yes{background:linear-gradient(180deg,var(--gold-hi),var(--gold-deep));color:#241a04;box-shadow:0 0 14px -2px var(--gold)}
+
+  /* shelf toolbar */
+  .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:-4px 0 14px}
+  .search{position:relative;flex:1 1 260px;min-width:200px}
+  .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--dim2);pointer-events:none}
+  .search input{width:100%;font-family:var(--font);font-size:13.5px;color:var(--ice);background:rgba(255,255,255,.035);
+    border:1px solid var(--line);border-radius:12px;padding:11px 34px 11px 38px;outline:none;transition:border-color .2s,background .2s}
+  .search input::placeholder{color:var(--dim2)}
+  .search input:focus{border-color:rgba(255,194,75,.55);background:rgba(255,194,75,.05)}
+  .search input::-webkit-search-cancel-button{display:none}
+  .search .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--dim2);
+    font-size:17px;line-height:1;cursor:pointer;padding:4px 6px;display:none}
+  .search.has .clr{display:block}
+  .search .clr:hover{color:var(--gold)}
+  .sel{position:relative;flex:0 0 auto}
+  .sel select{appearance:none;-webkit-appearance:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
+    background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:12px;padding:12px 30px 12px 13px;cursor:pointer;outline:none;transition:border-color .2s,color .2s}
+  .sel select:hover,.sel select:focus{border-color:rgba(255,194,75,.5);color:var(--gold-hi)}
+  .sel::after{content:"";position:absolute;right:12px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--dim2);border-bottom:1.5px solid var(--dim2);
+    transform:translateY(-70%) rotate(45deg);pointer-events:none}
+  .sel option{background:#141930;color:var(--ice)}
 
   /* filters */
   .filters{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 22px}
@@ -433,6 +454,20 @@
   <div id="spotwrap"></div>
 
   <div class="sec-label rev" id="store"><h2>Now on the shelf</h2><span class="ln"></span><span class="note" id="count">Loading</span></div>
+  <div class="tools rev">
+    <div class="search" id="searchwrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search games, studios, genres…" autocomplete="off" spellcheck="false">
+      <button class="clr" id="qclr" aria-label="Clear search">&times;</button>
+    </div>
+    <div class="sel"><select id="genre" aria-label="Genre"></select></div>
+    <div class="sel"><select id="sort" aria-label="Sort">
+      <option value="new">Newest</option>
+      <option value="popular">Most popular</option>
+      <option value="price-lo">Price: low to high</option>
+      <option value="price-hi">Price: high to low</option>
+    </select></div>
+  </div>
   <div class="filters rev" id="filters"></div>
   <div class="grid" id="grid"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
 
@@ -530,24 +565,35 @@ function tokCardHTML(st){
       '<div class="tok-studio">'+esc(st.studio||'')+'</div>'+
       (st.serial
         ? '<div class="tok-meta"><b>'+esc(st.serial)+'</b><span>'+esc(st.supply)+'</span></div>'+
-          '<div class="token-bar'+(st.inf?' inf':'')+'"><span style="width:'+(st.pct||0)+'%"></span></div>'
-        : '<div style="height:22px"></div>')+
+          '<div class="token-bar"><span style="width:'+(st.pct||0)+'%"></span></div>'
+        : st.note
+          ? '<div class="tok-meta"><span>'+esc(st.note)+'</span></div><div style="height:15px"></div>'
+          : '<div style="height:22px"></div>')+
       '<div class="tok-foot">'+esc(st.foot)+'</div>'+
     '</div>';
 }
-function tokPaint(i){
-  const st=tokStates[i], inn=$('tokIn'), tok=$('token'); if(!st) return;
-  inn.innerHTML=tokCardHTML(st);
-  if(st.id){ tok.dataset.open=st.id; tok.classList.add('live'); }
-  else { delete tok.dataset.open; tok.classList.remove('live'); }
-  $('tokDots').querySelectorAll('i').forEach((d,k)=>d.classList.toggle('on',k===i));
+/* hero and Spotlight share one clock — Spotlight always runs one title ahead,
+   so the same game is never on screen twice */
+function featurePaint(i){
+  const st=tokStates[i], inn=$('tokIn'), tok=$('token');
+  if(st){
+    inn.innerHTML=tokCardHTML(st);
+    if(st.id){ tok.dataset.open=st.id; tok.classList.add('live'); }
+    else { delete tok.dataset.open; tok.classList.remove('live'); }
+    $('tokDots').querySelectorAll('i').forEach((d,k)=>d.classList.toggle('on',k===i));
+  }
+  const body=$('spotbody');
+  if(body && FEAT.length>1) body.innerHTML=spotCardHTML(FEAT[(i+1)%FEAT.length]);
 }
-function tokApply(i){ const inn=$('tokIn'); inn.classList.add('swap');
-  setTimeout(()=>{ tokPaint(i); inn.classList.remove('swap'); },300); }
+function featureGoto(i){
+  const inn=$('tokIn'), body=$('spotbody');
+  inn.classList.add('swap'); if(body) body.classList.add('swap');
+  setTimeout(()=>{ featurePaint(i); inn.classList.remove('swap'); if(body) body.classList.remove('swap'); },300);
+}
 function tokStart(){
-  $('tokDots').innerHTML = tokStates.length>1 ? tokStates.map((_,k)=>'<i></i>').join('') : '';
-  clearInterval(tokTimer); tokI=0; tokPaint(0);
-  if(tokStates.length>1) tokTimer=setInterval(()=>{ tokI=(tokI+1)%tokStates.length; tokApply(tokI); },5200);
+  $('tokDots').innerHTML = tokStates.length>1 ? tokStates.map(()=>'<i></i>').join('') : '';
+  clearInterval(tokTimer); tokI=0; featurePaint(0);
+  if(tokStates.length>1) tokTimer=setInterval(()=>{ tokI=(tokI+1)%tokStates.length; featureGoto(tokI); },5200);
 }
 function tokFromGames(games){
   tokStates = games.slice(0,4).map(g=>{
@@ -558,8 +604,9 @@ function tokFromGames(games){
         serial:'#'+pad(Math.min(cap,minted+1),4), supply:'of '+fmtN(cap), pct:cap?Math.round(minted/cap*100):0, inf:false,
         foot:'Limited run · yours to keep or resell'};
     }
+    /* open editions get no counter — how many others bought it isn't the buyer's business */
     return {id:g.id,image:g.image,title:g.title,studio:(g.dev&&g.dev.studio)||'',badge,
-      serial:'#'+pad(Number(g.minted_count||0)+1,4), supply:'open edition', pct:100, inf:true,
+      note:'Always available',
       foot:'Open edition · yours to keep or resell'};
   });
   if(!tokStates.length) tokStates=[EMPTY_STATE];
@@ -608,6 +655,7 @@ function scarcity(g){
   const minted=Math.max(0,cap-avail), pct=cap?Math.min(100,Math.round(minted/cap*100)):0;
   return {cap,avail,minted,pct};
 }
+const PHONE_IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="width:10px;height:10px;display:inline-block;vertical-align:-1px"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 18.6h2"/></svg>';
 const INF_IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.2 8.5c-2.4 0-3.6 1.7-4.9 3.5S10.8 15.5 8 15.5a3.5 3.5 0 0 1 0-7c2.4 0 3.6 1.7 4.9 3.5s2.5 3.5 5.3 3.5a3.5 3.5 0 0 0 0-7z"/></svg>';
 const LIM_IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18V9M10 18V5M16 18v-7M22 18H2"/></svg>';
 function editionBadge(g){ return g.supply_model==='finite' ? '<span class="ed lim">'+LIM_IC+'Limited run</span>' : '<span class="ed open">'+INF_IC+'Open edition</span>'; }
@@ -620,7 +668,7 @@ function scarcityHTML(g){
 function card(g){
   const rt = g.runtime==='web' ? 'Plays in browser' : 'Launcher download';
   return '<div class="card rev" data-open="'+g.id+'">'+
-    '<div class="cover">'+coverHTML(g)+'<span class="badge rt-badge">'+rt+'</span><span class="badge own-badge">'+KEY_IC+'Own it</span>'+editionBadge(g)+'</div>'+
+    '<div class="cover">'+coverHTML(g)+'<span class="badge rt-badge">'+rt+(g.mobile_ready?(' '+PHONE_IC):'')+'</span><span class="badge own-badge">'+KEY_IC+'Own it</span>'+editionBadge(g)+'</div>'+
     '<div class="cbody">'+
       '<div class="ctitle">'+esc(g.title)+'</div>'+
       (g.tagline?('<div class="ctag">'+esc(g.tagline)+'</div>'):'')+
@@ -628,13 +676,16 @@ function card(g){
       '<div class="cmeta"><span class="price gold-text"><span class="pu">'+usd(g.price_cents)+'</span><span class="pd">'+MARK('')+dropPrice(g.price_cents)+'</span></span><span class="studio">'+esc((g.dev&&g.dev.studio)||'')+'</span></div>'+
     '</div></div>';
 }
-function spotlight(g){
+function spotShellHTML(){
+  return '<div class="sec-label rev"><h2>Spotlight</h2><span class="ln"></span><span class="note">Featured title</span></div>'+
+    '<div id="spotbody"></div>';
+}
+function spotCardHTML(g){
   const s=scarcity(g);
   const rt = g.runtime==='web' ? 'Plays in your browser' : 'Runs in the launcher';
   const meta = s ? ('<span class="spot-meta">Only <b>'+fmtN(s.avail)+'</b> of '+fmtN(s.cap)+' left · '+rt+'</span>')
-                 : '<span class="spot-meta">Open edition · <b>unlimited</b> · '+rt+'</span>';
-  return '<div class="sec-label rev"><h2>Spotlight</h2><span class="ln"></span><span class="note">Featured title</span></div>'+
-    '<div class="spot rev" data-open="'+g.id+'">'+
+                 : '<span class="spot-meta">Open edition · <b>always available</b> · '+rt+'</span>';
+  return '<div class="spot" data-open="'+g.id+'">'+
       '<div class="spot-bg">'+(g.image?('<img src="'+esc(g.image)+'" alt="">'):proceduralCover(g))+'</div>'+
       '<div class="spot-rib">FEATURED</div>'+
       (g.image?'':'<div class="spot-mono">'+esc(ini(g.title))+'</div>')+
@@ -659,29 +710,77 @@ async function load(){
   if(!d||d.error){ grid.innerHTML='<div class="empty">'+esc((d&&d.error)||'Could not load the store.')+'</div>'; $('count').textContent=''; return; }
   const games=d.games||[];
   if(!games.length){ grid.innerHTML='<div class="empty">'+MARK('em-mark')+'No games listed yet — developers are onboarding now. Check back soon.</div>'; $('count').textContent=''; return; }
-  ALL=games; tokFromGames(games);
-  const feat=games[0];
-  $('spotwrap').innerHTML=spotlight(feat);
-  buildFilters(); applyFilter('all');
+  ALL=games; FEAT=games.slice(0,4);
+  /* one listing only? the hero card already features it — no second showcase */
+  $('spotwrap').innerHTML = FEAT.length>1 ? spotShellHTML() : '';
+  tokFromGames(games);
+  buildGenres(); render();
 }
-let ALL=[], FILTER='all';
+let ALL=[], FEAT=[], FILTER='all', QUERY='', GENRE='all', SORT='new';
 const FILTERS=[
-  ['all','All'],['web','Plays in browser'],['native','Launcher'],['finite','Limited run'],['infinite','Open edition']
+  ['all','All'],['web','Plays in browser'],['mobile','Plays on mobile'],['native','Launcher'],
+  ['finite','Limited run'],['infinite','Open edition']
 ];
-function matches(g,f){ if(f==='all') return true; if(f==='web'||f==='native') return g.runtime===f; if(f==='finite') return g.supply_model==='finite'; if(f==='infinite') return g.supply_model!=='finite'; return true; }
-function buildFilters(){
-  $('filters').innerHTML=FILTERS.map(([k,l])=>{ const n=ALL.filter(g=>matches(g,k)).length; if(!n&&k!=='all') return ''; return '<button class="chipf'+(k===FILTER?' on':'')+'" data-f="'+k+'">'+l+' <span class="n">'+n+'</span></button>'; }).join('');
+function matches(g,f){
+  if(f==='all') return true;
+  if(f==='mobile') return g.runtime==='web' && !!g.mobile_ready;
+  if(f==='web'||f==='native') return g.runtime===f;
+  if(f==='finite') return g.supply_model==='finite';
+  if(f==='infinite') return g.supply_model!=='finite';
+  return true;
 }
-function applyFilter(f){
-  FILTER=f; $('filters').querySelectorAll('.chipf').forEach(b=>b.classList.toggle('on',b.dataset.f===f));
-  const list=ALL.filter(g=>matches(g,f));
-  const grid=$('grid');
-  $('count').textContent = list.length+' title'+(list.length===1?'':'s')+(f==='all'?'':' · filtered');
-  grid.innerHTML = list.length ? list.map(card).join('') : '<div class="empty">'+MARK('em-mark')+'Nothing matches that filter yet.</div>';
+/* search what a player would actually type */
+function hits(g,q){
+  if(!q) return true;
+  const hay=[g.title,g.tagline,(g.dev&&g.dev.studio)||'',(g.genres||[]).join(' ')].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t=>hay.includes(t));
+}
+const SORTS={
+  'new':(a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0),
+  /* copies sold — ranks the shelf, never shown as a number */
+  'popular':(a,b)=>Number(b.minted_count||0)-Number(a.minted_count||0),
+  'price-lo':(a,b)=>Number(a.price_cents||0)-Number(b.price_cents||0),
+  'price-hi':(a,b)=>Number(b.price_cents||0)-Number(a.price_cents||0),
+};
+function visible(){
+  return ALL.filter(g=>matches(g,FILTER)&&hits(g,QUERY)&&(GENRE==='all'||(g.genres||[]).includes(GENRE)))
+            .sort(SORTS[SORT]||SORTS['new']);
+}
+function buildFilters(){
+  const pool=ALL.filter(g=>hits(g,QUERY)&&(GENRE==='all'||(g.genres||[]).includes(GENRE)));
+  $('filters').innerHTML=FILTERS.map(([k,l])=>{
+    const n=pool.filter(g=>matches(g,k)).length;
+    if(!n&&k!=='all'&&k!==FILTER) return '';
+    return '<button class="chipf'+(k===FILTER?' on':'')+'" data-f="'+k+'">'+l+' <span class="n">'+n+'</span></button>';
+  }).join('');
+}
+function buildGenres(){
+  const seen=new Set(); ALL.forEach(g=>(g.genres||[]).forEach(x=>seen.add(x)));
+  const list=[...seen].sort();
+  $('genre').innerHTML='<option value="all">All genres</option>'+
+    list.map(x=>'<option value="'+esc(x)+'"'+(x===GENRE?' selected':'')+'>'+esc(x)+'</option>').join('');
+  $('genre').parentElement.style.display=list.length?'':'none';
+}
+function render(){
+  buildFilters();
+  const list=visible(), grid=$('grid');
+  const filtered = FILTER!=='all' || GENRE!=='all' || !!QUERY;
+  $('count').textContent = list.length+' title'+(list.length===1?'':'s')+(filtered?' · filtered':'');
+  grid.innerHTML = list.length ? list.map(card).join('')
+    : '<div class="empty">'+MARK('em-mark')+(QUERY?('Nothing matches \u201C'+esc(QUERY)+'\u201D.'):'Nothing matches those filters yet.')+'</div>';
   grid.querySelectorAll('.rev').forEach(el=>el.classList.add('in'));
   fillBars(grid); observe();
 }
-$('filters').addEventListener('click',e=>{ const b=e.target.closest('[data-f]'); if(b) applyFilter(b.dataset.f); });
+$('filters').addEventListener('click',e=>{ const b=e.target.closest('[data-f]'); if(b){ FILTER=b.dataset.f; render(); } });
+$('genre').addEventListener('change',e=>{ GENRE=e.target.value; render(); });
+$('sort').addEventListener('change',e=>{ SORT=e.target.value; render(); });
+let qt=null;
+$('q').addEventListener('input',e=>{
+  QUERY=e.target.value.trim();
+  $('searchwrap').classList.toggle('has',!!QUERY);
+  clearTimeout(qt); qt=setTimeout(render,140);
+});
+$('qclr').addEventListener('click',()=>{ $('q').value=''; QUERY=''; $('searchwrap').classList.remove('has'); render(); $('q').focus(); });
 document.addEventListener('click',e=>{ const c=e.target.closest('[data-open]'); if(c) openGame(Number(c.dataset.open)); });
 
 function videoEmbed(url){
@@ -709,10 +808,12 @@ async function openGame(id){
   const media=[]; (p.videos||[]).forEach(v=>media.push({t:'v',s:v})); if(p.image) media.push({t:'i',s:p.image}); (p.media||[]).forEach(m=>media.push({t:'i',s:m})); if(!media.length) media.push({t:'i',s:''});
   const showThumbs=media.length>1;
   const thumbs=!showThumbs?'':media.map((m,i)=>'<div class="gv-thumb'+(i===0?' on':'')+'" data-idx="'+i+'">'+(m.t==='v'?'<div class="vb">'+PLAY_IC+'</div>':'')+(m.s?'<img src="'+esc(m.s)+'">':'')+'</div>').join('');
-  const rt = p.runtime==='web' ? 'Plays in your browser' : 'Downloads through the launcher';
+  const rt = p.runtime==='web'
+    ? (p.mobile_ready ? 'Browser — desktop, phone or tablet' : 'Plays in your browser')
+    : 'Downloads through the launcher';
   const supplyRow = p.supply_model==='finite'
     ? '<div><span>Supply</span><span class="v">'+fmtN(p.available)+' of '+fmtN(p.supply_cap)+' left</span></div>'
-    : '<div><span>Supply</span><span class="v">Open edition · unlimited</span></div>';
+    : '<div><span>Supply</span><span class="v">Open edition · always available</span></div>';
   ov.querySelector('.ovhead h3').textContent=p.title;
   ov.querySelector('#gvb').innerHTML=
     '<div class="gv"><div>'+
@@ -725,7 +826,8 @@ async function openGame(id){
         dropRow(p.price_cents)+
         '<div class="own-line">'+KEY_IC+'<span>This copy is <b>yours to keep</b> — and yours to sell whenever you\'re done.</span></div>'+
         '<div class="terms">'+
-          '<div><span>Runtime</span><span class="v">'+rt+'</span></div>'+
+          '<div><span>Plays on</span><span class="v">'+rt+'</span></div>'+
+          ((p.genres&&p.genres.length)?('<div><span>Genre</span><span class="v">'+esc(p.genres.join(', '))+'</span></div>'):'')+
           supplyRow+
           '<div><span>Dev gets on resale</span><span class="v">'+((p.royalty_bps||0)/100)+'%</span></div>'+
           '<div><span>Minimum resale price</span><span class="v">'+((p.resale_floor_bps||0)/100)+'% of list</span></div>'+
