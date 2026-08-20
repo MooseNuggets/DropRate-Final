@@ -86,15 +86,14 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
   .gchip.on{background:linear-gradient(180deg,#ffe6a8,#ffc24b);border-color:transparent;color:#241a04;font-weight:600}
   .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;margin:6px 0 0}
   .chk input{width:16px;height:16px;accent-color:#ffc24b;cursor:pointer}
-  details.legacy{margin:0}
-  details.legacy>summary.legacy-sum{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;
-    gap:14px;flex-wrap:wrap;transition:border-color .2s}
-  details.legacy>summary.legacy-sum::-webkit-details-marker{display:none}
-  details.legacy>summary.legacy-sum::after{content:"";width:8px;height:8px;flex:0 0 auto;
-    border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px);transition:transform .2s}
-  details.legacy[open]>summary.legacy-sum::after{transform:rotate(225deg) translateY(-2px)}
-  details.legacy>summary.legacy-sum:hover{border-color:rgba(255,255,255,.2)}
-  details.legacy[open]>summary.legacy-sum{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+  .dtabs{display:flex;gap:6px;margin:0 0 18px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+  .dtab{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.86rem;letter-spacing:.03em;
+    background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
+    padding:11px 16px;margin-bottom:-1px;cursor:pointer;transition:color .18s,border-color .18s;white-space:nowrap}
+  .dtab:hover{color:var(--ink)}
+  .dtab.on{color:var(--gold);border-bottom-color:var(--gold)}
+  .dpane.hide{display:none}
+  @media(max-width:520px){.dtab{padding:11px 12px;font-size:.8rem}}
 </style>
 </head>
 <body>
@@ -120,7 +119,7 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
 
 <main class="wrap">
   <h1>Developer Portal</h1>
-  <p class="sub">List your Steam keys and keep up to 98.5%. Keys are encrypted the moment you upload them, escrowed until sold, and paid out to your wallet. Get paid in $DROP and keep 98.5% (1.5% fee), or accept USDC / SOL and keep 93% (7% fee) — far more than the big platforms leave you.</p>
+  <p class="sub">Ship your games on DropRate — buyers own their copy and can resell it, and you earn a cut of every resale. Get paid in $DROP and keep 98.5% (1.5% fee), or accept USDC / SOL and keep 93% (7% fee) — far more than the big platforms leave you.</p>
   <div id="sellBody"><div class="empty">Connect your wallet to begin.</div></div>
 </main>
 
@@ -170,6 +169,7 @@ async function apiSigned(action, extra={}){
   return api({action, wallet:OWNER, message:sig.message, signature:sig.signature, ...extra});
 }
 
+let PANE='games';
 async function loadSell(){
   const body=$('sellBody');
   if(!OWNER){ body.innerHTML=`<div class="panel"><h3>Ship your game on DropRate</h3><p class="hint">Connect your wallet to apply as a developer. Your wallet is your identity here and where payouts land.</p><button class="btn" id="sellConnect">Connect wallet</button></div>`;
@@ -288,11 +288,15 @@ function renderDashboard(products){
     </div>`).join(''):'<div class="mini" style="padding:12px 0">No products yet — create your first below.</div>';
   const s=SELLER||{};
   $('sellBody').innerHTML=`
+    <div class="dtabs" id="dtabs"><button class="dtab on" data-p="games">Games</button><button class="dtab" data-p="profile">Profile</button><button class="dtab" data-p="keys">Steam keys</button></div>
+    <div class="dpane" data-pane="games">
     <div class="panel" id="native-panel">
       <h3>Your games <span class="pill ok" style="margin-left:8px">approved</span><span class="pill" style="color:var(--spark);border:1px solid var(--line2);margin-left:6px">Launcher · early</span></h3>
       <p class="hint">Your games on DropRate — buyers <b>own</b> their copy and can resell it, and you earn a cut of every resale. List now; buying and play switch on when the launcher ships. Web games (HTML5/WebGL) play in the browser — tick <b>mobile</b> if yours genuinely works on touch. Downloadable games run through the desktop app.</p><p class="hint" style="margin-top:-4px">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee).</p>
       <div id="nat-body" style="margin-top:16px"></div>
-    </div>    <div class="panel">
+    </div>    </div>
+    <div class="dpane hide" data-pane="profile">
+    <div class="panel">
       <h3>Your profile</h3>
       <p class="hint">Your public store page — what buyers see when they click your studio. Keep it current.</p>
       <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
@@ -318,11 +322,11 @@ function renderDashboard(products){
       <button class="btn" id="pf-save" style="margin-top:18px">Save profile</button>
       <div class="res" id="pf-res"></div>
     </div>
-    <details class="legacy" id="keys-panel">
-      <summary class="panel legacy-sum">
-        <h3 style="margin:0">Steam keys <span class="pill" style="color:var(--muted);border:1px solid var(--line2);margin-left:6px">secondary</span></h3>
-        <span class="mini">Consign keys for games on other platforms — being wound down as native games come online.</span>
-      </summary>
+    </div>
+    <div class="dpane hide" data-pane="keys">
+      <div class="panel" style="padding-top:16px;padding-bottom:16px">
+        <span class="mini">Consign keys for games on other platforms — this path is being wound down as native games come online.</span>
+      </div>
     <div class="panel">
       <h3>Key listings</h3>
       <p class="hint">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee). Set which you accept below. ${s.sold_count?('You\'ve sold '+s.sold_count+' key'+(s.sold_count==1?'':'s')+'.'):''}</p>
@@ -347,11 +351,22 @@ function renderDashboard(products){
       <button class="btn" id="np-submit" style="margin-top:18px">Create product</button>
       <div class="res" id="np-res"></div>
     </div>
-    </details>
+    </div>
 `;
   const pfAvatar=imageField('pfav',{maxDim:512,quality:.85,initial:s.avatar||''});
   const npCover=imageField('npimg',{maxDim:1000,quality:.82});
   const npGallery=galleryField('npgal',[]);
+  $('dtabs').addEventListener('click',e=>{
+    const b=e.target.closest('[data-p]'); if(!b) return;
+    const p=b.dataset.p; PANE=p;
+    $('dtabs').querySelectorAll('.dtab').forEach(x=>x.classList.toggle('on',x.dataset.p===p));
+    document.querySelectorAll('.dpane').forEach(x=>x.classList.toggle('hide',x.dataset.pane!==p));
+    try{ history.replaceState(null,'','#'+p); }catch(_){}
+    scrollTo({top:0,behavior:'smooth'});
+  });
+  const want=(location.hash||'').replace('#','');
+  if(['games','profile','keys'].includes(want)) PANE=want;
+  if(PANE!=='games'){ const b=$('dtabs').querySelector('[data-p="'+PANE+'"]'); if(b) b.click(); }
   loadNative();
   $('pf-save').onclick=async()=>{
     $('pf-save').disabled=true; $('pf-res').textContent='Saving…';
