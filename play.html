@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DropRate — Play</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 116'%3E%3Cpath d='M50 10C50 34 18 52 18 82a32 32 0 0 0 64 0C82 52 50 34 50 10Z' fill='%23ffc24b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#080b18; --panel:#141930; --line:#28305a; --line2:rgba(255,255,255,.11);
+    --gold:#ffc24b; --gold-deep:#e8941b; --gold-hi:#ffe6a8;
+    --ice:#f3f5ff; --dim:#98a1c8; --dim2:#6b73a0;
+    --font:'Poppins',system-ui,sans-serif; --display:'Chakra Petch',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bar:52px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--void);color:var(--ice);font-family:var(--font);overflow:hidden;
+    -webkit-font-smoothing:antialiased}
+  .disp{font-family:var(--display)}
+
+  /* the strip above the game — deliberately thin; the game is the page */
+  .bar{height:var(--bar);display:flex;align-items:center;gap:14px;padding:0 14px;
+    background:rgba(12,16,34,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
+    position:relative;z-index:3}
+  .bar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,194,75,.4),transparent)}
+  .back{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--dim);
+    font-size:12.5px;padding:7px 11px;border-radius:9px;border:1px solid transparent;transition:.18s;flex:0 0 auto}
+  .back:hover{color:var(--gold-hi);border-color:rgba(255,194,75,.32);background:rgba(255,194,75,.06)}
+  .back svg{width:15px;height:15px}
+  .id{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+  .id .mark{width:19px;height:22px;flex:0 0 auto;filter:drop-shadow(0 0 9px rgba(255,194,75,.45))}
+  .id .txt{min-width:0}
+  .id h1{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.02em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .id .studio{font-size:11px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .acts{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .chip{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 9px;border-radius:7px;border:1px solid rgba(255,194,75,.34);
+    background:rgba(255,194,75,.08);color:var(--gold-hi)}
+  .btn{font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.03em;
+    background:rgba(255,255,255,.04);border:1px solid var(--line2);color:var(--ice);
+    border-radius:9px;padding:9px 14px;cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{border-color:rgba(255,194,75,.5);color:var(--gold-hi)}
+  .btn svg{width:14px;height:14px}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media(max-width:620px){ .studio{display:none} .chip{display:none} .back span{display:none} }
+
+  /* stage */
+  .stage{position:relative;height:calc(100% - var(--bar));background:#04060e}
+  .stage:fullscreen{height:100%}
+  iframe{width:100%;height:100%;border:0;display:block;background:#04060e}
+
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:28px;
+    background:radial-gradient(700px 420px at 50% 40%,rgba(255,194,75,.07),transparent 70%),#04060e;z-index:2}
+  .overlay .in{max-width:430px}
+  .overlay .mark{width:46px;height:53px;margin:0 auto 18px;display:block;
+    filter:drop-shadow(0 8px 26px rgba(255,194,75,.45))}
+  .overlay h2{font-family:var(--display);font-size:20px;letter-spacing:.02em;margin-bottom:9px}
+  .overlay p{color:var(--dim);font-size:14px;line-height:1.62}
+  .overlay a{color:var(--gold-hi)}
+  .spin{width:34px;height:34px;margin:0 auto 18px;border-radius:50%;
+    border:2px solid rgba(255,194,75,.2);border-top-color:var(--gold);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hide{display:none!important}
+
+  /* a desktop-only game opened on a phone will control badly — say so, don't block */
+  .touchwarn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:4;
+    display:flex;align-items:center;gap:10px;max-width:calc(100% - 28px);
+    background:rgba(12,16,34,.94);border:1px solid rgba(255,159,110,.4);color:#ffb489;
+    border-radius:11px;padding:10px 13px;font-size:12.5px;backdrop-filter:blur(10px)}
+  .touchwarn button{background:none;border:0;color:inherit;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;opacity:.7}
+  .touchwarn button:hover{opacity:1}
+  @media(prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient>
+  <symbol id="mark" viewBox="0 0 100 116"><path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/></symbol>
+</defs></svg>
+
+<div class="bar">
+  <a class="back" href="/store.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    <span>Store</span>
+  </a>
+  <div class="id">
+    <svg class="mark" viewBox="0 0 100 116" aria-hidden="true"><use href="#mark"/></svg>
+    <div class="txt">
+      <h1 id="title">Loading…</h1>
+      <div class="studio" id="studio"></div>
+    </div>
+  </div>
+  <div class="acts">
+    <span class="chip hide" id="freechip">Free demo</span>
+    <button class="btn hide" id="fs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span id="fslabel">Fullscreen</span>
+    </button>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="overlay" id="ov">
+    <div class="in">
+      <div class="spin" id="spin"></div>
+      <svg class="mark hide" id="ovmark" viewBox="0 0 100 116" aria-hidden="true"><use href="#mark"/></svg>
+      <h2 id="ovh">Loading the game…</h2>
+      <p id="ovp"></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const params=new URLSearchParams(location.search);
+const id=Number(params.get('id'));
+
+function state(head,body,spinning){
+  $('ov').classList.remove('hide');
+  $('spin').classList.toggle('hide',!spinning);
+  $('ovmark').classList.toggle('hide',!!spinning);
+  $('ovh').textContent=head;
+  $('ovp').innerHTML=body||'';
+}
+
+async function api(body){
+  try{
+    const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ns:'devmarket',...body})});
+    return await r.json();
+  }catch(e){ return {error:'network error'}; }
+}
+
+async function boot(){
+  if(!Number.isFinite(id)||id<1){
+    return state('No game selected','Open a game from the <a href="/store.html">store</a> and press play.');
+  }
+  const d=await api({action:'native-view',product_id:id});
+  if(!d||d.error){ return state('Could not load that game',esc((d&&d.error)||'It may have been removed.')); }
+  const p=d.product, dev=d.dev||{};
+  document.title=p.title+' — DropRate';
+  $('title').textContent=p.title;
+  $('studio').textContent=(dev.studio||'');
+
+  if(p.runtime!=='web'){
+    return state('This one is a download',
+      esc(p.title)+' runs through the DropRate desktop app rather than the browser. '+
+      'It will be playable when the launcher ships.');
+  }
+  if(!p.play_url){
+    return state(p.has_build ? 'Not open to play yet' : 'No build uploaded yet',
+      p.has_build
+        ? 'The developer hasn’t opened '+esc(p.title)+' up for free play. It will be playable once you own it.'
+        : esc(dev.studio||'The developer')+' hasn’t uploaded a playable build for '+esc(p.title)+' yet.');
+  }
+
+  $('freechip').classList.remove('hide');
+  $('fs').classList.remove('hide');
+
+  /* The bundle lives on a DIFFERENT origin (the storage domain), which is what
+     actually stops a game reading wallet state or anything else belonging to
+     droprate.xyz. The sandbox attribute narrows it further; allow-same-origin here
+     only grants the game its OWN storage origin, not ours. */
+  const f=document.createElement('iframe');
+  f.setAttribute('sandbox','allow-scripts allow-same-origin allow-pointer-lock allow-fullscreen allow-orientation-lock');
+  f.setAttribute('allow','autoplay; fullscreen; gamepad; accelerometer; gyroscope; xr-spatial-tracking');
+  f.setAttribute('referrerpolicy','no-referrer');
+  f.setAttribute('title',p.title);
+  f.addEventListener('load',()=>$('ov').classList.add('hide'));
+  f.src=p.play_url;
+  $('stage').appendChild(f);
+
+  // if it never loads, don't leave them staring at a spinner
+  setTimeout(()=>{ if(!$('ov').classList.contains('hide'))
+    state('Still loading…','Large games can take a while on a first visit. If nothing happens, the build may be broken — the developer can re-upload it.',true); },20000);
+
+  const touch=matchMedia('(pointer:coarse)').matches;
+  if(touch && !p.mobile_ready){
+    const w=document.createElement('div'); w.className='touchwarn';
+    w.innerHTML='<span>This game wasn’t built for touch controls — it may not play well on a phone.</span><button aria-label="Dismiss">&times;</button>';
+    w.querySelector('button').onclick=()=>w.remove();
+    $('stage').appendChild(w);
+    setTimeout(()=>w.remove(),12000);
+  }
+}
+
+/* fullscreen the stage, so the game fills the screen without our chrome */
+$('fs').addEventListener('click',()=>{
+  const el=$('stage');
+  if(document.fullscreenElement) document.exitFullscreen();
+  else (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);
+});
+document.addEventListener('fullscreenchange',()=>{
+  $('fslabel').textContent=document.fullscreenElement?'Exit':'Fullscreen';
+});
+
+boot();
+</script>
+</body>
+</html>
