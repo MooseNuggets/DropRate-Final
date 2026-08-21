@@ -172,7 +172,9 @@ async function boot(){
      droprate.xyz. The sandbox attribute narrows it further; allow-same-origin here
      only grants the game its OWN storage origin, not ours. */
   const f=document.createElement('iframe');
-  f.setAttribute('sandbox','allow-scripts allow-same-origin allow-pointer-lock allow-fullscreen allow-orientation-lock');
+  // NB: fullscreen is NOT a sandbox flag — it's granted via the `allow` attribute
+  // below. Listing it here just makes the browser log a parse error.
+  f.setAttribute('sandbox','allow-scripts allow-same-origin allow-pointer-lock allow-orientation-lock');
   f.setAttribute('allow','autoplay; fullscreen; gamepad; accelerometer; gyroscope; xr-spatial-tracking');
   f.setAttribute('referrerpolicy','no-referrer');
   f.setAttribute('title',p.title);
