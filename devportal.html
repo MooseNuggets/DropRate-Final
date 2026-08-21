@@ -612,6 +612,26 @@ function renderNative(games){
    so no server-side unzip service is needed.
 --------------------------------------------------------------------------- */
 const PLAT_LABEL={win:'Windows',mac:'macOS',linux:'Linux'};
+/* Stored Content-Type decides whether an asset works in the browser. Browsers sniff
+   PNG/JPEG, but never SVG inside <img>, and get fussy about wasm and fonts. */
+const MIME={
+  html:'text/html', htm:'text/html', js:'text/javascript', mjs:'text/javascript',
+  css:'text/css', json:'application/json', map:'application/json', wasm:'application/wasm',
+  txt:'text/plain', xml:'application/xml',
+  svg:'image/svg+xml', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif',
+  webp:'image/webp', avif:'image/avif', bmp:'image/bmp', ico:'image/x-icon', cur:'image/x-icon',
+  mp3:'audio/mpeg', ogg:'audio/ogg', wav:'audio/wav', m4a:'audio/mp4',
+  mp4:'video/mp4', webm:'video/webm',
+  woff:'font/woff', woff2:'font/woff2', ttf:'font/ttf', otf:'font/otf', eot:'application/vnd.ms-fontobject',
+  glb:'model/gltf-binary', gltf:'model/gltf+json',
+  br:'application/octet-stream', gz:'application/gzip',
+  data:'application/octet-stream', unityweb:'application/octet-stream',
+  pck:'application/octet-stream', bin:'application/octet-stream', mem:'application/octet-stream',
+};
+function mimeFor(path){
+  const m=String(path).toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? (MIME[m[1]]||'') : '';
+}
 const fmtBytes=n=>{ n=Number(n)||0; if(n<1024) return n+' B';
   const u=['KB','MB','GB','TB']; let i=-1; do{ n/=1024; i++; }while(n>=1024&&i<u.length-1);
   return n.toFixed(n<10?1:0)+' '+u[i]; };
@@ -763,10 +783,7 @@ async function openGameFiles(g){
     let done=0, sent=0;
     for(const f of sign.files){
       const blob=byPath.get(f.path); if(!blob) continue;
-      const type=/\.html?$/.test(f.path)?'text/html':/\.m?js$/.test(f.path)?'text/javascript':
-        /\.wasm$/.test(f.path)?'application/wasm':/\.css$/.test(f.path)?'text/css':
-        /\.json$/.test(f.path)?'application/json':/\.svg$/.test(f.path)?'image/svg+xml':
-        (blob.type||'application/octet-stream');
+      const type=mimeFor(f.path)||blob.type||'application/octet-stream';
       try{
         await putWithProgress(f.url,blob.slice(0,blob.size,type),(l)=>{
           say('Uploading '+(done+1)+'/'+sign.files.length+' — '+esc(f.path)+' ('+fmtBytes(sent+l)+' of '+fmtBytes(total)+')'); });
