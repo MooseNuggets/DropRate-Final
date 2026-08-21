@@ -624,7 +624,7 @@ function renderNative(games){
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
       '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
       '<button class="btn ghost" data-ngup="'+g.id+'">Upload files</button>'+
-      (g.web_bundle_url?('<button class="btn ghost" data-ngplay="'+g.id+'">Preview</button>'):'')+
+      ((g.preview_url||g.web_bundle_url)?('<button class="btn ghost" data-ngplay="'+g.id+'">Preview</button>'):'')+
       ((g.review_status==='draft'||g.review_status==='rejected')?('<button class="btn" data-ngsub="'+g.id+'">Submit for review</button>'):'')+
       (g.locked?'':('<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'))+
       (g.locked?'':('<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'))+
@@ -654,7 +654,8 @@ function renderNative(games){
       else { toast('Sent for review — we\'ll take a look shortly.'); loadNative(); } return; }
     const pv=e.target.closest('[data-ngplay]');
     if(pv){ const g=gm.find(x=>x.id===Number(pv.dataset.ngplay));
-      if(g&&g.web_bundle_url) window.open(g.web_bundle_url,'_blank','noopener'); return; }
+      const u=g&&(g.preview_url||g.web_bundle_url);
+      if(u) window.open(u,'_blank','noopener'); return; }
     const up=e.target.closest('[data-ngup]'); if(up){ const g=gm.find(x=>x.id===Number(up.dataset.ngup)); if(g) openGameFiles(g); return; }
     const tg=e.target.closest('[data-ngtoggle]'); if(tg){ tg.disabled=true; const r=await apiSigned('native-set-active',{product_id:Number(tg.dataset.ngtoggle),active:tg.dataset.on!=='1'}); if(r.error){ tg.disabled=false; toast(r.error);} else loadNative(); return; }
     const dl=e.target.closest('[data-ngdel]'); if(dl){ if(dl.dataset.confirm){ dl.disabled=true; dl.textContent='Deleting…'; const r=await apiSigned('native-delete',{product_id:Number(dl.dataset.ngdel)}); if(r.error){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); toast(r.error);} else loadNative(); } else { dl.dataset.confirm='1'; dl.textContent='Confirm'; } return; }
@@ -711,11 +712,12 @@ function filesSummary(g){
 }
 /* PUT one blob to a presigned URL, reporting progress. fetch() can't report
    upload progress, so this is one of the few places XHR is still the right tool. */
-function putWithProgress(url, blob, onProgress){
+function putWithProgress(url, blob, onProgress, headers){
   return new Promise((resolve,reject)=>{
     const x=new XMLHttpRequest();
     x.open('PUT',url,true);
     if(blob.type) x.setRequestHeader('Content-Type',blob.type);
+    if(headers) for(const k in headers) x.setRequestHeader(k,headers[k]);
     x.upload.onprogress=e=>{ if(e.lengthComputable&&onProgress) onProgress(e.loaded,e.total); };
     x.onload=()=>{ if(x.status>=200&&x.status<300) resolve(x.getResponseHeader('ETag')||'');
                    else reject(new Error('Upload failed ('+x.status+'). '+(x.responseText||'').slice(0,160))); };
@@ -853,7 +855,8 @@ async function openGameFiles(g){
       const type=mimeFor(f.path)||blob.type||'application/octet-stream';
       try{
         await putWithProgress(f.url,blob.slice(0,blob.size,type),(l)=>{
-          say('Uploading '+(done+1)+'/'+sign.files.length+' — '+esc(f.path)+' ('+fmtBytes(sent+l)+' of '+fmtBytes(total)+')'); });
+          say('Uploading '+(done+1)+'/'+sign.files.length+' — '+esc(f.path)+' ('+fmtBytes(sent+l)+' of '+fmtBytes(total)+')'); },
+          {'Cache-Control':'public, max-age=31536000, immutable'});
       }catch(err){ say('Failed on '+esc(f.path)+': '+esc(String(err.message||err)),'red'); return; }
       sent+=blob.size; done++;
     }
