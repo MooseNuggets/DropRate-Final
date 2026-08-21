@@ -509,6 +509,10 @@ function natFormHTML(prefix,g){
       '<label class="chk"><input type="checkbox" id="'+prefix+'-mob"'+(g.mobile_ready?' checked':'')+'> Also plays on phones and tablets</label>'+
       '<div class="mini" style="margin:2px 0 6px">Tick this only if your game genuinely works on touch. DropRate lists full games — a mobile-only title, or a desktop game that is unplayable on a phone, will be rejected at review.</div>'+
     '</div>'+
+    '<div id="'+prefix+'-demorow" style="display:'+(rt==='web'?'block':'none')+';margin-top:2px">'+
+      '<label class="chk"><input type="checkbox" id="'+prefix+'-demo"'+(g.demo_public?' checked':'')+'> Let anyone play this free in the browser</label>'+
+      '<div class="mini" style="margin:2px 0 6px">Off by default. Turn it on for a demo or a free title. Note that an uploaded web build is publicly readable either way — this controls whether DropRate links to it.</div>'+
+    '</div>'+
     '<label class="f">Genre <span style="opacity:.6">· pick up to '+NAT_GENRE_MAX+'</span></label>'+
     '<div class="gpick" id="'+prefix+'-genres">'+NAT_GENRES.map(function(x){
       return '<button type="button" class="gchip'+(picked.indexOf(x)>=0?' on':'')+'" data-g="'+esc(x)+'">'+esc(x)+'</button>';
@@ -534,8 +538,11 @@ function wireNatForm(prefix,g){
   if(sm&&cap) sm.addEventListener('change',()=>{ cap.style.display=sm.value==='finite'?'block':'none'; });
   // a launcher download can't run on a phone — hide and clear the flag when runtime isn't web
   const rt=$(prefix+'-rt'), mobrow=$(prefix+'-mobrow'), mob=$(prefix+'-mob');
+  const demorow=$(prefix+'-demorow'), demo=$(prefix+'-demo');
   if(rt&&mobrow) rt.addEventListener('change',()=>{
-    const web=rt.value==='web'; mobrow.style.display=web?'block':'none'; if(!web&&mob) mob.checked=false; });
+    const web=rt.value==='web';
+    mobrow.style.display=web?'block':'none'; if(!web&&mob) mob.checked=false;
+    if(demorow) demorow.style.display=web?'block':'none'; if(!web&&demo) demo.checked=false; });
   const gp=$(prefix+'-genres');
   if(gp) gp.addEventListener('click',e=>{
     const b=e.target.closest('[data-g]'); if(!b) return;
@@ -554,6 +561,7 @@ function collectNat(prefix,cover,gallery){
   const p={ title, price_cents:Math.round(dollars*100), tagline:$(prefix+'-tag').value.trim()||null,
     runtime:$(prefix+'-rt').value, supply_model:sm,
     mobile_ready: $(prefix+'-rt').value==='web' && !!($(prefix+'-mob')&&$(prefix+'-mob').checked),
+    demo_public: $(prefix+'-rt').value==='web' && !!($(prefix+'-demo')&&$(prefix+'-demo').checked),
     genres: Array.from($(prefix+'-genres').querySelectorAll('.gchip.on')).map(b=>b.dataset.g),
     royalty_bps:Math.round((parseFloat($(prefix+'-roy').value)||0)*100),
     resale_floor_bps:Math.round((parseFloat($(prefix+'-floor').value)||0)*100),
@@ -581,6 +589,7 @@ function renderNative(games){
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
       '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
       '<button class="btn ghost" data-ngup="'+g.id+'">Upload files</button>'+
+      (g.web_bundle_url?('<button class="btn ghost" data-ngplay="'+g.id+'">Preview</button>'):'')+
       '<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'+
       '<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'+
     '</div></div>').join(''):'<div class="mini" style="padding:8px 0">No native games yet — create your first below.</div>';
@@ -600,6 +609,11 @@ function renderNative(games){
   const gm=games.slice();
   $('ngList').addEventListener('click',async e=>{
     const ed=e.target.closest('[data-ngedit]'); if(ed){ const g=gm.find(x=>x.id===Number(ed.dataset.ngedit)); if(g) openEditNative(g); return; }
+    /* Preview opens the dev's own build directly — it's their game and the bundle
+       URL is public, so no round trip is needed just to look at it. */
+    const pv=e.target.closest('[data-ngplay]');
+    if(pv){ const g=gm.find(x=>x.id===Number(pv.dataset.ngplay));
+      if(g&&g.web_bundle_url) window.open(g.web_bundle_url,'_blank','noopener'); return; }
     const up=e.target.closest('[data-ngup]'); if(up){ const g=gm.find(x=>x.id===Number(up.dataset.ngup)); if(g) openGameFiles(g); return; }
     const tg=e.target.closest('[data-ngtoggle]'); if(tg){ tg.disabled=true; const r=await apiSigned('native-set-active',{product_id:Number(tg.dataset.ngtoggle),active:tg.dataset.on!=='1'}); if(r.error){ tg.disabled=false; toast(r.error);} else loadNative(); return; }
     const dl=e.target.closest('[data-ngdel]'); if(dl){ if(dl.dataset.confirm){ dl.disabled=true; dl.textContent='Deleting…'; const r=await apiSigned('native-delete',{product_id:Number(dl.dataset.ngdel)}); if(r.error){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); toast(r.error);} else loadNative(); } else { dl.dataset.confirm='1'; dl.textContent='Confirm'; } return; }
@@ -637,7 +651,7 @@ const fmtBytes=n=>{ n=Number(n)||0; if(n<1024) return n+' B';
   return n.toFixed(n<10?1:0)+' '+u[i]; };
 function filesSummary(g){
   const bits=[];
-  if(g.web_bundle_url) bits.push('<span style="color:var(--green)">web build v'+(g.bundle_version||1)+'</span>');
+  if(g.web_bundle_url) bits.push('<span style="color:var(--green)">web build v'+(g.bundle_version||1)+'</span>'+(g.demo_public?' <span style="color:var(--spark)">· free to play</span>':''));
   const bl=g.builds||{};
   for(const k of ['win','mac','linux']) if(bl[k]) bits.push(PLAT_LABEL[k]+' '+fmtBytes(bl[k].bytes));
   return bits.length?('Files: '+bits.join(' · ')):'<span style="color:var(--muted)">No playable files uploaded yet</span>';
