@@ -653,9 +653,15 @@ async function openGameFiles(g){
   box.innerHTML=
     '<div class="upsec">'+
       '<h4 class="disp">Browser build</h4>'+
-      '<p class="hint">Upload your web export as a <b>.zip</b>. It is unpacked here in your browser and sent straight to storage — so it must contain <b>index.html</b> at its top level. Max '+fmtBytes(cfg.max_bundle)+'.</p>'+
+      '<p class="hint">Drop the folder your engine exported, or a <b>.zip</b> of it — either works. Files go straight from your machine to storage, so nothing is capped by our server. It must contain <b>index.html</b> at the top level. Max '+fmtBytes(cfg.max_bundle)+'.</p>'+
       (g.web_bundle_url?'<div class="mini" style="color:var(--green);margin-bottom:8px">Live: version '+(g.bundle_version||1)+'</div>':'')+
-      '<div class="imgdrop cover" id="upweb-zone" style="height:96px"><div class="imgdrop-cta">Drop a .zip, or click to choose</div><input type="file" accept=".zip,application/zip" hidden id="upweb-file"></div>'+
+      '<div class="imgdrop cover" id="upweb-zone" style="height:96px"><div class="imgdrop-cta">Drop your build folder or a .zip here</div>'+
+        '<input type="file" accept=".zip,application/zip" hidden id="upweb-file">'+
+        '<input type="file" webkitdirectory directory multiple hidden id="upweb-dir"></div>'+
+      '<div class="row" style="margin-top:8px;gap:8px">'+
+        '<button class="btn ghost" id="upweb-pickdir" style="flex:0 0 auto">Choose folder…</button>'+
+        '<button class="btn ghost" id="upweb-pickzip" style="flex:0 0 auto">Choose .zip…</button>'+
+      '</div>'+
       '<div id="upweb-prog" class="mini" style="margin-top:8px"></div>'+
     '</div>'+
     '<div class="upsec" style="margin-bottom:0">'+
@@ -674,52 +680,98 @@ async function openGameFiles(g){
     '</div>';
 
   /* ---- web bundle ---- */
-  const zone=ov.querySelector('#upweb-zone'), zfile=ov.querySelector('#upweb-file'), zprog=ov.querySelector('#upweb-prog');
+  const zone=ov.querySelector('#upweb-zone'), zfile=ov.querySelector('#upweb-file'),
+        zdir=ov.querySelector('#upweb-dir'), zprog=ov.querySelector('#upweb-prog');
   const say=(m,c)=>{ zprog.innerHTML=c?('<span style="color:var(--'+c+')">'+m+'</span>'):m; };
-  zone.addEventListener('click',()=>zfile.click());
+
+  ov.querySelector('#upweb-pickdir').addEventListener('click',()=>zdir.click());
+  ov.querySelector('#upweb-pickzip').addEventListener('click',()=>zfile.click());
+  zone.addEventListener('click',()=>zdir.click());
   zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('drag'); });
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
-  zone.addEventListener('drop',e=>{ e.preventDefault(); zone.classList.remove('drag');
-    if(e.dataTransfer.files[0]) doZip(e.dataTransfer.files[0]); });
-  zfile.addEventListener('change',()=>{ if(zfile.files[0]) doZip(zfile.files[0]); });
+  zone.addEventListener('drop',onDrop);
+  zfile.addEventListener('change',()=>{ if(zfile.files[0]) fromZip(zfile.files[0]); });
+  zdir.addEventListener('change',()=>{ if(zdir.files.length) fromFolder([...zdir.files]); });
 
-  async function doZip(file){
+  /* Dropping a FOLDER gives directory entries, not files — walk them. */
+  async function onDrop(e){
+    e.preventDefault(); zone.classList.remove('drag');
+    const items=[...(e.dataTransfer.items||[])];
+    const dirEntry=items.map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).find(x=>x&&x.isDirectory);
+    if(dirEntry){ say('Reading folder…'); try{ return fromEntries(await walkDir(dirEntry,dirEntry.name+'/')); }
+      catch(err){ say('Could not read that folder: '+esc(String(err.message||err)),'red'); return; } }
+    const f=e.dataTransfer.files[0];
+    if(!f) return;
+    if(/\.zip$/i.test(f.name)) return fromZip(f);
+    say('Drop the whole build folder, or a .zip of it.','red');
+  }
+  function walkDir(dir,prefix){
+    return new Promise((resolve,reject)=>{
+      const out=[], rd=dir.createReader(); let pending=0, reading=true;
+      const settle=()=>{ if(!reading&&pending===0) resolve(out); };
+      (function batch(){
+        rd.readEntries(ents=>{
+          if(!ents.length){ reading=false; return settle(); }
+          ents.forEach(en=>{
+            if(en.isFile){ pending++; en.file(f=>{ out.push([prefix+f.name,f]); pending--; settle(); },reject); }
+            else if(en.isDirectory){ pending++;
+              walkDir(en,prefix+en.name+'/').then(sub=>{ out.push(...sub); pending--; settle(); },reject); }
+          });
+          batch();
+        },reject);
+      })();
+    });
+  }
+  const fromFolder=(files)=>fromEntries(files.map(f=>[f.webkitRelativePath||f.name,f]));
+  async function fromZip(file){
     if(!/\.zip$/i.test(file.name)){ say('That needs to be a .zip file.','red'); return; }
     say('Unpacking '+esc(file.name)+' ('+fmtBytes(file.size)+')…');
-    let entries;
     try{
       const { unzipSync } = await import('https://esm.sh/fflate@0.8.2');
-      const buf=new Uint8Array(await file.arrayBuffer());
-      const raw=unzipSync(buf);
-      entries=Object.entries(raw).filter(([n,d])=>!n.endsWith('/')&&d.length);
-    }catch(err){ say('Could not read that zip: '+esc(String(err.message||err)),'red'); return; }
-    if(!entries.length){ say('That zip is empty.','red'); return; }
-    // Godot/Unity often zip an extra wrapping folder — strip it so index.html lands at the root.
+      const raw=unzipSync(new Uint8Array(await file.arrayBuffer()));
+      return fromEntries(Object.entries(raw).filter(([n,d])=>!n.endsWith('/')&&d.length)
+        .map(([n,d])=>[n,new Blob([d])]));
+    }catch(err){ say('Could not read that zip: '+esc(String(err.message||err)),'red'); }
+  }
+
+  /* entries: [relativePath, Blob|File]. Files stream straight from disk — a
+     multi-GB bundle never has to sit in memory. */
+  async function fromEntries(entries){
+    entries=entries.filter(([n,b])=>n&&b&&b.size>0)
+      .map(([n,b])=>[String(n).replace(/\\/g,'/').replace(/^\.\//,''),b]);
+    if(!entries.length){ say('Nothing to upload in there.','red'); return; }
+    // A folder pick, or a zip made from a folder, wraps everything one level deep.
     let names=entries.map(([n])=>n);
     const top=names[0].split('/')[0];
     if(names.every(n=>n.startsWith(top+'/')) && !names.includes('index.html')){
-      entries=entries.map(([n,d])=>[n.slice(top.length+1),d]); names=entries.map(([n])=>n);
+      entries=entries.map(([n,b])=>[n.slice(top.length+1),b]); names=entries.map(([n])=>n);
     }
+    // Editor exports often carry junk that no browser will ask for.
+    entries=entries.filter(([n])=>!/(^|\/)(\.DS_Store|Thumbs\.db|__MACOSX\/)/.test(n));
+    names=entries.map(([n])=>n);
     if(!names.includes('index.html')){
-      say('No index.html at the top level of that zip — found: '+esc(names.slice(0,4).join(', ')),'red'); return; }
+      say('No index.html at the top level — found: '+esc(names.slice(0,4).join(', ')),'red'); return; }
     if(entries.length>cfg.max_web_files){ say('That bundle has '+entries.length+' files (limit '+cfg.max_web_files+').','red'); return; }
-    const total=entries.reduce((a,[,d])=>a+d.length,0);
+    const total=entries.reduce((a,[,b])=>a+b.size,0);
+    if(total>cfg.max_bundle){ say('That bundle is '+fmtBytes(total)+' (limit '+fmtBytes(cfg.max_bundle)+').','red'); return; }
+
     say('Requesting upload slots for '+entries.length+' files ('+fmtBytes(total)+')…');
     const sign=await apiSigned('native-web-sign',{ product_id:g.id,
-      files:entries.map(([n,d])=>({path:n,size:d.length})) });
+      files:entries.map(([n,b])=>({path:n,size:b.size})) });
     if(sign.error){ say(esc(sign.error),'red'); return; }
     const byPath=new Map(entries);
     let done=0, sent=0;
     for(const f of sign.files){
-      const data=byPath.get(f.path); if(!data) continue;
-      const type=/\.html?$/.test(f.path)?'text/html':/\.js$/.test(f.path)?'text/javascript':
+      const blob=byPath.get(f.path); if(!blob) continue;
+      const type=/\.html?$/.test(f.path)?'text/html':/\.m?js$/.test(f.path)?'text/javascript':
         /\.wasm$/.test(f.path)?'application/wasm':/\.css$/.test(f.path)?'text/css':
-        /\.json$/.test(f.path)?'application/json':'application/octet-stream';
+        /\.json$/.test(f.path)?'application/json':/\.svg$/.test(f.path)?'image/svg+xml':
+        (blob.type||'application/octet-stream');
       try{
-        await putWithProgress(f.url,new Blob([data],{type}),(l)=>{
+        await putWithProgress(f.url,blob.slice(0,blob.size,type),(l)=>{
           say('Uploading '+(done+1)+'/'+sign.files.length+' — '+esc(f.path)+' ('+fmtBytes(sent+l)+' of '+fmtBytes(total)+')'); });
       }catch(err){ say('Failed on '+esc(f.path)+': '+esc(String(err.message||err)),'red'); return; }
-      sent+=data.length; done++;
+      sent+=blob.size; done++;
     }
     say('Finishing…');
     const fin=await apiSigned('native-web-commit',{ product_id:g.id, version:sign.version, files:sign.files.map(f=>f.path) });
