@@ -94,6 +94,11 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
   .dtab.on{color:var(--gold);border-bottom-color:var(--gold)}
   .dpane.hide{display:none}
   @media(max-width:520px){.dtab{padding:11px 12px;font-size:.8rem}}
+  .upsec{border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;margin-bottom:14px;background:rgba(255,255,255,.015)}
+  .upsec h4{font-size:.9rem;margin:0 0 6px;letter-spacing:.03em}
+  .upsec .hint{margin:0 0 10px}
+  .upsec .prodrow:last-child{margin-bottom:0}
+  .imgdrop.drag{border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -571,9 +576,11 @@ function renderNative(games){
   const supplyTxt=g=>g.supply_model==='finite'?(g.available+' of '+g.supply_cap+' left'):'unlimited';
   const rows=games.length?games.map(g=>'<div class="prodrow"><div>'+
     '<div style="font-weight:600">'+esc(g.title)+' <span class="mini">· '+usd(g.price_cents)+' · '+(g.runtime==='web'?'web':'download')+'</span></div>'+
-    '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'% · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div></div>'+
+    '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'% · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div>'+
+    '<div class="mini">'+filesSummary(g)+'</div></div>'+
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
       '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
+      '<button class="btn ghost" data-ngup="'+g.id+'">Upload files</button>'+
       '<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'+
       '<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'+
     '</div></div>').join(''):'<div class="mini" style="padding:8px 0">No native games yet — create your first below.</div>';
@@ -593,10 +600,180 @@ function renderNative(games){
   const gm=games.slice();
   $('ngList').addEventListener('click',async e=>{
     const ed=e.target.closest('[data-ngedit]'); if(ed){ const g=gm.find(x=>x.id===Number(ed.dataset.ngedit)); if(g) openEditNative(g); return; }
+    const up=e.target.closest('[data-ngup]'); if(up){ const g=gm.find(x=>x.id===Number(up.dataset.ngup)); if(g) openGameFiles(g); return; }
     const tg=e.target.closest('[data-ngtoggle]'); if(tg){ tg.disabled=true; const r=await apiSigned('native-set-active',{product_id:Number(tg.dataset.ngtoggle),active:tg.dataset.on!=='1'}); if(r.error){ tg.disabled=false; toast(r.error);} else loadNative(); return; }
     const dl=e.target.closest('[data-ngdel]'); if(dl){ if(dl.dataset.confirm){ dl.disabled=true; dl.textContent='Deleting…'; const r=await apiSigned('native-delete',{product_id:Number(dl.dataset.ngdel)}); if(r.error){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); toast(r.error);} else loadNative(); } else { dl.dataset.confirm='1'; dl.textContent='Confirm'; } return; }
   });
 }
+/* ---------------------------------------------------------------------------
+   FILE UPLOADS. Bytes go browser -> R2 directly; our API only signs permission
+   slips, because a Vercel function can't carry a multi-GB body.
+   Web games: the zip is expanded IN THE BROWSER and each file is PUT separately,
+   so no server-side unzip service is needed.
+--------------------------------------------------------------------------- */
+const PLAT_LABEL={win:'Windows',mac:'macOS',linux:'Linux'};
+const fmtBytes=n=>{ n=Number(n)||0; if(n<1024) return n+' B';
+  const u=['KB','MB','GB','TB']; let i=-1; do{ n/=1024; i++; }while(n>=1024&&i<u.length-1);
+  return n.toFixed(n<10?1:0)+' '+u[i]; };
+function filesSummary(g){
+  const bits=[];
+  if(g.web_bundle_url) bits.push('<span style="color:var(--green)">web build v'+(g.bundle_version||1)+'</span>');
+  const bl=g.builds||{};
+  for(const k of ['win','mac','linux']) if(bl[k]) bits.push(PLAT_LABEL[k]+' '+fmtBytes(bl[k].bytes));
+  return bits.length?('Files: '+bits.join(' · ')):'<span style="color:var(--muted)">No playable files uploaded yet</span>';
+}
+/* PUT one blob to a presigned URL, reporting progress. fetch() can't report
+   upload progress, so this is one of the few places XHR is still the right tool. */
+function putWithProgress(url, blob, onProgress){
+  return new Promise((resolve,reject)=>{
+    const x=new XMLHttpRequest();
+    x.open('PUT',url,true);
+    if(blob.type) x.setRequestHeader('Content-Type',blob.type);
+    x.upload.onprogress=e=>{ if(e.lengthComputable&&onProgress) onProgress(e.loaded,e.total); };
+    x.onload=()=>{ if(x.status>=200&&x.status<300) resolve(x.getResponseHeader('ETag')||'');
+                   else reject(new Error('Upload failed ('+x.status+'). '+(x.responseText||'').slice(0,160))); };
+    x.onerror=()=>reject(new Error('Network error during upload — check the bucket CORS rule.'));
+    x.send(blob);
+  });
+}
+async function openGameFiles(g){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML='<div class="ovcard" style="max-width:620px;max-height:88vh;overflow:auto">'+
+    '<h3 class="disp" style="font-size:1rem">Upload files — '+esc(g.title)+'</h3>'+
+    '<div id="up-cfg" style="margin-top:10px"><div class="mini">Checking storage…</div></div>'+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-close="1" style="flex:0 0 auto">Done</button></div></div>';
+  let dirty=false;
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov){ ov.remove(); if(dirty) loadNative(); } });
+  document.body.appendChild(ov);
+  const cfg=await apiSigned('native-upload-config',{});
+  const box=ov.querySelector('#up-cfg');
+  if(cfg.error){ box.innerHTML='<div class="mini" style="color:var(--red)">'+esc(cfg.error)+'</div>'; return; }
+  if(!cfg.ready){ box.innerHTML='<div class="mini" style="color:var(--red)">File storage isn\'t configured yet — the R2 environment variables are missing on the server.</div>'; return; }
+  const bl=g.builds||{};
+  box.innerHTML=
+    '<div class="upsec">'+
+      '<h4 class="disp">Browser build</h4>'+
+      '<p class="hint">Upload your web export as a <b>.zip</b>. It is unpacked here in your browser and sent straight to storage — so it must contain <b>index.html</b> at its top level. Max '+fmtBytes(cfg.max_bundle)+'.</p>'+
+      (g.web_bundle_url?'<div class="mini" style="color:var(--green);margin-bottom:8px">Live: version '+(g.bundle_version||1)+'</div>':'')+
+      '<div class="imgdrop cover" id="upweb-zone" style="height:96px"><div class="imgdrop-cta">Drop a .zip, or click to choose</div><input type="file" accept=".zip,application/zip" hidden id="upweb-file"></div>'+
+      '<div id="upweb-prog" class="mini" style="margin-top:8px"></div>'+
+    '</div>'+
+    '<div class="upsec" style="margin-bottom:0">'+
+      '<h4 class="disp">Desktop builds</h4>'+
+      '<p class="hint">One archive per platform, uploaded in chunks so large files resume cleanly. Max '+fmtBytes(cfg.max_build)+' each.</p>'+
+      ['win','mac','linux'].map(k=>
+        '<div class="prodrow" style="align-items:center">'+
+          '<div><div style="font-weight:600">'+PLAT_LABEL[k]+'</div>'+
+          '<div class="mini" id="upb-'+k+'-state">'+(bl[k]?('v'+bl[k].version+' · '+esc(bl[k].filename||'')+' · '+fmtBytes(bl[k].bytes)):'Not uploaded')+'</div></div>'+
+          '<div style="flex:0 0 auto;display:flex;gap:8px">'+
+            '<button class="btn ghost" data-upb="'+k+'">'+(bl[k]?'Replace':'Upload')+'</button>'+
+            (bl[k]?'<button class="btn danger" data-upbdel="'+k+'">Remove</button>':'')+
+          '</div>'+
+          '<input type="file" hidden id="upb-'+k+'-file">'+
+        '</div>').join('')+
+    '</div>';
+
+  /* ---- web bundle ---- */
+  const zone=ov.querySelector('#upweb-zone'), zfile=ov.querySelector('#upweb-file'), zprog=ov.querySelector('#upweb-prog');
+  const say=(m,c)=>{ zprog.innerHTML=c?('<span style="color:var(--'+c+')">'+m+'</span>'):m; };
+  zone.addEventListener('click',()=>zfile.click());
+  zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop',e=>{ e.preventDefault(); zone.classList.remove('drag');
+    if(e.dataTransfer.files[0]) doZip(e.dataTransfer.files[0]); });
+  zfile.addEventListener('change',()=>{ if(zfile.files[0]) doZip(zfile.files[0]); });
+
+  async function doZip(file){
+    if(!/\.zip$/i.test(file.name)){ say('That needs to be a .zip file.','red'); return; }
+    say('Unpacking '+esc(file.name)+' ('+fmtBytes(file.size)+')…');
+    let entries;
+    try{
+      const { unzipSync } = await import('https://esm.sh/fflate@0.8.2');
+      const buf=new Uint8Array(await file.arrayBuffer());
+      const raw=unzipSync(buf);
+      entries=Object.entries(raw).filter(([n,d])=>!n.endsWith('/')&&d.length);
+    }catch(err){ say('Could not read that zip: '+esc(String(err.message||err)),'red'); return; }
+    if(!entries.length){ say('That zip is empty.','red'); return; }
+    // Godot/Unity often zip an extra wrapping folder — strip it so index.html lands at the root.
+    let names=entries.map(([n])=>n);
+    const top=names[0].split('/')[0];
+    if(names.every(n=>n.startsWith(top+'/')) && !names.includes('index.html')){
+      entries=entries.map(([n,d])=>[n.slice(top.length+1),d]); names=entries.map(([n])=>n);
+    }
+    if(!names.includes('index.html')){
+      say('No index.html at the top level of that zip — found: '+esc(names.slice(0,4).join(', ')),'red'); return; }
+    if(entries.length>cfg.max_web_files){ say('That bundle has '+entries.length+' files (limit '+cfg.max_web_files+').','red'); return; }
+    const total=entries.reduce((a,[,d])=>a+d.length,0);
+    say('Requesting upload slots for '+entries.length+' files ('+fmtBytes(total)+')…');
+    const sign=await apiSigned('native-web-sign',{ product_id:g.id,
+      files:entries.map(([n,d])=>({path:n,size:d.length})) });
+    if(sign.error){ say(esc(sign.error),'red'); return; }
+    const byPath=new Map(entries);
+    let done=0, sent=0;
+    for(const f of sign.files){
+      const data=byPath.get(f.path); if(!data) continue;
+      const type=/\.html?$/.test(f.path)?'text/html':/\.js$/.test(f.path)?'text/javascript':
+        /\.wasm$/.test(f.path)?'application/wasm':/\.css$/.test(f.path)?'text/css':
+        /\.json$/.test(f.path)?'application/json':'application/octet-stream';
+      try{
+        await putWithProgress(f.url,new Blob([data],{type}),(l)=>{
+          say('Uploading '+(done+1)+'/'+sign.files.length+' — '+esc(f.path)+' ('+fmtBytes(sent+l)+' of '+fmtBytes(total)+')'); });
+      }catch(err){ say('Failed on '+esc(f.path)+': '+esc(String(err.message||err)),'red'); return; }
+      sent+=data.length; done++;
+    }
+    say('Finishing…');
+    const fin=await apiSigned('native-web-commit',{ product_id:g.id, version:sign.version, files:sign.files.map(f=>f.path) });
+    if(fin.error){ say(esc(fin.error),'red'); return; }
+    dirty=true;
+    say('Web build v'+fin.version+' is live — '+fin.files+' files.','green');
+    toast('Browser build uploaded.');
+  }
+
+  /* ---- desktop builds (chunked) ---- */
+  ov.addEventListener('click',async e=>{
+    const b=e.target.closest('[data-upb]');
+    if(b){ const k=b.dataset.upb; ov.querySelector('#upb-'+k+'-file').click(); return; }
+    const d=e.target.closest('[data-upbdel]');
+    if(d){ d.disabled=true; const r=await apiSigned('native-build-remove',{product_id:g.id,platform:d.dataset.upbdel});
+      if(r.error){ d.disabled=false; toast(r.error); } else { dirty=true; toast('Build removed.'); ov.remove(); loadNative(); } return; }
+  });
+  ['win','mac','linux'].forEach(k=>{
+    const inp=ov.querySelector('#upb-'+k+'-file'), st=ov.querySelector('#upb-'+k+'-state');
+    inp.addEventListener('change',async ()=>{
+      const file=inp.files[0]; if(!file) return;
+      const set=(m,c)=>{ st.innerHTML=c?('<span style="color:var(--'+c+')">'+m+'</span>'):m; };
+      if(file.size>cfg.max_build){ set('Too large (max '+fmtBytes(cfg.max_build)+')','red'); return; }
+      set('Starting upload…');
+      const start=await apiSigned('native-build-start',{ product_id:g.id, platform:k, filename:file.name,
+        size:file.size, content_type:file.type||'application/octet-stream' });
+      if(start.error){ set(esc(start.error),'red'); return; }
+      const partSize=start.part_size||(32*1024*1024);
+      const count=Math.max(1,Math.ceil(file.size/partSize));
+      const parts=[];
+      for(let i=0;i<count;i++){
+        const sg=await apiSigned('native-build-sign',{ product_id:g.id, key:start.key, upload_id:start.uploadId, part_number:i+1 });
+        if(sg.error){ await apiSigned('native-build-abort',{product_id:g.id,key:start.key,upload_id:start.uploadId});
+          set(esc(sg.error),'red'); return; }
+        const chunk=file.slice(i*partSize,Math.min(file.size,(i+1)*partSize));
+        try{
+          const etag=await putWithProgress(sg.url,chunk,(l)=>{
+            const pct=Math.round(((i*partSize+l)/file.size)*100);
+            set('Uploading… '+pct+'% ('+fmtBytes(i*partSize+l)+' of '+fmtBytes(file.size)+')'); });
+          parts.push({PartNumber:i+1,ETag:etag});
+        }catch(err){ await apiSigned('native-build-abort',{product_id:g.id,key:start.key,upload_id:start.uploadId});
+          set('Failed: '+esc(String(err.message||err)),'red'); return; }
+      }
+      set('Finishing…');
+      const fin=await apiSigned('native-build-complete',{ product_id:g.id, platform:k, key:start.key,
+        upload_id:start.uploadId, parts, size:file.size, version:start.version });
+      if(fin.error){ set(esc(fin.error),'red'); return; }
+      dirty=true;
+      set('v'+start.version+' · '+esc(file.name)+' · '+fmtBytes(file.size),'green');
+      toast(PLAT_LABEL[k]+' build uploaded.');
+    });
+  });
+}
+
 function openEditNative(g){
   const ov=document.createElement('div'); ov.className='ov';
   ov.innerHTML='<div class="ovcard" style="max-width:600px;max-height:88vh;overflow:auto"><h3 class="disp" style="font-size:1rem">Edit native game — '+esc(g.title)+'</h3>'+
