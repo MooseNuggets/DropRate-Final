@@ -80,6 +80,7 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
     <div class="tabs">
       <button class="tabbtn on" id="tt-raffle">Raffle &amp; Gacha</button>
       <button class="tabbtn" id="tt-dev">Dev Portal</button>
+      <button class="tabbtn" id="tt-games">Games</button>
     </div>
     <div id="tab-raffle">
     <h1>Dashboard</h1>
@@ -167,6 +168,32 @@ code,.mono,input,textarea{font-family:'JetBrains Mono',ui-monospace,monospace!im
       <button id="gk-wipebtn">Wipe gacha data</button>
     </div>
     </div><!-- /tab-raffle -->
+
+    <div id="tab-games" style="display:none">
+      <h1>Games</h1>
+      <div class="grid3" id="gm-stats"></div>
+
+      <h2>Developer applications</h2>
+      <p class="hint">Publishing native games is approved separately from selling keys — players buy these
+        outright and own them permanently, so the bar is higher.</p>
+      <div class="card"><div id="gm-devs">Loading…</div></div>
+
+      <h2>Game review queue</h2>
+      <p class="hint">Play it before you approve it. <b>Test build</b> opens the developer's actual upload,
+        whether or not they've made it public.</p>
+      <div class="card">
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+          <select id="gm-filter" style="max-width:210px;margin:0">
+            <option value="pending">Waiting on review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="draft">Drafts</option>
+          </select>
+          <button class="btn ghost" id="gm-refresh" style="flex:0 0 auto">Refresh</button>
+        </div>
+        <div id="gm-queue">Loading…</div>
+      </div>
+    </div>
 
     <div id="tab-dev" style="display:none">
       <h1>Dev Portal</h1>
@@ -462,13 +489,107 @@ async function devapi(body){
   return data;
 }
 function showTab(which){
-  const dev = which==='dev';
-  $('tab-raffle').style.display = dev?'none':'block';
-  $('tab-dev').style.display    = dev?'block':'none';
-  $('tt-raffle').classList.toggle('on',!dev);
-  $('tt-dev').classList.toggle('on',dev);
-  if(dev) loadDev();
+  const tabs={raffle:'tab-raffle',dev:'tab-dev',games:'tab-games'};
+  const btns={raffle:'tt-raffle',dev:'tt-dev',games:'tt-games'};
+  for(const k in tabs){ const el=$(tabs[k]); if(el) el.style.display = (k===which)?'block':'none';
+    const b=$(btns[k]); if(b) b.classList.toggle('on',k===which); }
+  if(which==='dev') loadDev();
+  if(which==='games') loadGames();
 }
+
+/* ---------- Games tab: native developer + game review ---------- */
+const REVIEW_LABEL={draft:'Draft',pending:'Waiting on review',approved:'Approved',rejected:'Rejected'};
+async function loadGames(){
+  const dbox=$('gm-devs'); dbox.textContent='Loading…';
+  try{ const q=await devapi({action:'native-dev-queue'}); renderNativeDevs(q.devs||[]); }
+  catch(e){ dbox.innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  loadGameQueue();
+}
+async function loadGameQueue(){
+  const box=$('gm-queue'); box.textContent='Loading…';
+  try{
+    const q=await devapi({action:'native-review-queue',status:$('gm-filter').value});
+    renderGameQueue(q.games||[]);
+  }catch(e){ box.innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+}
+function renderNativeDevs(devs){
+  const pending=devs.filter(d=>d.native_status==='pending').length;
+  const approved=devs.filter(d=>d.native_status==='approved').length;
+  $('gm-stats').innerHTML=`
+    <div class="stat"><b>${pending}</b><span>Devs waiting</span></div>
+    <div class="stat"><b>${approved}</b><span>Devs approved</span></div>
+    <div class="stat"><b id="gm-qcount">—</b><span>Games in queue</span></div>`;
+  if(!devs.length){ $('gm-devs').innerHTML='<div class="hint">No native applications yet.</div>'; return; }
+  $('gm-devs').innerHTML=devs.map(d=>`
+    <div class="row">
+      <div style="flex:1;min-width:0">
+        <div><b>${esc(d.studio||'(no studio name)')}</b>
+          <span class="pill ${d.native_status==='approved'?'ok':d.native_status==='pending'?'warn':''}">${esc(d.native_status)}</span></div>
+        <div class="mono" style="opacity:.6;font-size:.78rem">${esc(d.wallet)}</div>
+        ${d.native_engine?`<div class="hint" style="margin-top:5px"><b>Engine:</b> ${esc(d.native_engine)}</div>`:''}
+        ${d.native_pitch?`<div class="hint" style="margin-top:4px;white-space:pre-wrap">${esc(d.native_pitch)}</div>`:''}
+        ${d.native_prior?`<div class="hint" style="margin-top:4px"><b>Shipped before:</b> ${esc(d.native_prior)}</div>`:''}
+        ${d.native_playable?`<div class="hint" style="margin-top:4px"><b>Playable:</b> <a href="${esc(d.native_playable)}" target="_blank" rel="noopener">${esc(d.native_playable)}</a></div>`:''}
+        ${d.native_note?`<div class="hint" style="margin-top:4px;color:var(--red)">${esc(d.native_note)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
+        ${d.native_status!=='approved'?`<button class="btn" data-devok="${d.id}">Approve</button>`:''}
+        ${d.native_status!=='rejected'?`<button class="btn danger" data-devno="${d.id}">Reject</button>`:''}
+      </div>
+    </div>`).join('');
+}
+function renderGameQueue(games){
+  const c=$('gm-qcount'); if(c) c.textContent=games.length;
+  if(!games.length){ $('gm-queue').innerHTML='<div class="hint">Nothing here.</div>'; return; }
+  $('gm-queue').innerHTML=games.map(g=>{
+    const builds=Object.keys(g.builds||{});
+    return `
+    <div class="row">
+      <div style="flex:1;min-width:0">
+        <div><b>${esc(g.title)}</b> <span class="mono" style="opacity:.6;font-size:.78rem">#${g.id}</span>
+          <span class="pill ${g.review_status==='approved'?'ok':g.review_status==='pending'?'warn':''}">${esc(REVIEW_LABEL[g.review_status]||g.review_status)}</span>
+          ${g.locked?'<span class="pill ok">owned by players</span>':''}</div>
+        <div class="hint">${esc((g.dev&&g.dev.studio)||'')} · $${((g.price_cents||0)/100).toFixed(2)} ·
+          ${g.runtime==='web'?'browser':'download'}${g.mobile_ready?' + mobile':''}
+          ${g.supply_model==='finite'?` · limited to ${g.supply_cap}`:' · open edition'}</div>
+        ${g.tagline?`<div class="hint" style="margin-top:3px">${esc(g.tagline)}</div>`:''}
+        <div class="hint" style="margin-top:4px">
+          ${g.test_url?'Web build uploaded':'<span style="color:var(--red)">No web build</span>'}
+          ${builds.length?` · desktop: ${builds.join(', ')}`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
+        ${g.test_url?`<button class="btn ghost" data-gmtest="${esc(g.test_url)}">Test build</button>`:''}
+        <button class="btn ghost" data-gminfo="${g.id}">Details</button>
+        ${g.review_status!=='approved'?`<button class="btn" data-gmok="${g.id}">Approve &amp; publish</button>`:''}
+        ${g.review_status!=='rejected'?`<button class="btn danger" data-gmno="${g.id}">${g.locked?'Delist':'Reject'}</button>`:''}
+      </div>
+    </div>`;}).join('');
+}
+document.addEventListener('click',async e=>{
+  const ok=e.target.closest('[data-devok]');
+  if(ok){ ok.disabled=true; try{ await devapi({action:'native-dev-review',seller_id:Number(ok.dataset.devok),decision:'approved'}); loadGames(); }
+    catch(err){ ok.disabled=false; alert(err.message);} return; }
+  const no=e.target.closest('[data-devno]');
+  if(no){ const note=prompt('Why? The developer will see this.'); if(note===null) return; no.disabled=true;
+    try{ await devapi({action:'native-dev-review',seller_id:Number(no.dataset.devno),decision:'rejected',note}); loadGames(); }
+    catch(err){ no.disabled=false; alert(err.message);} return; }
+  const gok=e.target.closest('[data-gmok]');
+  if(gok){ gok.disabled=true; try{ await devapi({action:'native-review',product_id:Number(gok.dataset.gmok),decision:'approved'}); loadGameQueue(); }
+    catch(err){ gok.disabled=false; alert(err.message);} return; }
+  const gno=e.target.closest('[data-gmno]');
+  if(gno){ const note=prompt('What needs to change? The developer will see this.'); if(note===null) return; gno.disabled=true;
+    // a game players already own can only be pulled by admin, and that's the delist path
+    const owned=gno.textContent.trim()==='Delist';
+    try{ await devapi({action:owned?'native-delist':'native-review',product_id:Number(gno.dataset.gmno),
+      ...(owned?{}:{decision:'rejected'}),note}); loadGameQueue(); }
+    catch(err){ gno.disabled=false; alert(err.message);} return; }
+  const tb=e.target.closest('[data-gmtest]');
+  if(tb){ window.open(tb.dataset.gmtest,'_blank','noopener'); return; }
+  const inf=e.target.closest('[data-gminfo]');
+  if(inf){ try{ const d=await devapi({action:'native-view',product_id:Number(inf.dataset.gminfo)});
+      alert(JSON.stringify(d.product,null,2).slice(0,3000)); }catch(err){ alert(err.message);} return; }
+});
 async function loadDev(){
   const box=$('dev-apps'); box.textContent='Loading…';
   try{ const q=await devapi({action:'seller-queue'}); renderApps(q.sellers||[]); }
@@ -559,6 +680,9 @@ function renderDisputes(list){
 }
 if($('tt-raffle')) $('tt-raffle').onclick=()=>showTab('raffle');
 if($('tt-dev'))    $('tt-dev').onclick=()=>showTab('dev');
+if($('tt-games'))  $('tt-games').onclick=()=>showTab('games');
+if($('gm-filter')) $('gm-filter').onchange=loadGameQueue;
+if($('gm-refresh'))$('gm-refresh').onclick=loadGameQueue;
 if($('dev-refresh')) $('dev-refresh').onclick=loadDev;
 if($('dev-filter'))  $('dev-filter').onchange=loadDev;
 if($('dev-apps')) $('dev-apps').addEventListener('click', async e=>{
