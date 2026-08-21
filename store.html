@@ -222,6 +222,7 @@
   .card .ed.lim{background:rgba(255,194,75,.14);border:1px solid rgba(255,194,75,.45);color:var(--gold-hi)}
   .card .ed.open{background:rgba(139,123,255,.12);border:1px solid rgba(139,123,255,.45);color:#cfc8ff}
   .card .ed svg{width:11px;height:11px}
+  .card .ed.demo{left:auto;right:11px;background:rgba(95,211,155,.14);border:1px solid rgba(95,211,155,.45);color:#8ee7b8}
 
 
   /* ── steps ────────────────────────────────────────── */
@@ -373,6 +374,8 @@
   .cta{position:relative;width:100%;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.03em;border:0;border-radius:13px;padding:15px;margin-top:6px;color:#241a04;
     background:linear-gradient(180deg,var(--gold-hi),var(--gold-deep));cursor:pointer;box-shadow:0 14px 32px -16px var(--gold);transition:transform .14s,filter .2s}
   .cta:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .cta.play{display:flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;margin-bottom:8px}
+  .cta.play svg{width:15px;height:15px}
   .cta.soon{background:rgba(255,194,75,.08);border:1px solid rgba(255,194,75,.45);color:var(--gold-hi);cursor:default;box-shadow:none}
   .cta.soon:hover{transform:none;filter:none}
 
@@ -668,7 +671,8 @@ function scarcityHTML(g){
 function card(g){
   const rt = g.runtime==='web' ? 'Plays in browser' : 'Launcher download';
   return '<div class="card rev" data-open="'+g.id+'">'+
-    '<div class="cover">'+coverHTML(g)+'<span class="badge rt-badge">'+rt+(g.mobile_ready?(' '+PHONE_IC):'')+'</span><span class="badge own-badge">'+KEY_IC+'Own it</span>'+editionBadge(g)+'</div>'+
+    '<div class="cover">'+coverHTML(g)+'<span class="badge rt-badge">'+rt+(g.mobile_ready?(' '+PHONE_IC):'')+'</span><span class="badge own-badge">'+KEY_IC+'Own it</span>'+editionBadge(g)+
+      (g.play_url?'<span class="ed demo">'+PLAY_IC+'Play free</span>':'')+'</div>'+
     '<div class="cbody">'+
       '<div class="ctitle">'+esc(g.title)+'</div>'+
       (g.tagline?('<div class="ctag">'+esc(g.tagline)+'</div>'):'')+
@@ -833,6 +837,7 @@ async function openGame(id){
           '<div><span>Minimum resale price</span><span class="v">'+((p.resale_floor_bps||0)/100)+'% of list</span></div>'+
           '<div><span>Pay with</span><span class="v">$DROP, USDC or SOL</span></div>'+
         '</div>'+
+        (p.play_url ? '<a class="cta play" href="/play.html?id='+p.id+'">'+PLAY_IC+'Play free in your browser</a>' : '')+
         (p.sold_out
           ? '<button class="cta soon">Sold out — resale only (soon)</button>'
           : '<button class="cta soon">Buy — live with the launcher</button>')+
