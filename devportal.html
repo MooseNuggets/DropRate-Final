@@ -572,12 +572,46 @@ function collectNat(prefix,cover,gallery){
   if(sm==='finite'){ const cap=Math.round(parseFloat($(prefix+'-cap').value)); if(!Number.isFinite(cap)||cap<1) return {error:'Finite supply needs a cap of 1+.'}; p.supply_cap=cap; }
   return p;
 }
+function nativeApplyHTML(st,note){
+  if(st==='pending') return '<div class="panel" style="margin:0"><h3 style="font-size:1rem">Application under review</h3>'+
+    '<p class="hint">We\'re looking at your application to publish games on DropRate. You\'ll be able to create listings as soon as it\'s approved.</p></div>';
+  const rejected = st==='rejected';
+  return '<div class="panel" style="margin:0">'+
+    '<h3 style="font-size:1rem">'+(rejected?'Application not approved':'Apply to publish games')+'</h3>'+
+    (rejected&&note?('<p class="hint" style="color:var(--red)">'+esc(note)+'</p>'):'')+
+    '<p class="hint">Publishing a game on DropRate is reviewed separately from selling keys — players buy these outright and own them, so we check every title before it reaches the store. Tell us what you\'re making.</p>'+
+    '<label class="f">Engine / tech</label><input id="na-engine" placeholder="Unity, Godot, Unreal, custom…">'+
+    '<label class="f">What are you building? <span style="opacity:.6">· the more concrete the better</span></label>'+
+    '<textarea id="na-pitch" style="min-height:110px" placeholder="A deep-sea metroidvania, about 6 hours, solo dev, targeting a browser build plus Windows…"></textarea>'+
+    '<label class="f">Anything you\'ve shipped before <span style="opacity:.6">· optional</span></label>'+
+    '<textarea id="na-prior" style="min-height:60px" placeholder="Links to previous releases, itch.io page, store pages…"></textarea>'+
+    '<label class="f">Something we can play or watch <span style="opacity:.6">· optional but it helps a lot</span></label>'+
+    '<input id="na-playable" placeholder="Playable build, trailer, or gameplay video URL">'+
+    '<button class="btn" id="na-send" style="margin-top:16px">'+(rejected?'Re-apply':'Send application')+'</button>'+
+    '<div class="res" id="na-res"></div></div>';
+}
+function wireNativeApply(){
+  const btn=$('na-send'); if(!btn) return;
+  btn.onclick=async()=>{
+    const pitch=$('na-pitch').value.trim();
+    if(pitch.length<40){ $('na-res').innerHTML='<span style="color:var(--red)">Tell us a bit more about what you\'re building.</span>'; return; }
+    btn.disabled=true; $('na-res').textContent='Sending…';
+    const r=await apiSigned('native-apply',{ engine:$('na-engine').value.trim(), pitch,
+      prior:$('na-prior').value.trim(), playable:$('na-playable').value.trim() });
+    btn.disabled=false;
+    if(r.error){ $('na-res').innerHTML='<span style="color:var(--red)">'+esc(r.error)+'</span>'; return; }
+    toast('Application sent.'); loadNative();
+  };
+}
 async function loadNative(){
   const body=$('nat-body'); if(!body) return;
   const btn=$('nat-load'); if(btn) btn.style.display='none';
   body.innerHTML='<div class="mini">Loading…</div>';
   const d=await apiSigned('native-mine');
   if(d.error){ body.innerHTML='<div class="res"><span style="color:var(--red)">'+esc(d.error)+'</span></div>'; if(btn) btn.style.display='inline-block'; return; }
+  // not cleared to publish yet? show the application instead of the listing tools
+  const st=(d.seller&&d.seller.native_status)||'none';
+  if(st!=='approved'){ body.innerHTML=nativeApplyHTML(st,(d.seller||{}).native_note); wireNativeApply(); return; }
   renderNative(d.games||[]);
 }
 function renderNative(games){
@@ -585,13 +619,15 @@ function renderNative(games){
   const rows=games.length?games.map(g=>'<div class="prodrow"><div>'+
     '<div style="font-weight:600">'+esc(g.title)+' <span class="mini">· '+usd(g.price_cents)+' · '+(g.runtime==='web'?'web':'download')+'</span></div>'+
     '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'% · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div>'+
-    '<div class="mini">'+filesSummary(g)+'</div></div>'+
+    '<div class="mini">'+filesSummary(g)+'</div>'+
+    '<div class="mini" style="margin-top:3px">'+reviewPill(g)+'</div></div>'+
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
       '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
       '<button class="btn ghost" data-ngup="'+g.id+'">Upload files</button>'+
       (g.web_bundle_url?('<button class="btn ghost" data-ngplay="'+g.id+'">Preview</button>'):'')+
-      '<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'+
-      '<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'+
+      ((g.review_status==='draft'||g.review_status==='rejected')?('<button class="btn" data-ngsub="'+g.id+'">Submit for review</button>'):'')+
+      (g.locked?'':('<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'))+
+      (g.locked?'':('<button class="btn danger" data-ngdel="'+g.id+'">Delete</button>'))+
     '</div></div>').join(''):'<div class="mini" style="padding:8px 0">No native games yet — create your first below.</div>';
   $('nat-body').innerHTML='<div id="ngList">'+rows+'</div>'+
     '<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px"><h3 style="font-size:1rem">New native game</h3>'+
@@ -611,6 +647,11 @@ function renderNative(games){
     const ed=e.target.closest('[data-ngedit]'); if(ed){ const g=gm.find(x=>x.id===Number(ed.dataset.ngedit)); if(g) openEditNative(g); return; }
     /* Preview opens the dev's own build directly — it's their game and the bundle
        URL is public, so no round trip is needed just to look at it. */
+    const sb=e.target.closest('[data-ngsub]');
+    if(sb){ sb.disabled=true; sb.textContent='Submitting…';
+      const r=await apiSigned('native-submit',{product_id:Number(sb.dataset.ngsub)});
+      if(r.error){ sb.disabled=false; sb.textContent='Submit for review'; toast(r.error); }
+      else { toast('Sent for review — we\'ll take a look shortly.'); loadNative(); } return; }
     const pv=e.target.closest('[data-ngplay]');
     if(pv){ const g=gm.find(x=>x.id===Number(pv.dataset.ngplay));
       if(g&&g.web_bundle_url) window.open(g.web_bundle_url,'_blank','noopener'); return; }
@@ -649,6 +690,18 @@ function mimeFor(path){
 const fmtBytes=n=>{ n=Number(n)||0; if(n<1024) return n+' B';
   const u=['KB','MB','GB','TB']; let i=-1; do{ n/=1024; i++; }while(n>=1024&&i<u.length-1);
   return n.toFixed(n<10?1:0)+' '+u[i]; };
+/* Where a game stands with review, in the dev's own words rather than a status code. */
+function reviewPill(g){
+  const note=g.review_note?(' <span style="opacity:.75">— '+esc(g.review_note)+'</span>'):'';
+  if(g.locked) return '<span style="color:var(--spark)">Owned by players · permanent</span>'+
+    ' <span style="opacity:.7">· can be edited and updated, not removed</span>';
+  switch(g.review_status){
+    case 'approved': return '<span style="color:var(--green)">Approved</span>'+(g.active?' · live on the store':' · hidden by you');
+    case 'pending':  return '<span style="color:var(--spark)">In review</span> <span style="opacity:.7">· we\'re playing it</span>';
+    case 'rejected': return '<span style="color:var(--red)">Changes needed</span>'+note;
+    default:         return '<span style="opacity:.7">Draft · not submitted yet</span>';
+  }
+}
 function filesSummary(g){
   const bits=[];
   if(g.web_bundle_url) bits.push('<span style="color:var(--green)">web build v'+(g.bundle_version||1)+'</span>'+(g.demo_public?' <span style="color:var(--spark)">· free to play</span>':''));
