@@ -68,6 +68,7 @@ async function connect() {
   const r = await p.connect();
   wallet = p;
   OWNER = ((r && r.publicKey) ? r.publicKey : p.publicKey).toString();
+  document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER } }));
   return OWNER;
 }
 const ensureWallet = async () => OWNER || connect();
@@ -498,5 +499,26 @@ async function resume(order, productId, quote) {
 }
 
 // ---- public surface --------------------------------------------------------
-window.DropRateBuy = { open, close, libraryRead };
-export default { open, close, libraryRead };
+/* Connect on demand, for a header button or anything else that wants to show
+   who's signed in. The checkout does NOT depend on this having been called —
+   open() connects by itself — so a page can skip it entirely. */
+export async function connectUI() { return ensureWallet(); }
+export function currentOwner() { return OWNER; }
+
+/* If the wallet has already approved this site, reconnect silently so the
+   header shows the address on load instead of demanding a click every visit. */
+export async function resumeWallet() {
+  const p = detectWallet();
+  if (!p || OWNER) return OWNER;
+  try {
+    const r = await p.connect({ onlyIfTrusted: true });
+    wallet = p;
+    OWNER = ((r && r.publicKey) ? r.publicKey : p.publicKey).toString();
+    document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER } }));
+    return OWNER;
+  } catch { return null; }
+}
+
+window.DropRateBuy = { open, close, libraryRead, connect: connectUI, owner: currentOwner, resume: resumeWallet };
+resumeWallet();
+export default { open, close, libraryRead, connect: connectUI, owner: currentOwner, resume: resumeWallet };
