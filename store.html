@@ -543,7 +543,22 @@ async function api(body){
   catch(e){ return {error:'network error'}; }
 }
 $('menuBtn').addEventListener('click',()=>$('nav').classList.toggle('open'));
-$('connectBtn').addEventListener('click',()=>toast('Sign-in and buying arrive with the launcher.'));
+/* The wallet button. buy.js does its own connecting when you hit Buy, so this
+   is purely so the header can show who is signed in — and so clicking it does
+   something real instead of apologising about a launcher. */
+(function(){
+  const cb=$('connectBtn');
+  const paint=a=>{ cb.textContent = a ? (a.slice(0,4)+'…'+a.slice(-4)) : 'Connect Wallet'; };
+  document.addEventListener('droprate:wallet', e=>paint(e.detail.owner));
+  cb.addEventListener('click', async ()=>{
+    if(!window.DropRateBuy){ toast('Still loading — give it a second.'); return; }
+    if(window.DropRateBuy.owner()){ toast('Wallet already connected.'); return; }
+    try{ paint(await window.DropRateBuy.connect()); }
+    catch(e){ toast(e.message || 'Wallet connection cancelled.'); }
+  });
+  // already-approved wallets reconnect silently on load
+  setTimeout(()=>{ const o=window.DropRateBuy&&window.DropRateBuy.owner(); if(o) paint(o); }, 600);
+})();
 function toast(m){ let t=$('_toast'); if(!t){ t=document.createElement('div'); t.id='_toast'; t.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#141930;border:1px solid rgba(255,194,75,.4);color:#f3f5ff;padding:13px 20px;border-radius:12px;font-size:13.5px;z-index:90;box-shadow:0 20px 44px -18px #000;transition:opacity .3s'; document.body.appendChild(t);} t.textContent=m; t.style.opacity=1; clearTimeout(t._h); t._h=setTimeout(()=>t.style.opacity=0,2800); }
 
 /* header stick + scroll progress */
