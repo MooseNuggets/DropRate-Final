@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Library · DropRate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Same tokens as store.html so this reads as one product, not a bolt-on. */
+  :root{
+    --void:#080b18; --panel:#141930; --panel2:#1a2039; --line:#28305a; --line2:rgba(255,255,255,.11);
+    --gold:#ffc24b; --gold-deep:#e8941b; --gold-hi:#ffe6a8;
+    --ice:#f3f5ff; --dim:#98a1c8; --dim2:#6b73a0;
+    --good:#5fd39b; --bad:#ff6b6b;
+    --font:'Poppins',sans-serif; --display:'Chakra Petch',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--void);color:var(--ice);font-family:var(--font);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  header{border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;
+    background:rgba(8,11,24,.92);backdrop-filter:blur(10px)}
+  .nav{height:64px;display:flex;align-items:center;gap:22px}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;
+    font-family:var(--display);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
+  .brand .rate{color:var(--gold)}
+  .nav-links{margin-left:auto;display:flex;gap:20px;align-items:center}
+  .nav-links a{color:var(--dim);text-decoration:none;font-size:14px}
+  .nav-links a:hover,.nav-links a.on{color:var(--ice)}
+  .wallet{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.03em;
+    border:0;border-radius:11px;padding:10px 16px;cursor:pointer;color:#241a04;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep))}
+
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(2.2rem,5.4vw,4rem);
+    line-height:1.05;letter-spacing:.03em;margin:44px 0 8px}
+  .sub{color:var(--dim);max-width:60ch;margin:0 0 28px}
+
+  .grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));
+    padding-bottom:80px}
+
+  /* A card is a thing you own, so it leads with the art and the serial number. */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    overflow:hidden;display:flex;flex-direction:column;transition:border-color .16s,transform .16s}
+  .card:hover{border-color:rgba(255,194,75,.4);transform:translateY(-2px)}
+  .art{aspect-ratio:16/10;background:var(--panel2);position:relative;overflow:hidden;
+    display:grid;place-items:center}
+  .art img{width:100%;height:100%;object-fit:cover;display:block}
+  .art .none{color:var(--dim2);font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase}
+  .serial{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.12em;background:rgba(8,11,24,.82);border:1px solid rgba(255,194,75,.4);
+    color:var(--gold-hi);border-radius:999px;padding:4px 10px;backdrop-filter:blur(4px)}
+  .body{padding:15px 16px 16px;display:flex;flex-direction:column;gap:10px;flex:1}
+  .name{font-family:var(--display);font-size:1.05rem;letter-spacing:.02em;line-height:1.25}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--dim2)}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+  .chip.own{border-color:rgba(95,211,155,.4);color:var(--good)}
+  .chip.gone{border-color:rgba(255,107,107,.4);color:var(--bad)}
+  .row{display:flex;gap:8px;margin-top:auto}
+  .btn{flex:1;text-align:center;text-decoration:none;font-family:var(--display);font-weight:700;
+    font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;border:0;border-radius:10px;
+    padding:11px;cursor:pointer;color:#241a04;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep))}
+  .btn:hover{filter:brightness(1.07)}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--dim);flex:0 0 auto;padding:11px 13px}
+  .btn.ghost:hover{color:var(--ice);border-color:var(--dim2)}
+  .btn[disabled]{opacity:.4;cursor:not-allowed;filter:none}
+  .btn:focus-visible,.wallet:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .state{border:1px dashed var(--line);border-radius:16px;padding:52px 26px;text-align:center;
+    color:var(--dim);margin-bottom:80px}
+  .state h3{font-family:var(--display);color:var(--ice);font-size:1.2rem;margin:0 0 8px;
+    letter-spacing:.02em}
+  .state p{margin:0 auto 18px;max-width:46ch}
+  .state .btn{display:inline-block;flex:0 0 auto;padding:12px 22px}
+  .warn{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8095;
+    border-radius:12px;padding:13px 16px;margin-bottom:20px;font-size:13.5px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <svg width="22" height="26" viewBox="0 0 100 116" aria-hidden="true">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#g)"/>
+      </svg>
+      <span>DROP<span class="rate">RATE</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="/draws.html">Draws</a>
+      <a href="/store.html">Store</a>
+      <a href="/marketplace.html">Marketplace</a>
+      <a href="/library.html" class="on">Library</a>
+      <button class="wallet" id="connectBtn">Connect Wallet</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Your library</h1>
+  <p class="sub" id="sub">Everything you own, checked against the chain — not against our records.</p>
+  <div id="warn"></div>
+  <div id="out"></div>
+</main>
+
+<script type="module">
+import '/buy.js';
+
+const $ = (id) => document.getElementById(id);
+const out = $('out'), warn = $('warn'), sub = $('sub'), cb = $('connectBtn');
+const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+const paint = (a) => { cb.textContent = a ? (a.slice(0,4) + '…' + a.slice(-4)) : 'Connect Wallet'; };
+cb.addEventListener('click', () => window.DropRateBuy.menu());
+document.addEventListener('droprate:wallet', (e) => { paint(e.detail.owner); load(); });
+
+async function dapi(body) {
+  const r = await fetch('/api/crate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ns: 'devmarket', ...body }),
+  });
+  return r.json();
+}
+
+function empty(title, body, cta) {
+  out.innerHTML = `<div class="state"><h3>${title}</h3><p>${body}</p>${cta || ''}</div>`;
+}
+
+/* A copy you sold is still shown, greyed, rather than silently vanishing.
+   Watching it disappear with no explanation is how people assume they were
+   robbed; seeing "sold" next to it is how they remember they sold it. */
+function card(c) {
+  const gone = !c.still_owned;
+  // devs may paste an https URL or a client-resized data: URL — both render
+  const art = c.image && /^(https?:\/\/|data:image\/)/i.test(c.image)
+    ? `<img src="${esc(c.image)}" alt="" loading="lazy">`
+    : `<span class="none">No cover art</span>`;
+  const solscan = `https://solscan.io/token/${encodeURIComponent(c.asset_address)}`;
+  return `<article class="card">
+      <div class="art">${art}<span class="serial">Copy #${esc(c.copy_number)}</span></div>
+      <div class="body">
+        <div class="name">${esc(c.title)}</div>
+        <div class="meta">
+          <span class="chip ${gone ? 'gone' : 'own'}">${gone ? 'Sold' : 'Owned'}</span>
+          <span class="chip">${c.runtime === 'web' ? 'Browser' : 'Download'}</span>
+        </div>
+        <div class="row">
+          ${gone
+            ? `<button class="btn" disabled>No longer yours</button>`
+            : (c.runtime === 'web'
+              ? `<a class="btn" href="/play.html?id=${encodeURIComponent(c.product_id)}">Play</a>`
+              : `<a class="btn" href="/store.html?game=${encodeURIComponent(c.product_id)}">Download</a>`)}
+          <a class="btn ghost" href="${solscan}" target="_blank" rel="noopener" title="View on-chain">↗</a>
+        </div>
+      </div>
+    </article>`;
+}
+
+async function load() {
+  const owner = window.DropRateBuy?.owner();
+  warn.innerHTML = '';
+  if (!owner) {
+    sub.textContent = 'Connect the wallet you bought with and your games appear here.';
+    empty('Nothing to show yet',
+      'Your library lives in your wallet, not in an account. Connect it and anything you own shows up.',
+      `<button class="btn" id="cta">Connect wallet</button>`);
+    $('cta')?.addEventListener('click', () => window.DropRateBuy.menu());
+    return;
+  }
+
+  out.innerHTML = `<div class="state"><h3>Reading the chain…</h3><p>Checking which copies are still yours.</p></div>`;
+
+  let sig;
+  try { sig = await window.DropRateBuy.signLibrary(); }
+  catch {
+    empty('Signature needed',
+      'We ask your wallet to sign a short message so nobody else can list your library. Nothing is sent and it costs nothing.',
+      `<button class="btn" id="cta">Try again</button>`);
+    $('cta')?.addEventListener('click', load);
+    return;
+  }
+
+  const r = await dapi({ action: 'native-buy-library', wallet: owner, ...sig });
+  if (r.error) {
+    warn.innerHTML = `<div class="warn">${esc(r.error)}</div>`;
+    empty('Could not load your library', 'The error above is what came back.', '');
+    return;
+  }
+
+  const copies = r.copies || [];
+  if (!copies.length) {
+    sub.textContent = 'Everything you own, checked against the chain — not against our records.';
+    empty('No games yet',
+      'Buy something from the store and it lands here, with its serial number, ready to play.',
+      `<a class="btn" href="/store.html">Browse the store</a>`);
+    return;
+  }
+
+  const owned = copies.filter((c) => c.still_owned).length;
+  sub.textContent = owned === copies.length
+    ? `${owned} ${owned === 1 ? 'game' : 'games'}, all still yours.`
+    : `${owned} of ${copies.length} still yours — the rest you've sold on.`;
+  out.innerHTML = `<div class="grid">${copies.map(card).join('')}</div>`;
+}
+
+paint(window.DropRateBuy?.owner());
+load();
+setTimeout(() => { if (window.DropRateBuy?.owner()) { paint(window.DropRateBuy.owner()); load(); } }, 700);
+</script>
+</body>
+</html>
