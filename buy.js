@@ -54,24 +54,64 @@ async function api(body) {
 }
 const dapi = (body) => api({ ns: 'devmarket', ...body });
 
-function detectWallet() {
-  if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
-  if (window.solana?.isPhantom) return window.solana;
-  if (window.solflare?.isSolflare) return window.solflare;
-  if (window.solana) return window.solana;
-  return null;
-}
+/* WALLET PROVIDERS
 
-async function connect() {
-  const p = detectWallet();
-  if (!p) throw new Error('No Solana wallet found. Install Phantom or Solflare, then try again.');
+   Auto-detection used to just grab Phantom whenever it was installed, which
+   meant anyone with both extensions could never reach Solflare — the button
+   simply opened the wrong wallet. So the person picks, and we remember which
+   one they picked.
+
+   Each provider is looked up fresh on every call. Extensions inject themselves
+   at different times, so a reference captured at load can be stale or missing. */
+const PROVIDERS = [
+  { id: 'phantom', name: 'Phantom', site: 'https://phantom.app',
+    get: () => (window.phantom?.solana?.isPhantom ? window.phantom.solana
+      : (window.solana?.isPhantom ? window.solana : null)) },
+  { id: 'solflare', name: 'Solflare', site: 'https://solflare.com',
+    get: () => (window.solflare?.isSolflare ? window.solflare : null) },
+  { id: 'backpack', name: 'Backpack', site: 'https://backpack.app',
+    get: () => (window.backpack?.isBackpack ? window.backpack : null) },
+];
+const PICK_KEY = 'droprate-wallet';
+const OFF_KEY = 'droprate-wallet-off';   // set when someone deliberately signs out
+
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch {} },
+};
+
+const providerById = (id) => PROVIDERS.find((p) => p.id === id);
+const availableProviders = () => PROVIDERS.map((p) => ({ ...p, provider: p.get() }));
+
+async function connectTo(id) {
+  const entry = providerById(id);
+  const p = entry?.get();
+  if (!p) throw new Error(`${entry ? entry.name : 'That wallet'} isn't installed in this browser.`);
   const r = await p.connect();
+  // Phantom returns { publicKey }; Solflare returns true and exposes it on itself
+  const key = (r && r.publicKey) ? r.publicKey : p.publicKey;
+  if (!key) throw new Error('The wallet connected but did not share an address.');
   wallet = p;
-  OWNER = ((r && r.publicKey) ? r.publicKey : p.publicKey).toString();
-  document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER } }));
+  OWNER = key.toString();
+  store.set(PICK_KEY, id);
+  store.del(OFF_KEY);
+  document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER, provider: id } }));
   return OWNER;
 }
-const ensureWallet = async () => OWNER || connect();
+
+/* Sign out. Tells the extension too where it supports it, so the next connect
+   is a real prompt rather than a silent re-auth into the same account. */
+export async function disconnect() {
+  try { await wallet?.disconnect?.(); } catch { /* not all wallets implement it */ }
+  wallet = null;
+  OWNER = null;
+  store.set(OFF_KEY, '1');       // stops the silent reconnect on next load
+  store.del(PICK_KEY);
+  document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: null } }));
+}
+
+const ensureWallet = async () => OWNER || pickWallet();
 
 async function signMsg(action) {
   const ts = Math.floor(Date.now() / 1000);
@@ -159,6 +199,10 @@ const CSS = `
   text-transform:uppercase;background:var(--gold,#ffc24b);color:#241a04;
   border-radius:999px;padding:3px 8px;font-weight:700}
 
+.drb-wal{cursor:pointer}
+.drb-wal[data-missing]{opacity:.5}
+.drb-wal[data-missing]:hover{border-color:var(--line,#28305a)}
+.drb-wal[data-missing] .drb-ca{color:var(--dim2,#6b73a0)}
 .drb-fee{display:flex;justify-content:space-between;gap:10px;
   font-size:12.5px;color:var(--dim,#98a1c8);padding:11px 14px;
   background:var(--panel2,#1a2039);border:1px solid var(--line,#28305a);
@@ -250,6 +294,80 @@ export function close() {
 }
 
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+// ---- choosing a wallet ------------------------------------------------------
+/* Resolves to the connected address, or rejects if the person backs out. The
+   checkout awaits this, so cancelling here cleanly aborts a purchase rather
+   than half-starting one. */
+export function pickWallet() {
+  return new Promise((resolve, reject) => {
+    const list = availableProviders();
+    const rows = list.map((p) => {
+      const has = !!p.provider;
+      return `<button class="drb-opt drb-wal" data-wid="${p.id}" ${has ? '' : 'data-missing="1"'}>
+          <span class="drb-cn">${p.name}</span>
+          <span class="drb-ca">${has ? 'Detected' : 'Not installed'}</span>
+          ${has ? '<span class="drb-save">Use</span>' : ''}
+        </button>`;
+    }).join('');
+    const none = list.every((p) => !p.provider);
+
+    const bd = shell('Connect a wallet', `
+      ${none ? `<div class="drb-err">No Solana wallet found in this browser. Install one below, then come back.</div>` : ''}
+      <span class="drb-lbl">Choose your wallet</span>
+      <div class="drb-ccy">${rows}</div>
+      <p class="drb-note">DropRate never sees your keys. You approve everything in your own wallet.</p>
+    `);
+
+    let settled = false;
+    const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+
+    bd.querySelectorAll('[data-wid]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const entry = providerById(btn.dataset.wid);
+        if (btn.dataset.missing) { window.open(entry.site, '_blank', 'noopener'); return; }
+        try {
+          const owner = await connectTo(btn.dataset.wid);
+          close();
+          done(resolve, owner);
+        } catch (e) {
+          const err = document.createElement('div');
+          err.className = 'drb-err';
+          err.textContent = /reject|denied|cancel/i.test(e.message || '')
+            ? 'Connection cancelled in the wallet.' : (e.message || 'Could not connect.');
+          bd.prepend(err);
+        }
+      });
+    });
+
+    // backing out of the picker must not leave the caller hanging forever
+    const watch = setInterval(() => {
+      if (!back) { clearInterval(watch); done(reject, new Error('Wallet connection cancelled.')); }
+    }, 300);
+  });
+}
+
+/* What the header button opens once someone is already signed in. */
+export function walletMenu() {
+  if (!OWNER) return pickWallet().catch(() => null);
+  const pid = store.get(PICK_KEY);
+  const name = providerById(pid)?.name || 'Wallet';
+  const bd = shell('Your wallet', `
+    <div class="drb-rows">
+      <div class="drb-row"><span>${esc(name)}</span><b>${esc(OWNER.slice(0, 6))}…${esc(OWNER.slice(-6))}</b></div>
+    </div>
+    <button class="drb-go" data-switch>Switch wallet</button>
+    <button class="drb-ghost" data-out>Sign out</button>
+  `);
+  bd.querySelector('[data-switch]').addEventListener('click', async () => {
+    await disconnect();
+    pickWallet().catch(() => {});
+  });
+  bd.querySelector('[data-out]').addEventListener('click', async () => {
+    await disconnect();
+    close();
+  });
+}
 
 // ---- step 1: what does it cost ---------------------------------------------
 export async function open(productId) {
@@ -504,21 +622,35 @@ async function resume(order, productId, quote) {
    open() connects by itself — so a page can skip it entirely. */
 export async function connectUI() { return ensureWallet(); }
 export function currentOwner() { return OWNER; }
+export function currentProvider() { return store.get(PICK_KEY); }
 
-/* If the wallet has already approved this site, reconnect silently so the
-   header shows the address on load instead of demanding a click every visit. */
+/* Reconnect silently to the wallet they last chose, so the header shows an
+   address on load instead of demanding a click every visit.
+
+   Two things it will NOT do: reconnect after a deliberate sign-out, and pick a
+   wallet on someone's behalf. If there's no remembered choice it stays quiet
+   and waits to be asked. */
 export async function resumeWallet() {
-  const p = detectWallet();
-  if (!p || OWNER) return OWNER;
+  if (OWNER || store.get(OFF_KEY)) return OWNER;
+  const id = store.get(PICK_KEY);
+  if (!id) return null;
+  const p = providerById(id)?.get();
+  if (!p) return null;
   try {
     const r = await p.connect({ onlyIfTrusted: true });
+    const key = (r && r.publicKey) ? r.publicKey : p.publicKey;
+    if (!key) return null;
     wallet = p;
-    OWNER = ((r && r.publicKey) ? r.publicKey : p.publicKey).toString();
-    document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER } }));
+    OWNER = key.toString();
+    document.dispatchEvent(new CustomEvent('droprate:wallet', { detail: { owner: OWNER, provider: id } }));
     return OWNER;
   } catch { return null; }
 }
 
-window.DropRateBuy = { open, close, libraryRead, connect: connectUI, owner: currentOwner, resume: resumeWallet };
+window.DropRateBuy = {
+  open, close, libraryRead,
+  connect: connectUI, owner: currentOwner, provider: currentProvider,
+  disconnect, menu: walletMenu, pick: pickWallet, resume: resumeWallet,
+};
 resumeWallet();
-export default { open, close, libraryRead, connect: connectUI, owner: currentOwner, resume: resumeWallet };
+export default window.DropRateBuy;
