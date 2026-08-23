@@ -621,6 +621,14 @@ async function resume(order, productId, quote) {
    who's signed in. The checkout does NOT depend on this having been called —
    open() connects by itself — so a page can skip it entirely. */
 export async function connectUI() { return ensureWallet(); }
+
+/* Sign a read-only request, so nobody can list somebody else's library by
+   guessing their address. Connects first if needed. */
+export async function signFor(action) {
+  await ensureWallet();
+  return signMsg(action);
+}
+export const signLibrary = () => signFor('native-buy-library');
 export function currentOwner() { return OWNER; }
 export function currentProvider() { return store.get(PICK_KEY); }
 
@@ -651,6 +659,7 @@ window.DropRateBuy = {
   open, close, libraryRead,
   connect: connectUI, owner: currentOwner, provider: currentProvider,
   disconnect, menu: walletMenu, pick: pickWallet, resume: resumeWallet,
+  signFor, signLibrary,
 };
 resumeWallet();
 export default window.DropRateBuy;
