@@ -550,11 +550,10 @@ $('menuBtn').addEventListener('click',()=>$('nav').classList.toggle('open'));
   const cb=$('connectBtn');
   const paint=a=>{ cb.textContent = a ? (a.slice(0,4)+'…'+a.slice(-4)) : 'Connect Wallet'; };
   document.addEventListener('droprate:wallet', e=>paint(e.detail.owner));
-  cb.addEventListener('click', async ()=>{
+  cb.addEventListener('click', ()=>{
     if(!window.DropRateBuy){ toast('Still loading — give it a second.'); return; }
-    if(window.DropRateBuy.owner()){ toast('Wallet already connected.'); return; }
-    try{ paint(await window.DropRateBuy.connect()); }
-    catch(e){ toast(e.message || 'Wallet connection cancelled.'); }
+    // connected -> address, switch wallet, sign out. not connected -> pick one.
+    window.DropRateBuy.menu();
   });
   // already-approved wallets reconnect silently on load
   setTimeout(()=>{ const o=window.DropRateBuy&&window.DropRateBuy.owner(); if(o) paint(o); }, 600);
