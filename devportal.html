@@ -293,13 +293,20 @@ function renderDashboard(products){
     </div>`).join(''):'<div class="mini" style="padding:12px 0">No products yet — create your first below.</div>';
   const s=SELLER||{};
   $('sellBody').innerHTML=`
-    <div class="dtabs" id="dtabs"><button class="dtab on" data-p="games">Games</button><button class="dtab" data-p="profile">Profile</button><button class="dtab" data-p="keys">Steam keys</button></div>
+    <div class="dtabs" id="dtabs"><button class="dtab on" data-p="games">Games</button><button class="dtab" data-p="earnings">Earnings</button><button class="dtab" data-p="profile">Profile</button><button class="dtab" data-p="keys">Steam keys</button></div>
     <div class="dpane" data-pane="games">
     <div class="panel" id="native-panel">
       <h3>Your games <span class="pill ok" style="margin-left:8px">approved</span><span class="pill" style="color:var(--spark);border:1px solid var(--line2);margin-left:6px">Launcher · early</span></h3>
       <p class="hint">Your games on DropRate — buyers <b>own</b> their copy and can resell it, and you earn a cut of every resale. List now; buying and play switch on when the launcher ships. Web games (HTML5/WebGL) play in the browser — tick <b>mobile</b> if yours genuinely works on touch. Downloadable games run through the desktop app.</p><p class="hint" style="margin-top:-4px">Payouts land in this wallet in whichever currency the buyer paid — <b>$DROP</b> (1.5% fee), <b>USDC</b> or <b>SOL</b> (7% fee).</p>
       <div id="nat-body" style="margin-top:16px"></div>
     </div>    </div>
+    <div class="dpane hide" data-pane="earnings">
+    <div class="panel">
+      <h3>Earnings</h3>
+      <div id="earnings-panel"></div>
+    </div>
+    </div>
+
     <div class="dpane hide" data-pane="profile">
     <div class="panel">
       <h3>Your profile</h3>
@@ -366,11 +373,16 @@ function renderDashboard(products){
     const p=b.dataset.p; PANE=p;
     $('dtabs').querySelectorAll('.dtab').forEach(x=>x.classList.toggle('on',x.dataset.p===p));
     document.querySelectorAll('.dpane').forEach(x=>x.classList.toggle('hide',x.dataset.pane!==p));
+    // mount Earnings on first open; it asks for a signature, so don't do it unprompted
+    if(p==='earnings'){
+      if(!window.__ERN){ import('/earnings.js').then(m=>{ window.__ERN=m.mountEarnings($('earnings-panel'),{apiSigned}); }); }
+      else { window.__ERN.reload(); }
+    }
     try{ history.replaceState(null,'','#'+p); }catch(_){}
     scrollTo({top:0,behavior:'smooth'});
   });
   const want=(location.hash||'').replace('#','');
-  if(['games','profile','keys'].includes(want)) PANE=want;
+  if(['games','earnings','profile','keys'].includes(want)) PANE=want;
   if(PANE!=='games'){ const b=$('dtabs').querySelector('[data-p="'+PANE+'"]'); if(b) b.click(); }
   loadNative();
   $('pf-save').onclick=async()=>{
