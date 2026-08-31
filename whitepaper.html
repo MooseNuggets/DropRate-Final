@@ -262,7 +262,7 @@
 <li>Winners have <strong>7 days</strong> to claim before the prize expires.</li>
 <li>Claiming requires an <strong>ed25519 wallet signature</strong> over a one-time challenge (<code>DROPRATE claim draw:&lt;id&gt; wallet:&lt;wallet&gt; nonce:&lt;nonce&gt;</code>), with a 10-minute nonce, proving you control the winning wallet.</li>
 <li>The key is stored <strong>AES-256-GCM encrypted</strong> and only decrypted and returned to you once, at claim time.</li>
-<li>If a winner lets the 7 days lapse, the prize's key is returned to the available pool and the <strong>next deterministic winner</strong> from the same seed is drawn — no prize is wasted, and the redraw is as verifiable as the original.</li>
+<li>If a winner lets the 7 days lapse, the prize's key is returned to the available pool and enters a <strong>later draw</strong> rather than being reassigned within the same one. A week-old snapshot is, by definition, full of wallets that didn't turn up; a fresh draw puts the key in front of holders who are still watching. No prize is wasted — it just waits for a live audience.</li>
 </ul>
 <blockquote>
 <p><strong>On draw cadence:</strong> the frequency of draws is set by the team, which schedules each draw and commits its time in advance; DropRate currently runs three draws per day. The <em>snapshot</em> cadence (hourly, random-offset) is automated and is what actually protects eligibility.</p>
