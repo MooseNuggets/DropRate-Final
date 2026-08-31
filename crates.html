@@ -327,7 +327,13 @@
         }).join("");
       }
       function load(){fetch("/api/stats-public",{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){if(d&&!d.error)render(d.feed);}).catch(function(){});}
-      load();setInterval(load,20000);
+            var lastLoad = 0;
+      function poll(){ lastLoad = Date.now(); load(); }
+      poll();
+      setInterval(function(){ if(document.visibilityState==='visible') poll(); },120000);
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible' && Date.now()-lastLoad>60000) poll();
+      });
     })();
     </script>
     <script>
@@ -372,7 +378,13 @@
             place(games);
           }).catch(function(){});
       }
-      load(); setInterval(load,45000);
+      var lastLoad = 0;
+      function poll(){ lastLoad = Date.now(); load(); }
+      poll();
+      setInterval(function(){ if(document.visibilityState==='visible') poll(); },300000);
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible' && Date.now()-lastLoad>150000) poll();
+      });
     })();
     </script>
   </section>
