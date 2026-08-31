@@ -492,7 +492,21 @@ $('keysClose').addEventListener('click',closeKeys);
 $('keysOv').addEventListener('click',e=>{ if(e.target===$('keysOv')) closeKeys(); });
 $('connectBtn').addEventListener('click',async()=>{ if(await connect() && TAB!=='resale') showTab(TAB); });
 showTab('direct');
-setInterval(()=>{ if(TAB==='resale') loadResale(); if(TAB==='direct') loadDirect(); }, 20000);
+/* showTab('direct') above already did the first load, so this only refreshes —
+   and only while the tab is visible. */
+(function(){
+  var last = Date.now();
+  function poll(){
+    if (document.visibilityState !== 'visible') return;
+    last = Date.now();
+    if (TAB === 'resale') loadResale();
+    if (TAB === 'direct') loadDirect();
+  }
+  setInterval(poll, 120000);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && Date.now() - last > 60000) poll();
+  });
+})();
 </script>
 </body>
 </html>
