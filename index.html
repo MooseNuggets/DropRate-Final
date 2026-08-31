@@ -599,9 +599,18 @@ function tick(){
   el("cd-s").textContent = String(s%60).padStart(2,"0");
   document.getElementById("count-label").textContent = "Until the next drop falls";
 }
-loadNextDraw();
 setInterval(tick, 1000);
-setInterval(loadNextDraw, 60_000);
+/* The countdown ticks locally off nextDrawAt, so the draw only needs refetching
+   occasionally — and only while someone is actually looking at the tab. */
+(function(){
+  var last = 0;
+  function poll(){ last = Date.now(); loadNextDraw(); }
+  poll();
+  setInterval(function(){ if (document.visibilityState === 'visible') poll(); }, 300000);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && Date.now() - last > 150000) poll();
+  });
+})();
 /* live stats: claimed keys + holders */
 (function liveStats(){
   const setN = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = Number(v).toLocaleString("en-US"); };
