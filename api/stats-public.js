@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       console.error("gacha stats:", e.message);
     }
 
-    res.setHeader("Cache-Control", "s-maxage=20, stale-while-revalidate=40");
+   res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=1800");
     res.status(200).json({
       keys_claimed: claimed.rows[0].n,          // raffle keys claimed
       draws_run: drawn.rows[0].n,
