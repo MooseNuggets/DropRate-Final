@@ -78,42 +78,36 @@ export default async function handler(req, res) {
       if (!pool.length) log.push({ draw: d.id, note: "no entries — drawn with zero winners" });
       log.push({ draw: d.id, action: "drawn", winners: winners.map((w) => payableWallet(w.wallet)) });
     }
-    // 3) EXPIRE + REDRAW: unclaimed past deadline → code back to pool, next deterministic winner
+    // 3) EXPIRE: unclaimed past deadline → winner expires, key returns to the
+    //    general pool to be used by a FUTURE draw.
+    //
+    //    Deliberately does NOT redraw a replacement from the same snapshot. That
+    //    pool is a week stale by definition — the wallets in it are the ones who
+    //    already didn't turn up — so handing the key to the next name on the same
+    //    list usually just starts another seven-day wait, and can chain that way
+    //    for months. A fresh draw has people who are actually paying attention.
+    //
+    //    Clearing draw_id is the part that makes the key genuinely reusable. The
+    //    assignment queries above only ever consider codes matching the draw being
+    //    run or codes with no draw_id at all, so a code released while still pinned
+    //    to a finished draw would sit 'available' forever and never be handed out
+    //    again. NULL puts it in the open pool that any future draw can reach.
+    //
+    //    The winners row keeps its draw_id and code_id with status 'expired', so
+    //    where the key came from stays auditable.
     const expired = await sql`
-      SELECT w.*, d.seed, d.n_winners, d.next_index, d.snapshot_id
+      SELECT w.id, w.draw_id, w.code_id, w.wallet
       FROM winners w JOIN draws d ON d.id = w.draw_id
       WHERE w.status = 'assigned' AND w.expires_at < now() AND d.status = 'drawn'`;
     for (const w of expired.rows) {
       await sql`UPDATE winners SET status = 'expired' WHERE id = ${w.id}`;
-      if (w.code_id) await sql`UPDATE codes SET status = 'available' WHERE id = ${w.code_id}`;
-      let eligible = [];
-      if (w.snapshot_id) {
-        const { results } = await loadEligibility();
-        const { streaks } = await loadStreaks();
-        eligible = eligibleWithBonus(results, streaks);
+      if (w.code_id) {
+        await sql`UPDATE codes SET status = 'available', draw_id = NULL WHERE id = ${w.code_id}`;
       }
-      const freeQ = await sql`SELECT id, wallet FROM free_entries WHERE draw_id = ${w.draw_id}`;
-      const pool = buildPool(eligible, freeQ.rows);
-      const prev = await sql`
-        SELECT pool_identity FROM winners WHERE draw_id = ${w.draw_id}`;
-      const exclude = new Set(prev.rows.map((r) => r.pool_identity));
-      const { winners: repl, nextIndex } =
-        selectWinners(w.seed, w.draw_id, pool, 1, exclude, w.next_index);
-      if (repl.length) {
-        const r = repl[0];
-        const code = await sql`
-          SELECT id FROM codes WHERE status = 'available'
-            AND (draw_id = ${w.draw_id} OR draw_id IS NULL)
-          ORDER BY draw_id ASC NULLS LAST, id ASC LIMIT 1`;
-        const codeId = code.rows[0]?.id ?? null;
-        if (codeId) await sql`UPDATE codes SET status = 'assigned' WHERE id = ${codeId}`;
-        await sql`
-          INSERT INTO winners(draw_id, pool_identity, wallet, sel_index, code_id, expires_at)
-          VALUES (${w.draw_id}, ${r.wallet}, ${payableWallet(r.wallet)}, ${r.index}, ${codeId},
-                  ${new Date(Date.now() + CLAIM_DAYS * 86400_000).toISOString()})`;
-        await sql`UPDATE draws SET next_index = ${nextIndex} WHERE id = ${w.draw_id}`;
-        log.push({ draw: w.draw_id, action: "redrawn", winner: payableWallet(r.wallet) });
-      }
+      log.push({
+        draw: w.draw_id, action: "expired", wallet: w.wallet,
+        key: w.code_id ? "returned to pool" : "none was assigned",
+      });
     }
     try {
       const announced = await announceDrawnDraws(sql);
