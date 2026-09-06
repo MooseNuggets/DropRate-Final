@@ -45,6 +45,18 @@ const b64ToBytes = (b64) => {
   return u;
 };
 
+/* Chunked because String.fromCharCode.apply throws on very large arrays — a
+   signed transaction is small, but this is cheap insurance against the one day
+   it isn't. */
+const bytesToB64 = (bytes) => {
+  let s = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(s);
+};
+
 async function api(body) {
   let r, j;
   try { r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
@@ -527,8 +539,36 @@ async function mintStep(order, productId, quote) {
   let sig;
   try {
     const tx = decodeTx(m.transaction, !!m.versioned);
-    const r = await wallet.signAndSendTransaction(tx);
-    sig = r?.signature || r;
+
+    /* Sign, don't send.
+
+       This mint already carries two signatures — the new asset's keypair and the
+       collection authority — with only the fee payer's slot open. Phantom's
+       signAndSendTransaction re-serialises what it is handed and can discard
+       those, and reports it as a bare "Internal error" with no program log and
+       nothing to act on. signTransaction preserves them, and the server sends
+       the finished bytes over its own RPC.
+
+       Payments are unaffected because the buyer is their only signer, which is
+       exactly why paying worked while minting did not. */
+    if (typeof wallet.signTransaction === 'function') {
+      const signed = await wallet.signTransaction(tx);
+      const sent = await dapi({
+        action: 'native-buy-submit',
+        order_id: order.order_id,
+        signed_tx: bytesToB64(signed.serialize()),
+      });
+      if (sent.error) {
+        if (/already minted/i.test(sent.error)) return receipt(order, quote, m.asset_address, productId);
+        throw new Error(sent.error);
+      }
+      sig = sent.signature;
+    } else {
+      // A wallet without signTransaction is unusual, but falling back beats
+      // refusing to sell to it.
+      const r = await wallet.signAndSendTransaction(tx);
+      sig = r?.signature || r;
+    }
   } catch (e) {
     /* Never guess at the cause here.
 
