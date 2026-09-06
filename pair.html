@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pair your launcher · DropRate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --void:#080b18; --panel:#141930; --panel2:#1a2039; --line:#28305a;
+    --gold:#ffc24b; --gold-deep:#e8941b; --gold-hi:#ffe6a8;
+    --ice:#f3f5ff; --dim:#98a1c8; --dim2:#6b73a0;
+    --good:#5fd39b; --bad:#ff6b6b;
+    --font:'Poppins',sans-serif; --display:'Chakra Petch',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--void);color:var(--ice);font-family:var(--font);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+    min-height:100vh;display:grid;place-items:center;padding:24px}
+  .box{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;padding:34px 32px;box-shadow:0 30px 80px -34px rgba(0,0,0,.9)}
+  .mast{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+  .mast svg{width:24px;height:28px}
+  .who{font-family:var(--display);font-weight:700;letter-spacing:.11em;font-size:.8rem}
+  .who b{color:var(--gold);font-weight:700}
+  h1{font-family:var(--display);font-size:1.6rem;line-height:1.15;letter-spacing:.02em;
+    margin:0 0 8px;text-wrap:balance}
+  p{color:var(--dim);margin:0 0 18px}
+  p.tight{margin-bottom:10px}
+
+  /* The device being approved is the whole decision, so it's the loudest thing. */
+  .dev{background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+    padding:17px 19px;margin:0 0 20px}
+  .dev .n{font-family:var(--display);font-size:1.12rem;letter-spacing:.02em}
+  .dev .p{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--dim2);margin-top:3px}
+
+  .code{font-family:var(--mono);font-size:1.5rem;letter-spacing:.22em;text-align:center;
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:15px;margin-bottom:18px;color:var(--gold-hi);width:100%;text-transform:uppercase}
+  .code::placeholder{color:var(--dim2);letter-spacing:.14em;font-size:1rem}
+  .code:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .grants{list-style:none;padding:0;margin:0 0 22px;display:grid;gap:9px}
+  .grants li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--dim)}
+  .grants .y{color:var(--good);flex:0 0 auto;font-weight:700}
+  .grants .n{color:var(--dim2);flex:0 0 auto;font-weight:700}
+
+  .btn{width:100%;border:0;border-radius:12px;padding:14px;cursor:pointer;
+    font-family:var(--display);font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    font-size:.86rem;color:#241a04;background:linear-gradient(180deg,var(--gold),var(--gold-deep))}
+  .btn:hover:not(:disabled){filter:brightness(1.08)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--dim);margin-top:9px}
+  .btn.ghost:hover{color:var(--ice);border-color:var(--dim2)}
+  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+  .msg{border-radius:11px;padding:13px 15px;margin-bottom:16px;font-size:13.5px}
+  .msg.bad{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);color:#ff8095}
+  .ring{width:56px;height:56px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;
+    border:2px solid var(--good);color:var(--good);font-size:26px}
+  .done{text-align:center}
+  .foot{font-size:12px;color:var(--dim2);margin:16px 0 0;text-align:center}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="mast">
+    <svg viewBox="0 0 100 116" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+      <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#g)"/>
+    </svg>
+    <span class="who">DROP<b>RATE</b></span>
+  </div>
+  <div id="view"></div>
+</div>
+
+<script type="module">
+import '/buy.js';
+
+const $ = (id) => document.getElementById(id);
+const view = $('view');
+const esc = (s) => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+async function dapi(body) {
+  try {
+    const r = await fetch('/api/crate', { method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ns:'devmarket', ...body }) });
+    return r.json();
+  } catch { return { error: 'network error — check your connection' }; }
+}
+
+const codeFromUrl = () => (new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();
+
+/* Step 1 — no code yet, or a bad one. Ask for it. */
+function askForCode(errorHtml) {
+  view.innerHTML = `
+    ${errorHtml ? `<div class="msg bad">${errorHtml}</div>` : ''}
+    <h1>Pair your launcher</h1>
+    <p>Open the DropRate app on your computer and type the code it shows you.</p>
+    <input class="code" id="code" maxlength="9" autocomplete="off" spellcheck="false"
+           placeholder="XXXX-XXXX" aria-label="Pairing code">
+    <button class="btn" id="go">Continue</button>`;
+  const input = $('code');
+  input.focus();
+  input.addEventListener('input', () => {
+    let v = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4, 8);
+    input.value = v;
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go').click(); });
+  $('go').addEventListener('click', () => lookup(input.value.trim().toUpperCase()));
+}
+
+/* Step 2 — show WHAT is being approved, then ask for the signature. Nobody
+   should ever approve an unnamed device; that's the whole point of this screen. */
+async function lookup(code) {
+  if (!code) return askForCode('Enter the code from your launcher.');
+  view.innerHTML = `<h1>Checking…</h1><p>Looking up that code.</p>`;
+  const r = await dapi({ action:'native-device-lookup', code });
+  if (r.error) return askForCode(esc(r.error));
+  confirmScreen(code, r);
+}
+
+function confirmScreen(code, dev) {
+  view.innerHTML = `
+    <h1>Allow this computer?</h1>
+    <p class="tight">It'll be able to see and download the games this wallet owns.</p>
+    <div class="dev">
+      <div class="n">${esc(dev.name)}</div>
+      <div class="p">${esc(dev.platform)} · code ${esc(code)}</div>
+    </div>
+    <ul class="grants">
+      <li><span class="y">✓</span><span>See the games you own and download them</span></li>
+      <li><span class="n">✕</span><span>Spend anything, or buy on your behalf</span></li>
+      <li><span class="n">✕</span><span>Move, sell or transfer a game you own</span></li>
+      <li><span class="n">✕</span><span>Touch your wallet's keys — they never leave your browser</span></li>
+    </ul>
+    <div id="err"></div>
+    <button class="btn" id="yes">Allow this computer</button>
+    <button class="btn ghost" id="no">Not now</button>
+    <p class="foot">You can sign this computer out at any time from your library.</p>`;
+
+  $('no').addEventListener('click', () => {
+    view.innerHTML = `<h1>Nothing was paired</h1>
+      <p>You can close this tab. The launcher will keep waiting until the code expires.</p>`;
+  });
+
+  $('yes').addEventListener('click', async () => {
+    const btn = $('yes');
+    btn.disabled = true; btn.textContent = 'Check your wallet…';
+    $('err').innerHTML = '';
+    try {
+      const sig = await window.DropRateBuy.signFor('native-device-approve');
+      const wallet = window.DropRateBuy.owner();
+      const r = await dapi({ action:'native-device-approve', code, wallet, ...sig });
+      if (r.error) {
+        $('err').innerHTML = `<div class="msg bad">${esc(r.error)}</div>`;
+        btn.disabled = false; btn.textContent = 'Allow this computer';
+        return;
+      }
+      done(dev, wallet);
+    } catch {
+      $('err').innerHTML = `<div class="msg bad">Signature cancelled — nothing was paired.</div>`;
+      btn.disabled = false; btn.textContent = 'Allow this computer';
+    }
+  });
+}
+
+function done(dev, wallet) {
+  view.innerHTML = `<div class="done">
+      <div class="ring">&#10003;</div>
+      <h1>${esc(dev.name)} is paired</h1>
+      <p>Head back to the app — your library should be there. You can close this tab.</p>
+      <p class="foot">Paired to ${esc(String(wallet).slice(0,6))}…${esc(String(wallet).slice(-6))}</p>
+    </div>`;
+}
+
+const initial = codeFromUrl();
+if (initial) lookup(initial); else askForCode('');
+</script>
+</body>
+</html>
