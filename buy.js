@@ -578,24 +578,27 @@ async function mintStep(order, productId, quote) {
        balance that was already fine, and left nothing to debug from. Classify
        only what can actually be recognised; show the real message otherwise. */
     const raw = String((e && e.message) || e || 'unknown error');
-    const rejected = /reject|denied|cancell?ed|user declined|closed/i.test(raw);
-    const broke = /insufficient|not enough|debit an account|0x1\b/i.test(raw);
-    const stale = /blockhash|expired|block height exceeded/i.test(raw);
     const rent = m.network_fee_sol || 0.0034;
 
-    let msg;
-    if (rejected) {
-      msg = 'You cancelled the mint. Your payment is safe and recorded — you can finish this any time.';
-    } else if (broke) {
-      msg = `Your wallet is short of SOL for the copy's on-chain rent (about ${rent} SOL). `
-          + 'Top up and press the button — your payment is safe and recorded.';
-    } else if (stale) {
-      msg = 'The mint transaction expired before it was approved. Your payment is safe and recorded — '
-          + 'press the button to build a fresh one.';
-    } else {
-      msg = `The mint failed: ${raw} — your payment is safe and recorded, so the button retries only the `
-          + 'mint. If it keeps failing, send me this message.';
-    }
+    /* ALWAYS show the real error. Never substitute a guess for it.
+
+       A previous version picked one of several friendly sentences based on a
+       loose pattern match and showed only that. It matched "closed" inside an
+       error that had nothing to do with cancelling and told the buyer they had
+       cancelled a mint they had just approved — while throwing away the only
+       evidence of what actually went wrong. Recognising a pattern is worth a
+       HINT appended to the message; it is never worth replacing it. */
+    const hint =
+      /user rejected|user declined|rejected the request|request rejected/i.test(raw)
+        ? ' That usually means the request was declined in your wallet.'
+      : /insufficient (lamports|funds)|not enough sol|debit an account/i.test(raw)
+        ? ` That usually means your wallet is short of SOL for the copy's rent (about ${rent} SOL).`
+      : /blockhash not found|block height exceeded|transaction expired/i.test(raw)
+        ? ' The transaction expired before it was approved — press the button for a fresh one.'
+      : '';
+
+    const msg = `Mint failed: ${raw}${hint} Your payment is safe and recorded, so the button retries `
+              + 'only the mint.';
 
     // The whole object, with its stack and any wallet-specific fields, for anyone
     // who opens the console. The string above is only the readable summary.
