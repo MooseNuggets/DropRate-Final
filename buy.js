@@ -530,10 +530,37 @@ async function mintStep(order, productId, quote) {
     const r = await wallet.signAndSendTransaction(tx);
     sig = r?.signature || r;
   } catch (e) {
-    return failure(
-      "The mint was cancelled, or your wallet didn't have enough SOL for the copy's on-chain rent (about " +
-      (m.network_fee_sol || 0.0034) + " SOL). Your payment is safe and recorded — you can finish this any time.",
-      'Mint my copy', () => mintStep(order, productId, quote));
+    /* Never guess at the cause here.
+
+       This used to report one sentence — "cancelled, or not enough SOL" — for
+       every possible failure. When that guess was wrong it was worse than
+       useless: it hid the wallet's real error, sent people off to top up a
+       balance that was already fine, and left nothing to debug from. Classify
+       only what can actually be recognised; show the real message otherwise. */
+    const raw = String((e && e.message) || e || 'unknown error');
+    const rejected = /reject|denied|cancell?ed|user declined|closed/i.test(raw);
+    const broke = /insufficient|not enough|debit an account|0x1\b/i.test(raw);
+    const stale = /blockhash|expired|block height exceeded/i.test(raw);
+    const rent = m.network_fee_sol || 0.0034;
+
+    let msg;
+    if (rejected) {
+      msg = 'You cancelled the mint. Your payment is safe and recorded — you can finish this any time.';
+    } else if (broke) {
+      msg = `Your wallet is short of SOL for the copy's on-chain rent (about ${rent} SOL). `
+          + 'Top up and press the button — your payment is safe and recorded.';
+    } else if (stale) {
+      msg = 'The mint transaction expired before it was approved. Your payment is safe and recorded — '
+          + 'press the button to build a fresh one.';
+    } else {
+      msg = `The mint failed: ${raw} — your payment is safe and recorded, so the button retries only the `
+          + 'mint. If it keeps failing, send me this message.';
+    }
+
+    // The whole object, with its stack and any wallet-specific fields, for anyone
+    // who opens the console. The string above is only the readable summary.
+    console.error('[droprate] mint failed:', e);
+    return failure(msg, 'Mint my copy', () => mintStep(order, productId, quote));
   }
 
   progress('Buy', 'record', 'Registering your copy…');
