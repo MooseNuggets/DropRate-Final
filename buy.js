@@ -540,6 +540,39 @@ async function mintStep(order, productId, quote) {
   try {
     const tx = decodeTx(m.transaction, !!m.versioned);
 
+    /* Check the transaction is addressed to the wallet that is actually connected
+       BEFORE handing it to that wallet.
+
+       The fee payer is baked in server-side from the order's `buyer` column, and
+       that column is overwritten at verify time with whoever the chain says sent
+       the payment. That sender is extracted per currency: a SOL transfer yields
+       the wallet, but an SPL transfer yields `authority || source` — and `source`
+       is the token ACCOUNT, not the wallet that owns it. If the wrong one is
+       recorded, the mint is addressed to an account the buyer cannot sign for,
+       and wallets report that as something uselessly vague. Catch it here and
+       say so plainly instead. */
+    const keys = tx?.message?.staticAccountKeys
+      || tx?.message?.accountKeys
+      || (tx?.feePayer ? [tx.feePayer] : []);
+    const feePayer = keys[0] ? String(keys[0]) : null;
+
+    console.info('[droprate] mint tx', {
+      feePayer,
+      connectedWallet: OWNER,
+      matches: feePayer === OWNER,
+      approxBytes: Math.round((m.transaction || '').length * 0.75),
+      signatures: tx?.signatures?.length,
+      versioned: !!m.versioned,
+    });
+
+    if (feePayer && OWNER && feePayer !== OWNER) {
+      throw new Error(
+        `This mint is addressed to ${feePayer.slice(0, 8)}… but your connected wallet is `
+        + `${OWNER.slice(0, 8)}…. The order recorded the wrong buyer address, so no wallet `
+        + 'can sign it. Nothing was charged for the mint.',
+      );
+    }
+
     /* Sign, don't send.
 
        This mint already carries two signatures — the new asset's keypair and the
