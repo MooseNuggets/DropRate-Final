@@ -1,17 +1,25 @@
-# DROPRATE — Gacha / Crate System Spec (v0.1)
+# DROPRATE — Gacha / Crate System Spec (v0.2)
 
 Status: design locked except where marked OPEN. Legal review deferred (owner decision).
 
 ## Concept
-Holders spend $DROP to open crates and to enter the 8-hour draws. Crates pull a
-random game key by rarity, with published odds and drand-verified randomness —
-the first provably-fair gacha. Same encrypted vault as the raffle.
+Players open crates with $DROP, USDC or SOL; the 8-hour draws take $DROP only.
+Crates pull a random game key by rarity, with published odds and drand-verified
+randomness — the first provably-fair gacha. Same encrypted vault as the raffle.
 
 ## Currency & split
-- Currency: $DROP for crates AND draws.
-- Every spend splits: 70% treasury (funds prizes + buybacks), 30% burn.
-- Pricing: USD-pegged (see Tokenomics) — crate costs a fixed USD value, paid in
-  the equivalent $DROP at open time. Buyback is a fixed % of TOKENS paid (below).
+- Draws: $DROP only.
+- Crates: $DROP, USDC or SOL — the buyer picks at open time.
+- Paid in $DROP → 70% treasury / 10% LP / 10% marketing / 10% burn, PLUS a 10%
+  discount on the crate price if the paying wallet holds ≥ 100,000 $DROP
+  (checked on-chain at quote time).
+- Paid in USDC or SOL → 70% treasury / 15% marketing / 15% owner. No burn (it
+  isn't $DROP), and NO holder discount, even if the wallet holds $DROP.
+- The holder discount exists ONLY on crates paid in $DROP. The store and
+  marketplace never discount for holding $DROP.
+- Pricing: USD-pegged — a crate costs a fixed USD value, converted to the chosen
+  currency at open time (USDC 1:1, SOL and $DROP at the live rate). Buyback is a
+  fixed % of the AMOUNT paid, in the currency it was paid in (below).
 
 ## Crates (published loot table)
 | Crate | Price | Common | Rare | Epic | Legendary |
@@ -38,8 +46,11 @@ Odds are PUBLISHED (paid product = transparency, unlike the free raffle's myster
 - Key only decrypts (cost realized) on REVEAL. Sell-back returns the key to the pool.
 
 ## Buyback
-- Flat 70% of the $DROP you paid (token-denominated, not USD, no oracle at sell-time).
-- Walk-away cost is a clean 30% — that 30% is the house's baseline margin + burn.
+- Flat 70% of what you paid, refunded in the same currency you paid in ($DROP →
+  $DROP, USDC → USDC, SOL → SOL). Amount-denominated, not USD, no oracle at
+  sell-time, so the treasury never carries FX on an open pull.
+- Walk-away cost is a clean 30% — that 30% is the house's baseline margin
+  (+ the burn, on $DROP pulls).
 
 ## Pity
 - Guaranteed Epic-or-better every 10 pulls on a given crate.
@@ -56,8 +67,11 @@ Odds are PUBLISHED (paid product = transparency, unlike the free raffle's myster
 - Solvent under realistic G2A costs even at 35% Legendary; verified via stress test.
 
 ## Marketplace (PHASE 2)
-- Trade SEALED (unrevealed) pulls for $DROP. Reveal locks/untradeable.
-- Small marketplace fee → burned (extra sink).
+- Crate-key resale: trade SEALED (unrevealed) pulls for $DROP. Reveal locks/untradeable.
+  Seller keeps 100% (escrowed by the treasury, forwarded on delivery).
+- Developer game sales (store + dev marketplace): USDC or SOL only, developer's
+  choice of which to accept. Flat 5% fee, developer keeps 95%. No $DROP, no
+  holder discount.
 - Escrow/atomic swap so neither side can rug.
 
 ## OPEN ITEMS

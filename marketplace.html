@@ -287,12 +287,12 @@ function renderDirect(d){
   if(!L.length){ grid.innerHTML='<div class="empty">No games listed yet — developers are onboarding. Check back soon.</div>'; return; }
   grid.innerHTML=L.map(it=>{
     const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
-    const drop=it.drop_est!=null?('≈ '+Number(it.drop_est).toLocaleString('en-US')+' $DROP'):'';
+    const sol=it.sol_est!=null?('≈ '+it.sol_est+' SOL'):'';
     return '<div class="card" style="--rc:var(--gold)"><div class="cover" data-open="'+it.id+'">'+cover+'</div><div class="body">'+
       '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+(it.edition?(' · '+esc(it.edition)):'')+(it.trusted?' · ★':'')+'</div>'+
       '<div class="title" data-open="'+it.id+'">'+esc(it.title)+'</div>'+
-      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+drop+' · '+it.available+' in stock</div></div>'+
-      '<button class="buy" data-did="'+it.id+'">Buy with $DROP</button></div></div>';
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+(sol?sol+' · ':'')+it.available+' in stock</div></div>'+
+      '<button class="buy" data-open="'+it.id+'">Buy</button></div></div>';
   }).join('');
 }
 async function loadDirect(){ const d=await dapi({action:'market'}); if(d&&!d.error) renderDirect(d); else $('directNote').textContent=(d&&d.error)||''; }
@@ -306,7 +306,7 @@ async function buyDirect(productId,btn,currency){
   if(btn){btn.disabled=true;btn.textContent='Working…';}
   const restore=()=>{ if(btn){btn.disabled=false;btn.textContent=label||'Buy';} };
   toast('Preparing your purchase…');
-  const o=await dapi({action:'buy-open',buyer:OWNER,product_id:productId,pay_currency:currency||'DROP'});
+  const o=await dapi({action:'buy-open',buyer:OWNER,product_id:productId,pay_currency:currency||'USDC'});
   if(o.error){ toast(o.error==='out of stock'?'Just sold out — try another.':o.error); restore(); return; }
   const bp=await dapi({action:'buy-buildpay',order_id:o.order_id,buyer:OWNER});
   if(bp.error){ toast('Could not build payment: '+bp.error); restore(); return; }
@@ -370,12 +370,13 @@ async function openGame(productId){
   (p.media||[]).forEach(m=>media.push({type:'img',src:m}));
   if(!media.length) media.push({type:'img',src:''});
   const fmtN=n=>Number(n).toLocaleString('en-US');
+  /* USDC or SOL, whichever the developer accepts. No $DROP option and no
+     discount for holding it — the token's perks are in raffles and crates. */
   const curMeta={
-    DROP:{ label:(p.drop_est_discounted!=null?(fmtN(p.drop_est_discounted)+' $DROP · save 5%'):'Pay with $DROP'), cls:'buy' },
-    USDC:{ label:(p.usdc_amount!=null?(p.usdc_amount.toFixed(2)+' USDC'):'Pay with USDC'), cls:'buy ghostbuy' },
+    USDC:{ label:(p.usdc_amount!=null?(p.usdc_amount.toFixed(2)+' USDC'):'Pay with USDC'), cls:'buy' },
     SOL:{  label:(p.sol_est!=null?(p.sol_est+' SOL'):'Pay with SOL'), cls:'buy ghostbuy' },
   };
-  const accCur=(p.accepted_currencies||['DROP','USDC','SOL']).filter(c=>curMeta[c]);
+  const accCur=(p.accepted_currencies||['USDC','SOL']).filter(c=>curMeta[c]);
   const payRow = p.available>0
     ? '<div style="display:flex;flex-direction:column;gap:8px">'+accCur.map(c=>'<button class="'+curMeta[c].cls+'" data-did="'+p.id+'" data-cur="'+c+'" style="width:100%">'+curMeta[c].label+'</button>').join('')+'</div>'
     : '<button class="buy" disabled style="width:100%;opacity:.5">Sold out</button>';
@@ -430,7 +431,7 @@ async function openDev(walletAddr){
       '<div class="tag" style="color:var(--gold-2)">'+esc(it.region||'GLOBAL')+'</div>'+
       '<div class="title" data-open="'+it.id+'">'+esc(it.title)+'</div>'+
       '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+it.available+' in stock</div></div>'+
-      '<button class="buy" data-did="'+it.id+'">Buy with $DROP</button></div></div>';
+      '<button class="buy" data-open="'+it.id+'">Buy</button></div></div>';
   }).join(''):'<div class="empty">No live games right now.</div>';
   ov.querySelector('.keys-head h3').textContent=dev.studio||'Developer';
   ov.querySelector('#devBody').innerHTML=

@@ -105,7 +105,7 @@
 <h2 id="1-abstract">1. Abstract</h2>
 <p>DropRate is a Solana token, <strong>$DROP</strong>, built around a single idea: holding it should pay you in real games. There are no staking contracts, no lockups, and no forms. If you hold $DROP, you are automatically entered into recurring prize draws for real, redeemable game keys. If you want to press your luck directly, you can open <strong>crates</strong> — a published-odds, provably-fair gacha that pays out the same kind of prizes.</p>
 <p>Two things make DropRate different from the usual "hold and hope" token. First, <strong>every prize is a real game key</strong> — a downloadable game you actually own, not a jpeg, not a points balance. (Keys are sourced and redeemed through Steam today; the model isn't locked to any single store.) Second, <strong>the fairness is verifiable</strong>: draw winners and crate pulls are both resolved from <a href="https://drand.love">drand</a>, a public randomness beacon, using values that are committed <em>before</em> the randomness exists. Anyone can re-run the math and confirm a result was not tampered with.</p>
-<p>DropRate is also a <strong>marketplace</strong>: verified developers sell game keys directly to players, and players can resell sealed keys they win — paid in $DROP, USDC, or SOL, with a discount for paying in $DROP. A native <strong>game launcher</strong>, giving players true on-chain ownership of the games they buy, is on the roadmap.</p>
+<p>DropRate is also a <strong>marketplace</strong>: verified developers sell games directly to players in USDC or SOL for a flat 5% fee, and players can resell sealed crate keys they win for $DROP. A native <strong>game launcher</strong>, giving players true on-chain ownership of the games they buy, is live and in testing.</p>
 <p>This paper documents how all of it actually works — the token, the draws, the crate system, the developer marketplace, the money flows, and the security model — at the level of the real implementation.</p>
 <hr />
 <h2 id="2-at-a-glance">2. At a glance</h2>
@@ -155,11 +155,11 @@
 </tr>
 <tr>
 <td><strong>Crate prices</strong></td>
-<td>$5 / $15 / $25 / $40, priced in USD, paid in $DROP</td>
+<td>$5 / $15 / $25 / $40, priced in USD, paid in $DROP, USDC or SOL</td>
 </tr>
 <tr>
 <td><strong>Every crate spend</strong></td>
-<td>70% treasury · 10% burned on-chain · 10% liquidity · 10% marketing</td>
+<td>In $DROP: 70% treasury · 10% burned on-chain · 10% liquidity · 10% marketing — 10% off for wallets holding ≥100,000 $DROP<br>In USDC/SOL: 70% treasury · 15% marketing · 15% owner — no burn, no discount</td>
 </tr>
 <tr>
 <td><strong>Marketplace</strong></td>
@@ -167,11 +167,11 @@
 </tr>
 <tr>
 <td><strong>Payment rails</strong></td>
-<td>$DROP, USDC, or SOL · same-currency settlement · 5% off when you pay in $DROP</td>
+<td>Draws: $DROP only · Crates: $DROP, USDC or SOL · Store &amp; marketplace: USDC or SOL, developer's choice · same-currency settlement</td>
 </tr>
 <tr>
 <td><strong>Developer fee</strong></td>
-<td>1.5% in $DROP · 7% in USDC/SOL — vs the big platforms' ~30%</td>
+<td>Flat 5% on every game sale, developers keep 95% — vs the big platforms' ~30%</td>
 </tr>
 <tr>
 <td><strong>On the roadmap</strong></td>
@@ -202,7 +202,7 @@
 <h2 id="4-two-ways-to-win">4. Two ways to win</h2>
 <p>DropRate has two independent prize engines that share the same prize pool of real game keys and the same fairness backbone.</p>
 <p><strong>Draws</strong> are free and passive. Hold at least 10,000 $DROP and you are automatically entered in every draw — no clicking, no gas, no sign-up. Sell, and you lose your standing. This is the reward for holding.</p>
-<p><strong>Crates</strong> are active and paid. Buy a crate in $DROP and open it immediately for a chance at a game whose value scales with the crate tier, with published odds. Don't like what you pulled? Sell it back within a short window for 70% of what you paid.</p>
+<p><strong>Crates</strong> are active and paid. Buy a crate in $DROP, USDC or SOL and open it immediately for a chance at a game whose value scales with the crate tier, with published odds. Don't like what you pulled? Sell it back within a short window for 70% of what you paid.</p>
 <p>Both resolve from the same public randomness beacon, and both hand out the same kind of prize: an encrypted, redeemable game key.</p>
 <hr />
 <h2 id="5-draws-the-raffle">5. Draws (the raffle)</h2>
@@ -272,7 +272,7 @@
 <h3 id="61-in-plain-english">6.1 In plain English</h3>
 <p>Buy a crate, open it, get a game — instantly, with odds published right on the page. Bigger crates mean better games and better odds. Every pull is provably fair: it's resolved by the same public randomness beacon as the draws, from values locked in before the randomness exists. Pull something you don't want? You've got a few minutes to sell it back for 70%.</p>
 <h3 id="62-crate-tiers-prices-and-odds">6.2 Crate tiers, prices, and odds</h3>
-<p>Crates are priced in USD and paid in $DROP at the live rate. The odds are fixed in code and validated to sum to 100% on every deploy.</p>
+<p>Crates are priced in USD and paid in $DROP, USDC or SOL at the live rate — you pick at checkout. Pay in $DROP while holding at least 100,000 $DROP and the crate is 10% off. The odds are fixed in code and validated to sum to 100% on every deploy.</p>
 <table>
 <thead>
 <tr>
@@ -349,10 +349,10 @@
 <p>When a pull resolves, you're shown <strong>the game and its store price — but not the key yet</strong>. You then have a <strong>4-minute research window</strong> to decide:</p>
 <ul>
 <li><strong>Keep</strong> — claim the key. It's yours; it decrypts and is shown to you once.</li>
-<li><strong>Sell back</strong> — return it for <strong>70% of the $DROP you paid</strong>, sent back to your wallet immediately from the treasury. Only available inside the window.</li>
+<li><strong>Sell back</strong> — return it for <strong>70% of what you paid</strong>, sent back to your wallet immediately from the treasury in the same currency you paid in. Only available inside the window.</li>
 <li><strong>Do nothing</strong> — when the window closes, the pull auto-keeps. The key is yours to claim anytime; sell-back closes.</li>
 </ul>
-<p>Sell-back is denominated in <strong>tokens, not dollars</strong> — you get back 70% of the $DROP amount you actually paid.</p>
+<p>Sell-back is denominated in <strong>the amount you paid, not dollars</strong> — 70% of the $DROP, USDC or SOL that actually left your wallet, refunded in that same asset. The treasury never converts, so it never carries currency risk on an open pull.</p>
 <h3 id="66-out-of-stock-and-the-owed-system">6.6 Out of stock, and the "owed" system</h3>
 <p>Prizes are finite. The system won't sell you a crate it can't honor: a crate is only openable if <strong>every materially-offered rarity</strong> (its pity floor, plus any rarity with odds of 1% or more) has at least one key in stock. Immaterial long-tail odds don't block a crate — e.g. a $5 Common crate keeps selling even when Legendaries are out, because its Legendary odds (0.2%) are below the 1% materiality line.</p>
 <p>If a bucket happens to empty in the seconds between resolving and claiming, the pull becomes an <strong>"owed"</strong> IOU for that rarity, automatically fulfilled on the next restock. You never lose a won prize to a race condition.</p>
@@ -361,22 +361,32 @@
 <p>That reuse is safe because of a strict <strong>two-condition ownership gate</strong>: a key's plaintext is only ever returned if the pull is in a <code>revealed</code>/<code>kept</code> state <strong>and</strong> the key is still bound to that pull. A sold-back key fails both conditions, so even though its ciphertext gets reused for the next winner, its previous holder can never see it again. Database-level uniqueness guarantees one key backs at most one live pull at a time, and one payment can back at most one pull (replay protection).</p>
 <hr />
 <h2 id="7-payments-and-the-split-at-source">7. Payments and the split at source</h2>
-<h3 id="71-one-transaction-four-destinations">7.1 One transaction, four destinations</h3>
-<p>Every crate purchase is a <strong>single buyer-signed transaction</strong> that splits the payment at the source into four legs with no dust lost:</p>
+<h3 id="71-one-transaction-four-destinations">7.1 One transaction, split at the source</h3>
+<p>Every crate purchase is a <strong>single buyer-signed transaction</strong> that splits the payment at the source with no dust lost. Which split applies depends on what you pay with.</p>
+<p><strong>Paid in $DROP</strong> — four legs:</p>
 <ul>
 <li><strong>70% → Treasury</strong> — funds prizes and sell-back buybacks.</li>
 <li><strong>10% → Burned</strong> — permanently destroyed (see below).</li>
 <li><strong>10% → Liquidity</strong> — feeds the liquidity flywheel (see §7.4).</li>
 <li><strong>10% → Marketing</strong> — growth.</li>
 </ul>
-<p>The treasury leg takes the exact remainder after the other three are floored, so the four always re-sum to precisely what you paid. Each leg's destination is a fixed, public wallet you can watch on-chain.</p>
+<p><strong>Paid in USDC or SOL</strong> — three legs, nothing burned (there is no $DROP in the transaction to burn):</p>
+<ul>
+<li><strong>70% → Treasury</strong> — prizes and buybacks first; any surplus is free to fund $DROP buybacks, liquidity, or whatever the project needs.</li>
+<li><strong>15% → Marketing</strong> — growth.</li>
+<li><strong>15% → Owner</strong> — the founder's operating income.</li>
+</ul>
+<p>In both cases the treasury leg takes the exact remainder after the other legs are floored, so the legs always re-sum to precisely what you paid. Each leg's destination is a fixed, public wallet you can watch on-chain.</p>
+<p><strong>The holder discount.</strong> A wallet holding at least <strong>100,000 $DROP</strong> at the moment it opens a crate pays <strong>10% less</strong> — but only when paying in $DROP. The balance is read on-chain when the quote is issued, and the discount is applied to the USD price before conversion. Paying in USDC or SOL never discounts, no matter what the wallet holds, and nothing in the store or marketplace discounts for holding $DROP. That perk belongs to crates, and to $DROP, alone.</p>
 <h3 id="72-a-real-burn-not-a-dead-wallet">7.2 A real burn, not a dead wallet</h3>
 <p>The 10% burn is a genuine on-chain <strong><code>burnChecked</code></strong> — the tokens are destroyed and <strong>total supply actually decreases</strong>. It is <em>not</em> a transfer to a burn address that quietly holds them. The confirmation step verifies the burn happened on-chain before crediting a pull. Because $DROP is Token-2022, the burn (and every transfer leg) is built against the correct token program and the mint's real decimals, detected automatically.</p>
 <p>Every crate opened is therefore permanently deflationary on supply.</p>
-<h3 id="73-usd-pricing-paid-in-drop">7.3 USD pricing, paid in $DROP</h3>
-<p>Crates are priced in USD but paid in $DROP. At quote time the system converts:</p>
+<h3 id="73-usd-pricing-paid-in-drop">7.3 USD pricing, paid at the live rate</h3>
+<p>Crates are priced in USD but paid in the currency you choose. At quote time the system converts:</p>
 <blockquote>
-<p>tokens = round( (price in USD ÷ live $DROP price) × 10⁶ )</p>
+<p>tokens = round( (price in USD ÷ live $DROP price) × 10⁶ ) &nbsp;— $DROP<br>
+lamports = round( (price in USD ÷ live SOL price) × 10⁹ ) &nbsp;— SOL<br>
+USDC = price in USD, one for one at six decimals</p>
 </blockquote>
 <p>and <strong>locks that amount for 2 minutes</strong>. You approve the exact token amount in your own wallet; an expired quote is rejected and re-quoted. Price drift between quote and payment can't break or exploit an order.</p>
 <h3 id="74-the-liquidity-flywheel">7.4 The liquidity flywheel</h3>
@@ -396,7 +406,7 @@
 <p>There's a monetary-policy angle here too. The burn (§7.2) steadily removes tokens from existence, while the liquidity leg pushes tokens <em>back</em> into circulation as tradeable float. The two are meant to pull against each other: the burn builds scarcity, the liquidity keeps the market deep and the circulating supply healthy. The result is <strong>measured, sustainable deflation</strong> — scarcity that compounds over time without starving the market of liquidity or lurching into a supply crunch.</p>
 <h3 id="75-the-treasury-as-reserve">7.5 The treasury as reserve</h3>
 <p>The treasury (70%) is the project's primary reserve, and its first duty is always <strong>prize solvency</strong> — funding draws, crates, and the 70% sell-back buybacks. Prizes come first, full stop.</p>
-<p>Beyond that floor, the treasury doubles as a flexible reserve for the other three functions. When it holds a comfortable <strong>surplus</strong> above its prize and buyback obligations, the team may move some of that surplus out to <strong>deepen liquidity, fund marketing, or add to the burn</strong> — reinforcing whichever lever the project needs at the time. This only ever happens from genuine abundance: the treasury is never drawn down to a level that could put prize payouts at risk. These movements are discretionary and separate from the automatic at-source split above — the 70/10/10/10 on every purchase is fixed; treasury redistribution is an occasional, surplus-only action layered on top of it.</p>
+<p>Beyond that floor, the treasury doubles as a flexible reserve for the other three functions. When it holds a comfortable <strong>surplus</strong> above its prize and buyback obligations, the team may move some of that surplus out to <strong>deepen liquidity, fund marketing, or add to the burn</strong> — reinforcing whichever lever the project needs at the time. This only ever happens from genuine abundance: the treasury is never drawn down to a level that could put prize payouts at risk. These movements are discretionary and separate from the automatic at-source split above — the at-source split on every purchase (70/10/10/10 in $DROP, 70/15/15 in USDC or SOL) is fixed; treasury redistribution is an occasional, surplus-only action layered on top of it.</p>
 <h3 id="76-how-the-team-is-funded">7.6 How the team is funded</h3>
 <p>The team takes <strong>no allocation from the token supply</strong> and nothing off the top of purchases. Team compensation comes from two variable, volume-linked streams:</p>
 <ul>
@@ -417,14 +427,10 @@
 <li><strong>Both sides escrowed.</strong> On a purchase, the key and the payment are held in escrow. The key is delivered to the buyer on confirmed payment; the developer's proceeds are <strong>held for a dispute window</strong> (72 hours) and released automatically after it, or immediately on buyer confirmation.</li>
 <li><strong>Disputes.</strong> Inside the window a buyer can open a dispute; an operator resolves it as a refund (from the held escrow) or a denial (funds released to the developer). One on-chain payment can settle exactly one order — enforced by payment reference and a unique-signature constraint.</li>
 </ul>
-<h3 id="83-fees-currencies-and-the-drop-advantage">8.3 Fees, currencies, and the $DROP advantage</h3>
-<p>Buyers pay in <strong>$DROP, USDC, or SOL</strong> — whichever a developer accepts — and settlement is <strong>same-currency</strong>: pay USDC, the developer is paid USDC; pay SOL, paid SOL. The escrow never holds one asset against a payout in another, so there is no currency risk on an open order. USD prices are converted at a live rate from the same public price source used for crate pricing (§10), locked for a short window at checkout.</p>
-<p>The fee a developer pays depends on the rail, and it is designed to pull everyone toward $DROP without the platform subsidizing anything:</p>
-<ul>
-<li><strong>$DROP — 1.5% developer fee.</strong> Buyers paying in $DROP also receive a <strong>5% discount</strong> on the price.</li>
-<li><strong>USDC / SOL — 7% developer fee</strong>, with no buyer discount.</li>
-</ul>
-<p>The buyer discount is <strong>self-funding</strong>, not a give-away. It is sized to the fee gap: because USDC/SOL cost a developer 7% while $DROP costs 1.5%, a developer nets about the same on a $DROP sale (after granting the 5% discount) as on a full-price USDC/SOL sale — a touch more, in fact. So the buyer is rewarded for paying in $DROP, the developer is neutral-to-better accepting it, and the treasury never dips into its own funds to cover the discount. Every rail still leaves a developer with far more than the big platforms' ~70% take.</p>
+<h3 id="83-fees-currencies-and-the-drop-advantage">8.3 Fees and currencies: a flat 5%</h3>
+<p>Games are bought in <strong>USDC or SOL</strong> — a developer chooses to accept one or both — and settlement is <strong>same-currency</strong>: pay USDC, the developer is paid USDC; pay SOL, paid SOL. The escrow never holds one asset against a payout in another, so there is no currency risk on an open order. USD prices are converted at a live rate from the same public price source used for crate pricing (§10), locked for a short window at checkout.</p>
+<p>The fee is a <strong>flat 5% on every sale</strong>, whichever rail the buyer picks. The developer keeps 95%. There is no per-currency fee schedule, no buyer discount, and no advantage for holding $DROP anywhere in the store or marketplace — a developer's price is a developer's price. Against the ~30% the big platforms take, that is the whole pitch: sell your game, keep almost all of it.</p>
+<p>$DROP's place in DropRate is deliberate and narrow: it is the only way into the draws, and it is the rail that earns the crate discount and feeds the burn. It is a loyalty layer on top of a games platform, not a toll on it.</p>
 <h3 id="84-why-these-keys-are-not-nfts">8.4 Why these keys aren't NFTs</h3>
 <p>A redeemable third-party key is deliberately <em>not</em> wrapped in an NFT. Once such a key is revealed and redeemed it is spent, so an NFT "wrapper" around it would guarantee nothing and could be gamed. True on-chain ownership only becomes meaningful for <strong>native games delivered through DropRate's own launcher</strong>, where holding the token is what grants the right to play — that is the roadmap in §9.</p>
 <hr />
@@ -435,7 +441,7 @@
 <li><strong>Real ownership, real resale.</strong> Own your copy like a physical disc and resell it on a secondary market — with the original developer earning a <strong>royalty</strong> on every resale, something disc resale never gave them.</li>
 <li><strong>Developer-set supply.</strong> A developer can release a <strong>finite</strong> run (scarcity, a genuine secondary market) or <strong>infinite</strong> mint-on-demand copies. The same rails extend to DLC and in-game items, which can be made scarce as well.</li>
 <li><strong>Price protection.</strong> Resale is bounded so it can't crater a game's price: developer-set floor prices, a royalty that makes flip-dumping unprofitable, and an optional resale cooldown — all inside house guardrails. The goal is a healthy market, not a race to the bottom.</li>
-<li><strong>Same currencies, separate store.</strong> Purchases and resale run in $DROP, USDC, or SOL. Native games get their own storefront and resale market, distinct from the key marketplace above.</li>
+<li><strong>Same currencies, separate store.</strong> Purchases and resale run in USDC or SOL, developer's choice, at the same flat 5%. Native games get their own storefront and resale market, distinct from the crate-key marketplace above.</li>
 </ul>
 <p>Ownership here is a transferable <em>license to play</em>, not a transfer of the game's intellectual property. Timing and specifics will be documented when the launcher ships.</p>
 <hr />
@@ -604,16 +610,20 @@
 <td>max(spot, TWAP)</td>
 </tr>
 <tr>
-<td>Marketplace fee — $DROP</td>
-<td>1.5% <em>(tunable)</em></td>
+<td>Store / marketplace fee (USDC or SOL)</td>
+<td>Flat 5% <em>(tunable)</em></td>
 </tr>
 <tr>
-<td>Marketplace fee — USDC / SOL</td>
-<td>7% <em>(tunable)</em></td>
+<td>Crate split — paid in $DROP</td>
+<td>70% treasury · 10% burn · 10% liquidity · 10% marketing</td>
 </tr>
 <tr>
-<td>Buyer $DROP discount</td>
-<td>5% <em>(tunable)</em></td>
+<td>Crate split — paid in USDC / SOL</td>
+<td>70% treasury · 15% marketing · 15% owner · no burn</td>
+</tr>
+<tr>
+<td>Crate holder discount ($DROP payers only)</td>
+<td>10% off when the wallet holds ≥ 100,000 $DROP</td>
 </tr>
 <tr>
 <td>Escrow dispute window</td>

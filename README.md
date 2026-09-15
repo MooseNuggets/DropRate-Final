@@ -99,6 +99,28 @@ ever wanted.)
 - `TURNSTILE_SECRET` (optional) — Cloudflare Turnstile for the free-entry form;
   without it a honeypot field is used.
 
+### Payment rails (crates, store, marketplace)
+
+Money flows on three rails. Which one applies is decided per product, not per user:
+
+| Product | Currencies | Split / fee |
+|---|---|---|
+| Draws | $DROP only | — |
+| Crates, paid in $DROP | $DROP | 70% treasury · 10% LP · 10% marketing · 10% burn. **10% off** if the wallet holds ≥ 100,000 $DROP (checked on-chain at quote time). |
+| Crates, paid in USDC / SOL | USDC, SOL | 70% treasury · 15% marketing · 15% owner. No burn. **No discount**, even if the wallet holds $DROP. |
+| Store + dev marketplace | USDC, SOL (dev picks one or both) | Flat 5% fee, dev keeps 95%. No holder discount, ever. |
+
+Sell-backs refund 70% of what was paid, in the currency it was paid in.
+
+Env vars for the rails:
+- `TREASURY_WALLET`, `TREASURY_SECRET` — treasury (receives the 70% leg; signs refunds/payouts)
+- `LP_WALLET`, `MARKETING_WALLET` — $DROP crate legs
+- `OWNER_WALLET` — **new**: the founder wallet that receives the 15% owner leg on USDC/SOL crates.
+  SOL/USDC crate checkout fails with `paymulti: OWNER_WALLET not set` until this exists.
+- `USDC_MINT` — mainnet `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
+- `DEV_FEE_BPS` (default `500`) — the flat store/marketplace fee
+- `SOLANA_PRIORITY_MICROLAMPORTS` (default `20000`) — priority fee on every built tx
+
 ### Running draws — the easy way: /admin.html
 
 Open `https://YOURSITE/admin.html`, paste your `ADMIN_SECRET` (kept in memory only),

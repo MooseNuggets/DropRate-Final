@@ -327,12 +327,6 @@
   .empty{grid-column:1/-1;text-align:center;color:var(--dim);font-size:14.5px;padding:66px 20px;border:1px dashed var(--line);border-radius:20px}
   .em-mark{width:42px;height:49px;opacity:.55;margin:0 auto 16px;display:block;filter:drop-shadow(0 8px 22px rgba(255,194,75,.35))}
 
-  /* $DROP pricing */
-  .droprow{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
-    background:rgba(255,194,75,.10);border:1px solid rgba(255,194,75,.34);color:var(--gold-hi);border-radius:8px;padding:6px 10px}
-  .droprow .spk{width:9px;height:9px;color:var(--gold)}
-  .droprow s{color:var(--dim2);text-decoration-color:var(--dim2)}
-  .buybox .droprow{margin-top:2px}
   .skel{border-radius:20px;height:296px;background:linear-gradient(100deg,rgba(22,27,50,.9) 30%,rgba(38,45,78,.9) 50%,rgba(22,27,50,.9) 70%);background-size:280% 100%;animation:shim 1.5s linear infinite;border:1px solid var(--line)}
   @keyframes shim{to{background-position:-180% 0}}
 
@@ -437,7 +431,7 @@
       </div>
       <div class="trust">
         <div><div class="t">Yours to keep</div><div class="l">Not a rental</div></div>
-        <div><div class="t">5% off</div><div class="l">Paying in $DROP</div></div>
+        <div><div class="t">Devs keep 95%</div><div class="l">Flat 5% fee</div></div>
         <div><div class="t">Play anywhere</div><div class="l">Browser or app</div></div>
       </div>
     </div>
@@ -501,7 +495,7 @@
       <div class="cmp-row"><span class="m yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span><span class="k">You get</span><span class="v">A copy that belongs to you. Play it on the web or the desktop app — nobody can switch it off.</span></div>
       <div class="cmp-row"><span class="m yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span><span class="k">Resale</span><span class="v">List it anytime — open edition or limited run, it's yours to trade.</span></div>
       <div class="cmp-row"><span class="m yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span><span class="k">Dev earns</span><span class="v">On the first sale <i>and</i> a cut of every resale after.</span></div>
-      <div class="cmp-row"><span class="m yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span><span class="k">Pay with</span><span class="v">$DROP, USDC or SOL — and 5% off when you pay in $DROP.</span></div>
+      <div class="cmp-row"><span class="m yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span><span class="k">Pay with</span><span class="v">USDC or SOL — whichever the developer accepts.</span></div>
     </div>
   </div>
 
@@ -525,16 +519,13 @@ const ARROW_IC='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentC
 const VERI_IC='<svg class="ic veri" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.3 4.6 5.1.7-3.7 3.6.9 5.1L12 18.6 7.4 20.7l.9-5.1L4.6 8.3l5.1-.7z"/></svg>';
 const SPARK=()=>'<svg class="spk" viewBox="0 0 100 116" aria-hidden="true"><use href="#mark"/></svg>';
 const MARK=c=>'<svg class="'+c+'" viewBox="0 0 100 116" aria-hidden="true"><use href="#mark"/></svg>';
-/* buyers paying in $DROP get 5% off — same number the marketplace and whitepaper use */
-const DROP_DISCOUNT=0.05;
-const dropPrice=cents=>usd(Math.round((cents||0)*(1-DROP_DISCOUNT)));
-function dropRow(cents){
-  return '<span class="droprow">'+SPARK()+'In $DROP <b>'+dropPrice(cents)+'</b> <s>'+usd(cents)+'</s></span>';
-}
+/* Games are priced in USD and paid in USDC or SOL. There is no $DROP price and
+   no discount for holding it — the token's perks are in the raffles and the
+   crates, and deliberately nowhere near a game purchase. */
 
 /* ticker */
 (function(){
-  const items=['Games you actually own','Resell them like a disc','Devs earn on every resale','Open editions or limited runs','5% off when you pay in $DROP','No subscription, no lock-in'];
+  const items=['Games you actually own','Resell them like a disc','Devs earn on every resale','Open editions or limited runs','Devs keep 95% of every sale','No subscription, no lock-in'];
   const one=items.map((t,i)=>'<span>'+SPARK()+t+'</span>').join('');
   $('ticker').innerHTML=one+one;
 })();
@@ -692,7 +683,7 @@ function card(g){
       '<div class="ctitle">'+esc(g.title)+'</div>'+
       (g.tagline?('<div class="ctag">'+esc(g.tagline)+'</div>'):'')+
       scarcityHTML(g)+
-      '<div class="cmeta"><span class="price gold-text"><span class="pu">'+usd(g.price_cents)+'</span><span class="pd">'+MARK('')+dropPrice(g.price_cents)+'</span></span><span class="studio">'+esc((g.dev&&g.dev.studio)||'')+'</span></div>'+
+      '<div class="cmeta"><span class="price gold-text"><span class="pu">'+usd(g.price_cents)+'</span></span><span class="studio">'+esc((g.dev&&g.dev.studio)||'')+'</span></div>'+
     '</div></div>';
 }
 function spotShellHTML(){
@@ -714,7 +705,7 @@ function spotCardHTML(g){
         (g.tagline?('<div class="tl">'+esc(g.tagline)+'</div>'):'')+
         '<div class="spot-row">'+
           '<span class="spot-price gold-text">'+usd(g.price_cents)+'</span>'+
-          dropRow(g.price_cents)+meta+
+          meta+
         '</div>'+
         '<div class="spot-row"><span class="spot-cta">View title '+ARROW_IC+'</span></div>'+
       '</div>'+
@@ -842,7 +833,6 @@ async function openGame(id){
       '<div class="devrow" data-dev="'+esc(dev.wallet||'')+'">'+avatar(dev)+'<div><div style="font-weight:600">'+esc(dev.studio||'Developer')+(dev.trusted?VERI_IC:'')+'</div><div style="color:var(--dim2);font-size:12px">View developer →</div></div></div>'+
       '<div class="buybox">'+
         '<div class="p gold-text">'+usd(p.price_cents)+'</div>'+
-        dropRow(p.price_cents)+
         '<div class="own-line">'+KEY_IC+'<span>This copy is <b>yours to keep</b> — and yours to sell whenever you\'re done.</span></div>'+
         '<div class="terms">'+
           '<div><span>Plays on</span><span class="v">'+rt+'</span></div>'+
@@ -850,7 +840,7 @@ async function openGame(id){
           supplyRow+
           '<div><span>Dev gets on resale</span><span class="v">'+((p.royalty_bps||0)/100)+'%</span></div>'+
           '<div><span>Minimum resale price</span><span class="v">'+((p.resale_floor_bps||0)/100)+'% of list</span></div>'+
-          '<div><span>Pay with</span><span class="v">$DROP, USDC or SOL</span></div>'+
+          '<div><span>Pay with</span><span class="v">USDC or SOL</span></div>'+
         '</div>'+
         (p.play_url ? '<a class="cta play" href="/play.html?id='+p.id+'">'+PLAY_IC+'Play free in your browser</a>' : '')+
         (p.sold_out

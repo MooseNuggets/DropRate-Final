@@ -401,20 +401,20 @@ export async function open(productId) {
 }
 
 function renderPicker(q, productId) {
-  const order = ['DROP', 'USDC', 'SOL'].filter((c) => q.quotes[c]);
+  // Games are bought in USDC or SOL — whichever of those the developer accepts.
+  // No $DROP option and no discount for holding it; the token's perks live in
+  // the raffles and the crates, deliberately nowhere near a game purchase.
+  const order = ['USDC', 'SOL'].filter((c) => q.quotes[c]);
   if (!order.length) {
     shell('Buy', `<div class="drb-err">No payment method is available right now — the price feed is down. Try again in a minute.</div>`);
     return;
   }
-  const usdcUsd = q.quotes.USDC ? q.quotes.USDC.usd : null;
 
   const opts = order.map((c) => {
     const v = q.quotes[c];
-    const saving = (c === 'DROP' && usdcUsd) ? Math.round((1 - v.usd / usdcUsd) * 100) : 0;
     return `<button class="drb-opt" role="button" aria-pressed="${c === order[0]}" data-ccy="${c}">
-        <span class="drb-cn">${c === 'DROP' ? '$DROP' : c}</span>
+        <span class="drb-cn">${c}</span>
         <span class="drb-ca">${fmtAmount(v.amount_raw, v.decimals)}</span>
-        ${saving > 0 ? `<span class="drb-save">Save ${saving}%</span>` : ''}
       </button>`;
   }).join('');
 

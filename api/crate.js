@@ -2,7 +2,9 @@
 // DROPRATE — Crate open/resolve/reveal API (NEW ROUTE)
 //
 // On-chain payment verification + refunds are WIRED (lib/oracle.js for price,
-// lib/solana.js for the 4-leg confirm and the treasury refund). A GATE seals the
+// lib/solana.js for the 4-leg $DROP confirm + refund, lib/paymulti.js for the
+// 3-leg SOL/USDC confirm + refund). Needs OWNER_WALLET set for the SOL/USDC
+// rails (the 15% owner leg). A GATE seals the
 // whole route until GACHA_ENABLED=1, and to an allowlist while GACHA_ALLOWLIST is
 // set — so it runs live but only for you until you flip it public.
 // ============================================================================
@@ -11,12 +13,22 @@ import { sql } from "../lib/db.js";
 import { migrateGacha, bucketCounts } from "../lib/gacha-db.js";
 import { CRATES, buybackRaw, CLAIM_WINDOW_SEC, tokensForCrate } from "../lib/gacha.js";
 import { commitRound, roundReadyAt, canOpen, resolveRarity, claimDeadlineSec, withinClaimWindow } from "../lib/crate.js";
-import { quoteCrate, splitPayment, validateTransfer, verifySplitLegs } from "../lib/payment.js";
+import {
+  quoteCrate, splitPayment, validateTransfer, verifySplitLegs,
+  quoteCrateFiat, splitPaymentFiat, verifySplitLegsFiat, holderDiscountBps,
+  FIAT_DECIMALS, DROP_HOLDER_DISCOUNT_BPS, DROP_HOLDER_MIN_TOKENS,
+} from "../lib/payment.js";
 import { fetchRandomness } from "../lib/draw.js";
 import { decryptCode, verifyWalletSignature } from "../lib/vault.js";
 import { currentDropUsd } from "../lib/oracle.js";
 const nowUnix = () => Math.floor(Date.now() / 1000);
 const DECIMALS = Number(process.env.DROP_DECIMALS || 6);
+// Crates take three rails. $DROP keeps the 70/10/10/10 split with the burn and
+// the holder discount; SOL and USDC settle 70/15/15 (treasury/marketing/owner),
+// no burn, no discount — even if the wallet holds $DROP.
+const CRATE_CURRENCIES = ["DROP", "USDC", "SOL"];
+const FIAT = (cur) => cur === "USDC" || cur === "SOL";
+const decimalsFor = (cur) => (FIAT(cur) ? FIAT_DECIMALS[cur] : DECIMALS);
 // Self-contained Solana-Pay reference: base58 of 32 random bytes (a valid pubkey
 // the buyer attaches to the escrow transfer). Inlined so this route never depends
 // on payment.js's export surface.
@@ -64,7 +76,34 @@ async function fetchPaidTransfer(reference, expected) {
     splitReasons: split.reasons,
   };
 }
-async function dispatchRefund(toWallet, amountRaw) {
+// SOL/USDC counterpart: three legs (treasury/marketing/owner), no burn. Returns
+// the same shape as fetchPaidTransfer so `confirm` handles both rails alike.
+async function fetchPaidTransferFiat(reference, currency, expected) {
+  const { findSplitPaymentMulti, resolveSplitDestinationsFiat } = await import("../lib/paymulti.js");
+  const found = await findSplitPaymentMulti(reference, currency);
+  if (!found) return null;
+  const dest = await resolveSplitDestinationsFiat(currency);
+  const split = verifySplitLegsFiat(found.legs, {
+    treasury: dest.treasury, marketing: dest.marketing, owner: dest.owner, totalRaw: expected.amountRaw,
+  });
+  return {
+    mint: currency === "USDC" ? process.env.USDC_MINT : null,
+    destination: dest.treasury,
+    amountRaw: split.ok ? split.totalRaw : "0",
+    reference,
+    sender: found.sender,
+    signature: found.signature,
+    splitOk: split.ok,
+    splitReasons: split.reasons,
+  };
+}
+// Refunds go back on the rail the pull was paid on. A $DROP crate refunds $DROP;
+// a SOL crate refunds SOL; a USDC crate refunds USDC. Never converted.
+async function dispatchRefund(toWallet, amountRaw, currency = "DROP") {
+  if (FIAT(currency)) {
+    const { sendTreasuryMulti } = await import("../lib/paymulti.js");
+    return sendTreasuryMulti(toWallet, amountRaw, currency);
+  }
   const { sendTreasuryTransfer } = await import("../lib/solana.js");
   return sendTreasuryTransfer(toWallet, amountRaw);
 }
@@ -110,12 +149,40 @@ export default async function handler(req, res) {
     const b = req.body ?? {};
    // ---- PRICE: public live $DROP price + per-crate token amounts ---------
     if (b.action === "price") {
-      const dropUsd = await currentDropUsd();
+      const { currentSolUsd } = await import("../lib/paymulti.js");
+      const [dropUsd, solUsd] = await Promise.all([currentDropUsd(), currentSolUsd()]);
+      // Optional: pass `owner` to learn whether that wallet qualifies for the
+      // $DROP-payer holder discount. Informational only — `open` re-checks
+      // on-chain at quote time, so the UI can't talk itself into a discount.
+      let holderBps = 0;
+      if (b.owner) {
+        const { dropBalanceRaw } = await import("../lib/solana.js");
+        holderBps = holderDiscountBps(await dropBalanceRaw(String(b.owner)), DECIMALS);
+      }
       const crates = {};
       for (const [k, c] of Object.entries(CRATES)) {
-        crates[k] = { usdCents: c.priceUsdCents, dropRaw: tokensForCrate(c.priceUsdCents, dropUsd, DECIMALS).toString() };
+        const dq = quoteCrate(k, dropUsd, { decimals: DECIMALS, discountBps: holderBps });
+        crates[k] = {
+          usdCents: c.priceUsdCents,
+          dropRaw: dq.amountRaw,                       // discounted if holderBps > 0
+          dropListRaw: tokensForCrate(c.priceUsdCents, dropUsd, DECIMALS).toString(),
+          dropUsdCents: dq.effectiveUsdCents,
+          usdcRaw: quoteCrateFiat(k, "USDC", solUsd).amountRaw,
+          solRaw: solUsd > 0 ? quoteCrateFiat(k, "SOL", solUsd).amountRaw : null,
+        };
       }
-      return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, crates });
+      return res.status(200).json({
+        ok: true, dropUsd, solUsd, decimals: DECIMALS,
+        currencies: CRATE_CURRENCIES,
+        fiatDecimals: FIAT_DECIMALS,
+        holder: {
+          discountBps: DROP_HOLDER_DISCOUNT_BPS,
+          minTokens: DROP_HOLDER_MIN_TOKENS.toString(),
+          qualifies: holderBps > 0,
+          appliesTo: "DROP", // pay in $DROP to use it; SOL/USDC never discount
+        },
+        crates,
+      });
     }
         // ---- SHOWCASE: public list of games currently in the crate pool -------
     if (b.action === "showcase") {
@@ -140,18 +207,40 @@ export default async function handler(req, res) {
       gateOrDie(b.owner);
       const stock = await bucketCounts();
       if (!canOpen(b.crate, stock)) return res.status(409).json({ error: "out-of-stock", stock });
-      const dropUsd = await currentDropUsd();
-      const q = quoteCrate(b.crate, dropUsd, { nowMs: Date.now(), decimals: DECIMALS });
+      const currency = String(b.currency || "DROP").toUpperCase();
+      if (!CRATE_CURRENCIES.includes(currency)) return res.status(400).json({ error: "crates are paid in DROP, USDC or SOL" });
+      let q;
+      if (FIAT(currency)) {
+        // SOL / USDC: list price, no discount, whatever the wallet holds.
+        const { currentSolUsd } = await import("../lib/paymulti.js");
+        const solUsd = currency === "SOL" ? await currentSolUsd() : null;
+        if (currency === "SOL" && !(solUsd > 0)) return res.status(503).json({ error: "SOL price unavailable — try again" });
+        q = quoteCrateFiat(b.crate, currency, solUsd, { nowMs: Date.now() });
+      } else {
+        // $DROP: holder discount checked ON-CHAIN right now, at quote time.
+        const { dropBalanceRaw } = await import("../lib/solana.js");
+        const discountBps = holderDiscountBps(await dropBalanceRaw(b.owner), DECIMALS);
+        const dropUsd = await currentDropUsd();
+        q = quoteCrate(b.crate, dropUsd, { nowMs: Date.now(), decimals: DECIMALS, discountBps });
+      }
       const ins = await sql`
-        INSERT INTO pulls(owner, crate, rarity, paid_raw, reference, amount_quoted_raw, quote_expires_at, nonce, state)
+        INSERT INTO pulls(owner, crate, rarity, paid_raw, reference, amount_quoted_raw, quote_expires_at, nonce, state,
+                          pay_currency, pay_decimals, discount_bps)
         VALUES (${b.owner}, ${b.crate}, '', ${q.amountRaw}, ${q.reference}, ${q.amountRaw},
-                to_timestamp(${q.expiresAt / 1000}), ${randomUUID()}, 'awaiting_payment')
+                to_timestamp(${q.expiresAt / 1000}), ${randomUUID()}, 'awaiting_payment',
+                ${currency}, ${decimalsFor(currency)}, ${q.discountBps ?? 0})
         RETURNING id`;
       const pullId = ins.rows[0].id;
       return res.status(200).json({
         ok: true, pullId,
+        currency,
+        decimals: decimalsFor(currency),
+        discountBps: q.discountBps ?? 0,
+        priceUsdCents: q.priceUsdCents,
+        effectiveUsdCents: q.effectiveUsdCents,
         pay: {
-          splToken: process.env.DROP_MINT,
+          currency,
+          splToken: currency === "DROP" ? process.env.DROP_MINT : currency === "USDC" ? process.env.USDC_MINT : null,
           amountRaw: q.amountRaw,
           reference: q.reference,
           memo: `DROPRATE crate:${b.crate} pull:${pullId}`,
@@ -166,11 +255,14 @@ export default async function handler(req, res) {
       if (!pull) return res.status(404).json({ error: "no such pull" });
       gateOrDie(pull.owner);
       if (pull.state !== "awaiting_payment") return res.status(200).json({ state: pull.state });
-      const transfer = await fetchPaidTransfer(pull.reference, { amountRaw: pull.amount_quoted_raw });
+      const cur = pull.pay_currency || "DROP";
+      const transfer = FIAT(cur)
+        ? await fetchPaidTransferFiat(pull.reference, cur, { amountRaw: pull.amount_quoted_raw })
+        : await fetchPaidTransfer(pull.reference, { amountRaw: pull.amount_quoted_raw });
       if (!transfer) return res.status(402).json({ error: "payment-not-found" });
       if (!transfer.splitOk) return res.status(400).json({ error: "invalid-payment", reasons: transfer.splitReasons });
       const v = validateTransfer(transfer, {
-        mint: process.env.DROP_MINT, destination: transfer.destination,
+        mint: transfer.mint, destination: transfer.destination,
         amountRaw: pull.amount_quoted_raw, reference: pull.reference,
         expiresAt: new Date(pull.quote_expires_at).getTime(),
       }, { nowMs: Date.now(), underpayToleranceBps: 0 });
@@ -180,10 +272,16 @@ export default async function handler(req, res) {
       } catch {
         return res.status(409).json({ error: "payment-already-used" });
       }
-      const { treasuryRaw, burnRaw, lpRaw, marketingRaw } = splitPayment(v.amountRaw);
-      for (const [type, amt] of [["treasury", treasuryRaw], ["burn", burnRaw], ["lp", lpRaw], ["marketing", marketingRaw]]) {
-        await sql`INSERT INTO settlements(pull_id, type, amount_raw, status, sig, sent_at)
-                  VALUES (${pull.id}, ${type}, ${amt.toString()}, 'confirmed', ${transfer.signature}, now()) ON CONFLICT DO NOTHING`;
+      // Ledger rows: what landed where, in the pull's currency. (These are
+      // 'confirmed' because the buyer's own tx already delivered every leg.)
+      const ledger = FIAT(cur)
+        ? (() => { const s = splitPaymentFiat(v.amountRaw);
+                   return [["treasury", s.treasuryRaw], ["marketing", s.marketingRaw], ["owner", s.ownerRaw]]; })()
+        : (() => { const s = splitPayment(v.amountRaw);
+                   return [["treasury", s.treasuryRaw], ["burn", s.burnRaw], ["lp", s.lpRaw], ["marketing", s.marketingRaw]]; })();
+      for (const [type, amt] of ledger) {
+        await sql`INSERT INTO settlements(pull_id, type, amount_raw, status, sig, sent_at, currency)
+                  VALUES (${pull.id}, ${type}, ${amt.toString()}, 'confirmed', ${transfer.signature}, now(), ${cur}) ON CONFLICT DO NOTHING`;
       }
       const round = commitRound(nowUnix());
       await sql`UPDATE pulls SET drand_round = ${round}, state = 'committing' WHERE id = ${pull.id}`;
@@ -197,13 +295,27 @@ export default async function handler(req, res) {
       gateOrDie(pull.owner);
       if (pull.state !== "awaiting_payment") return res.status(409).json({ error: `not awaiting payment (${pull.state})` });
       if (!b.payer) return res.status(400).json({ error: "payer required" });
-      const s = splitPayment(pull.amount_quoted_raw);
-      const { buildSplitPaymentTx } = await import("../lib/solana.js");
-      const built = await buildSplitPaymentTx(b.payer, pull.reference, {
-        treasuryRaw: s.treasuryRaw.toString(), burnRaw: s.burnRaw.toString(),
-        lpRaw: s.lpRaw.toString(), marketingRaw: s.marketingRaw.toString(),
+      if (new Date(pull.quote_expires_at).getTime() < Date.now()) return res.status(409).json({ error: "quote expired — open again" });
+      const cur = pull.pay_currency || "DROP";
+      let built;
+      if (FIAT(cur)) {
+        const s = splitPaymentFiat(pull.amount_quoted_raw);
+        const { buildSplitPaymentMulti } = await import("../lib/paymulti.js");
+        built = await buildSplitPaymentMulti(b.payer, pull.reference, {
+          treasuryRaw: s.treasuryRaw.toString(), marketingRaw: s.marketingRaw.toString(), ownerRaw: s.ownerRaw.toString(),
+        }, cur);
+      } else {
+        const s = splitPayment(pull.amount_quoted_raw);
+        const { buildSplitPaymentTx } = await import("../lib/solana.js");
+        built = await buildSplitPaymentTx(b.payer, pull.reference, {
+          treasuryRaw: s.treasuryRaw.toString(), burnRaw: s.burnRaw.toString(),
+          lpRaw: s.lpRaw.toString(), marketingRaw: s.marketingRaw.toString(),
+        });
+      }
+      return res.status(200).json({
+        ok: true, pullId: pull.id, currency: cur, decimals: pull.pay_decimals ?? decimalsFor(cur),
+        amountRaw: pull.amount_quoted_raw, ...built,
       });
-      return res.status(200).json({ ok: true, pullId: pull.id, amountRaw: pull.amount_quoted_raw, ...built });
     }
     // ---- RESOLVE ---------------------------------------------------------
     if (b.action === "resolve") {
@@ -256,13 +368,13 @@ export default async function handler(req, res) {
       // gets retried here. The 2-minute floor avoids racing a live sell-back request.
       let refundsSent = 0, refundsFailed = 0;
       const pend = await sql`
-        SELECT s.id, s.amount_raw, p.owner
+        SELECT s.id, s.amount_raw, p.owner, COALESCE(s.currency, p.pay_currency, 'DROP') AS currency
         FROM settlements s JOIN pulls p ON p.id = s.pull_id
         WHERE s.type = 'refund' AND s.status = 'pending' AND s.created_at < now() - interval '2 minutes'
         ORDER BY s.id ASC LIMIT 25`;
       for (const row of pend.rows) {
         try {
-          const sig = await dispatchRefund(row.owner, String(row.amount_raw));
+          const sig = await dispatchRefund(row.owner, String(row.amount_raw), row.currency);
           await sql`UPDATE settlements SET status = 'sent', sig = ${sig}, sent_at = now() WHERE id = ${row.id}`;
           refundsSent++;
         } catch (e) {
@@ -328,17 +440,21 @@ export default async function handler(req, res) {
       if (!withinClaimWindow(deadlineMs, Date.now())) {
         return res.status(409).json({ error: "window-closed", note: "research window elapsed; key is yours to claim" });
       }
+      // 70% of what was paid, in the currency it was paid in (SOL → SOL, USDC →
+      // USDC, $DROP → $DROP). Never converted, so the treasury carries no FX.
+      const cur = pull.pay_currency || "DROP";
       const refund = buybackRaw(pull.paid_raw);
       await sql`UPDATE crate_keys SET status = 'available' WHERE id = ${pull.key_id}`;
       await sql`UPDATE pulls SET state = 'sold_back', listed = false, list_price_cents = NULL, listed_at = NULL, refund_raw = ${refund.toString()}, resolved_at = now() WHERE id = ${pull.id}`;
-      await sql`INSERT INTO settlements(pull_id, type, amount_raw) VALUES (${pull.id}, 'refund', ${refund.toString()}) ON CONFLICT DO NOTHING`;
+      await sql`INSERT INTO settlements(pull_id, type, amount_raw, currency) VALUES (${pull.id}, 'refund', ${refund.toString()}, ${cur}) ON CONFLICT DO NOTHING`;
+      const out = { refundRaw: refund.toString(), currency: cur, decimals: pull.pay_decimals ?? decimalsFor(cur) };
       try {
-        const sig = await dispatchRefund(pull.owner, refund.toString());
+        const sig = await dispatchRefund(pull.owner, refund.toString(), cur);
         await sql`UPDATE settlements SET status = 'sent', sig = ${sig}, sent_at = now() WHERE pull_id = ${pull.id} AND type = 'refund'`;
-        return res.status(200).json({ ok: true, refundRaw: refund.toString(), sent: true, sig });
+        return res.status(200).json({ ok: true, ...out, sent: true, sig });
       } catch (e) {
         console.error("refund dispatch deferred to signer worker:", e.message);
-        return res.status(200).json({ ok: true, refundRaw: refund.toString(), sent: false, queued: true });
+        return res.status(200).json({ ok: true, ...out, sent: false, queued: true });
       }
     }
     // ---- MARKETPLACE: list a sealed/kept key for sale (owner-set USD price) ---
@@ -519,6 +635,7 @@ export default async function handler(req, res) {
       if (!ok) return res.status(401).json({ error: "signature verification failed" });
       const rows = await sql`
         SELECT p.id, p.crate, p.rarity, p.state, p.resolved_at, p.created_at, p.refund_raw,
+               p.pay_currency, p.pay_decimals, p.discount_bps,
                p.listed, p.list_price_cents, p.ripped_by,
                k.game_title, k.image, k.msrp_cents, k.code_encrypted, k.status AS key_status
         FROM pulls p LEFT JOIN crate_keys k ON k.id = p.key_id
@@ -542,6 +659,9 @@ export default async function handler(req, res) {
           game: r.game_title, image: r.image, msrp_cents: r.msrp_cents,
           date: r.resolved_at || r.created_at,
           refund_raw: r.refund_raw ? String(r.refund_raw) : null,
+          pay_currency: r.pay_currency || "DROP",
+          pay_decimals: r.pay_decimals ?? decimalsFor(r.pay_currency || "DROP"),
+          discount_bps: r.discount_bps ?? 0,
           listed: !!r.listed, list_price_cents: r.list_price_cents ?? null,
           bought: !!(r.ripped_by && r.ripped_by !== owner),
           code,

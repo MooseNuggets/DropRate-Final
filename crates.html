@@ -94,6 +94,20 @@
     background:radial-gradient(58% 60% at 50% 100%,var(--rc),transparent 70%);opacity:.12}
   .dp{font-family:var(--mono);font-size:11px;color:var(--gold-2);margin-top:3px}
   .dp b{color:var(--ink)}
+  .dp s{color:var(--muted);opacity:.7;margin-right:4px}
+  /* pay-with picker: DROP / USDC / SOL */
+  .paywith{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  .paywith .lbl{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .paywith .pw{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;padding:7px 13px;border-radius:999px;cursor:pointer;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);transition:.15s}
+  .paywith .pw:hover{border-color:rgba(255,255,255,.28);color:var(--ink)}
+  .paywith .pw.on{background:rgba(246,172,41,.14);border-color:var(--gold-2);color:var(--gold-2);box-shadow:0 0 14px rgba(246,172,41,.22)}
+  .paywith .pw[data-c="SOL"].on{background:rgba(153,69,255,.16);border-color:#b47cff;color:#d9c2ff;box-shadow:0 0 14px rgba(153,69,255,.25)}
+  .paywith .pw[data-c="USDC"].on{background:rgba(39,117,202,.18);border-color:#5aa2ef;color:#bcdcff;box-shadow:0 0 14px rgba(39,117,202,.28)}
+  .paywith .perk{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:999px;border:1px dashed rgba(246,172,41,.45);color:var(--gold-2);margin-left:auto}
+  .paywith .perk.off{border-color:rgba(255,255,255,.14);color:var(--muted)}
+  .paywith .perk b{color:var(--ink)}
+  @media (max-width:640px){ .paywith .perk{margin-left:0;width:100%} }
   .ratebar{font-family:var(--mono);font-size:11px;color:var(--muted);margin:2px 0 12px;display:flex;gap:8px;align-items:center}
   .ratebar .dot{width:7px;height:7px;border-radius:50%;background:#2ee6a6;box-shadow:0 0 8px #2ee6a6}
   .timer{margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--muted)}
@@ -262,7 +276,14 @@
     <p class="sub">Provably-fair crates — published odds, drand-verified pulls. Crack it open and a game spills out. Love it? Keep the key. Don't love it? Sell it back for 70%.</p>
   </section>
 
-  <div class="ratebar"><span class="dot"></span>crates priced in USD · paid in $DROP at the live rate · you approve the exact amount in your wallet</div>
+  <div class="ratebar"><span class="dot"></span>crates priced in USD · pay in $DROP, USDC or SOL at the live rate · you approve the exact amount in your wallet</div>
+  <div class="paywith" id="paywith">
+    <span class="lbl">pay with</span>
+    <button class="pw on" data-c="DROP">$DROP</button>
+    <button class="pw" data-c="USDC">USDC</button>
+    <button class="pw" data-c="SOL">SOL</button>
+    <span class="perk off" id="perk">hold <b>100,000 $DROP</b> → 10% off when you pay in $DROP</span>
+  </div>
   <div class="rail" id="rail"></div>
 
   <div class="stage" id="stage">
@@ -429,6 +450,19 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');cle
 
 // ---------- listing modal (on-brand replacement for the browser prompt) ----------
 let DROP_USD=null; // USD price of 1 $DROP, cached from the price endpoint
+// Crate payment rail. $DROP keeps the burn split + the 100k-holder 10% discount;
+// USDC/SOL are list price, no discount, whatever the wallet holds.
+let PAY_CUR='DROP';
+let PRICES=null;      // last /price response (per-crate raw amounts in every currency)
+const CUR_DEC={DROP:6,USDC:6,SOL:9};
+const CUR_LABEL={DROP:'$DROP',USDC:'USDC',SOL:'SOL'};
+function fmtAmt(raw,cur){
+  if(raw==null) return '—';
+  const w=Number(raw)/Math.pow(10,CUR_DEC[cur]??6);
+  if(cur==='SOL') return (w>=10?w.toFixed(2):w.toFixed(3)).replace(/\.?0+$/,'')+' SOL';
+  if(cur==='USDC') return '$'+w.toFixed(2)+' USDC';
+  return Math.round(w).toLocaleString()+' $DROP';
+}
 async function ensureDropUsd(){
   if(DROP_USD!=null) return DROP_USD;
   try{
@@ -502,6 +536,7 @@ async function useWallet(provider){
     $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4);
     toast('Wallet connected.');
     refreshCTA();
+    updateDropPrices(); // re-quote with owner → holder discount badge
   }catch(e){ toast('Connection cancelled.'); }
 }
 function connectWallet(){
@@ -549,11 +584,36 @@ const chest=r=>`<svg class="chestsvg" viewBox="0 0 100 98">
 $('rail').innerHTML=Object.entries(CRATES).map(([k,c])=>`
   <div class="crate ${k===selected?'sel':''}" data-c="${k}" style="--rc:${RCOLOR[k]}">
     <div class="rl"><span class="tier">${k}</span><span class="price">$${c.price}</span></div>
-    <div class="dp" id="dp-${k}">paid in $DROP</div>
+    <div class="dp" id="dp-${k}">paid in ${CUR_LABEL[PAY_CUR]}</div>
     <div class="soldout">Sold out · restocking</div>
     <div class="box">${chest(k)}</div><div class="hint">${c.blurb}</div></div>`).join('');
 $('rail').addEventListener('click',e=>{const el=e.target.closest('.crate');if(!el||busy)return;
   selected=el.dataset.c;document.querySelectorAll('.crate').forEach(c=>c.classList.toggle('sel',c.dataset.c===selected));syncStage();});
+$('paywith').addEventListener('click',e=>{const el=e.target.closest('.pw');if(!el||busy)return;
+  PAY_CUR=el.dataset.c;document.querySelectorAll('.paywith .pw').forEach(p=>p.classList.toggle('on',p.dataset.c===PAY_CUR));
+  paintPrices(); refreshCTA();});
+// Repaint the rail + perk pill from the cached /price response for PAY_CUR.
+function paintPrices(){
+  if(!PRICES||!PRICES.crates) return;
+  const holder=PRICES.holder||{};
+  for(const [k,info] of Object.entries(PRICES.crates)){
+    const el=document.getElementById('dp-'+k); if(!el) continue;
+    if(PAY_CUR==='DROP'){
+      const disc=holder.qualifies&&info.dropListRaw&&info.dropListRaw!==info.dropRaw;
+      el.innerHTML=(disc?`<s>${fmtAmt(info.dropListRaw,'DROP').replace(' $DROP','')}</s>`:'')+'≈ <b>'+fmtAmt(info.dropRaw,'DROP')+'</b>'+(disc?' · −10%':'');
+    }else if(PAY_CUR==='USDC'){
+      el.innerHTML='<b>'+fmtAmt(info.usdcRaw,'USDC')+'</b>';
+    }else{
+      el.innerHTML=info.solRaw?'≈ <b>'+fmtAmt(info.solRaw,'SOL')+'</b>':'SOL price loading…';
+    }
+  }
+  const perk=$('perk'); if(!perk) return;
+  const min=Number(holder.minTokens||100000).toLocaleString();
+  if(PAY_CUR!=='DROP'){ perk.className='perk off'; perk.innerHTML=`no holder discount on ${CUR_LABEL[PAY_CUR]} — pay in $DROP to use it`; }
+  else if(!OWNER){ perk.className='perk off'; perk.innerHTML=`hold <b>${min} $DROP</b> → 10% off when you pay in $DROP`; }
+  else if(holder.qualifies){ perk.className='perk'; perk.innerHTML=`✦ holder discount active · <b>10% off</b> every crate`; }
+  else { perk.className='perk off'; perk.innerHTML=`hold <b>${min} $DROP</b> to unlock 10% off`; }
+}
 
 function renderOdds(){
   const c=CRATES[selected];$('oddsTitle').textContent=`${selected} crate odds`;
@@ -562,9 +622,20 @@ function renderOdds(){
   }).join('')+`<div class="odd" style="--rc2:var(--muted)"><span class="n" style="color:var(--muted)">pity</span><span style="grid-column:2/4;font-family:var(--mono);font-size:11px;color:var(--muted)">guaranteed ${c.floor}+ within ${PITY} pulls</span></div>`;
 }
 
+// "OPEN CRATE — $4.99 · ≈ 12,400 $DROP (−10%)" / "… · $4.99 USDC" / "… · ≈ 0.024 SOL"
+function ctaLabel(){
+  const c=CRATES[selected]; const info=PRICES&&PRICES.crates&&PRICES.crates[selected];
+  let tail='';
+  if(info){
+    if(PAY_CUR==='DROP'){ tail=' · ≈ '+fmtAmt(info.dropRaw,'DROP')+((PRICES.holder||{}).qualifies?' (−10%)':''); }
+    else if(PAY_CUR==='USDC'){ tail=' · '+fmtAmt(info.usdcRaw,'USDC'); }
+    else if(info.solRaw){ tail=' · ≈ '+fmtAmt(info.solRaw,'SOL'); }
+  } else tail=' · '+CUR_LABEL[PAY_CUR];
+  return `OPEN CRATE — $${c.price}${tail}`;
+}
 function refreshCTA(){
   const rip=$('rip');
-  if(rip){ rip.disabled=busy; rip.textContent = OWNER?`OPEN CRATE — $${CRATES[selected].price}`:'CONNECT WALLET TO OPEN'; }
+  if(rip){ rip.disabled=busy; rip.textContent = OWNER?ctaLabel():'CONNECT WALLET TO OPEN'; }
 }
 function syncStage(){
   clearInterval(claimTimer);
@@ -573,7 +644,7 @@ function syncStage(){
   $('reelwrap').classList.remove('on');$('marker').style.opacity=0;
   { const gs=$('gshow'); if(gs) gs.classList.remove('busy'); }
   $('stageInner').classList.remove('center');
-  $('stageInner').innerHTML=`<div class="cta"><button class="rip" id="rip">${OWNER?`OPEN CRATE — $${c.price}`:'CONNECT WALLET TO OPEN'}</button>
+  $('stageInner').innerHTML=`<div class="cta"><button class="rip" id="rip">${OWNER?ctaLabel():'CONNECT WALLET TO OPEN'}</button>
     <div class="fair">provably fair · <b>drand</b>-verified · odds published below</div></div>`;
   $('status').innerHTML='idle · commit → <b>drand</b> → reveal';
   renderOdds();
@@ -646,9 +717,11 @@ async function doRip(){
   $('stageInner').classList.remove('center'); $('stageInner').innerHTML='';
   try{
     $('status').innerHTML='opening a quote…';
-    const o=await api({action:'open',owner:OWNER,crate:selected});
+    const o=await api({action:'open',owner:OWNER,crate:selected,currency:PAY_CUR});
     if(o.error){ toast(o.error==='out-of-stock'?'That box is restocking — try another tier.':o.error); return resetStage(); }
     const pullId=o.pullId;
+    if(o.discountBps>0) toast(`✦ Holder discount applied · ${o.discountBps/100}% off`);
+    $('status').innerHTML=`quote locked · <b>${fmtAmt(o.pay&&o.pay.amountRaw,o.currency||PAY_CUR)}</b>`;
 
     $('status').innerHTML='building your payment…';
     const bp=await api({action:'buildpay',pullId,payer:OWNER});
@@ -755,8 +828,9 @@ async function handleGate(a){
     $('status').innerHTML='refunding…';
     const r=await api({action:'sellback',pullId:last.pullId,owner:OWNER});
     if(r.error){ toast(r.error==='window-closed'?'Window closed — the key is yours to claim.':r.error); return; }
-    const toks=r.refundRaw?Math.round(Number(r.refundRaw)/1e6):0;
-    toast(`↺ Refund ${r.sent?'sent':'queued'} · ${fmt(toks)} $DROP · key back in the pool.`);
+    // refund lands in the currency the crate was paid in (server tells us which)
+    const rc=r.currency||'DROP'; if(r.decimals!=null) CUR_DEC[rc]=r.decimals;
+    toast(`↺ Refund ${r.sent?'sent':'queued'} · ${fmtAmt(r.refundRaw,rc)} · key back in the pool.`);
     syncStage();
   }else if(a==='list'){
     const defCents=(last.win&&last.win.msrp_cents!=null)?last.win.msrp_cents:null;
@@ -774,15 +848,17 @@ async function handleGate(a){
 // ---------- boot ----------
 async function updateDropPrices(){
   try{
-    const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'price'})});
+    // `owner` lets the server tell us whether this wallet clears the 100k
+    // $DROP holder bar. Display only — `open` re-checks on-chain at quote time.
+    const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'price',owner:OWNER||undefined})});
     const j=await r.json();
     if(!j||!j.crates) return;
     if(j.dropUsd) DROP_USD=j.dropUsd;
-    const dec=j.decimals||6;
-    for(const [k,info] of Object.entries(j.crates)){
-      const el=document.getElementById('dp-'+k);
-      if(el&&info.dropRaw){ const whole=Number(info.dropRaw)/Math.pow(10,dec); el.textContent='≈ '+Math.round(whole).toLocaleString()+' $DROP'; }
-    }
+    if(j.decimals) CUR_DEC.DROP=j.decimals;
+    if(j.fiatDecimals){ Object.assign(CUR_DEC,j.fiatDecimals); }
+    PRICES=j;
+    paintPrices();
+    if(!busy) refreshCTA();
   }catch{}
 }
 // ---------- My Wins (signed history) ----------
@@ -897,7 +973,10 @@ function renderWins(items){
     const actionable=(it.state==='kept')||(it.bought&&it.state==='sealed');
     let foot;
     if(it.code) foot=`<div class="wincode" data-code="${esc(it.code)}" title="click to copy">${esc(it.code)}</div>`;
-    else if(it.state==='sold_back') foot='<div class="winstat">↺ sold back · refunded</div>';
+    else if(it.state==='sold_back'){
+      const rc=it.pay_currency||'DROP'; if(it.pay_decimals!=null) CUR_DEC[rc]=it.pay_decimals;
+      foot=`<div class="winstat">↺ sold back · refunded ${it.refund_raw?esc(fmtAmt(it.refund_raw,rc)):''}</div>`;
+    }
     else if(it.state==='owed') foot='<div class="winstat">⏳ owed · pending restock</div>';
     else if(actionable){
       const reveal=`<button class="winreveal" data-i="${i}">Reveal${it.bought?' key':' &amp; keep key'}</button>`;
@@ -1082,7 +1161,7 @@ $('winsBtn').addEventListener('click',openWins);
 $('walletBtn').addEventListener('click',connectWallet);
 syncStage();
 updateDropPrices(); setInterval(updateDropPrices,25000);
-(async()=>{ const w=detectWallets().find(x=>x.provider.isConnected&&x.provider.publicKey); if(w){ wallet=w.provider; OWNER=w.provider.publicKey.toString(); $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4); refreshCTA(); } })();
+(async()=>{ const w=detectWallets().find(x=>x.provider.isConnected&&x.provider.publicKey); if(w){ wallet=w.provider; OWNER=w.provider.publicKey.toString(); $('walletBtn').textContent=OWNER.slice(0,4)+'…'+OWNER.slice(-4); refreshCTA(); updateDropPrices(); } })();
 
 // mobile hamburger: toggle the nav dropdown; close on link tap or outside tap
 (function(){ var mb=$('menuBtn'), nv=document.querySelector('header .navright'); if(!mb||!nv) return;
