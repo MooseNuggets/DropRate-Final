@@ -825,14 +825,19 @@ function avatar(dev,big){ const s=big?' style="width:76px;height:76px;font-size:
 
 async function openGame(id){
   const ov=document.createElement('div'); ov.className='ov';
-  ov.innerHTML='<div class="ovc"><div class="ovhead"><h3>Loading…</h3><button class="x" data-close="1">×</button></div><div id="gvb"><div class="empty">Loading…</div></div></div>';
+  ov.innerHTML='<div class="ovc"><div class="ovhead"><h3>Loading…</h3><div style="display:flex;gap:8px;flex:0 0 auto"><button class="x" id="copylink" title="Copy a link to this game" style="width:auto;padding:0 12px;font-size:12px;font-family:var(--mono);letter-spacing:.08em">LINK</button><button class="x" data-close="1">×</button></div></div><div id="gvb"><div class="empty">Loading…</div></div></div>';
   ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) close(); });
-  function close(){ ov.remove(); document.body.style.overflow=''; }
+  // The URL bar shows /?game=ID while the sheet is open — that is the share
+  // link, and the same link the launcher and library use.
+  const link=location.origin+'/?game='+encodeURIComponent(id);
+  try{ history.replaceState(null,'',link); }catch{}
+  function close(){ ov.remove(); document.body.style.overflow=''; try{ history.replaceState(null,'','/'); }catch{} }
+  ov.querySelector('#copylink').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(link); toast('Link copied'); }catch{ prompt('Copy this link',link); } });
   document.body.style.overflow='hidden';
   addEventListener('keydown',function k(e){ if(e.key==='Escape'){ close(); removeEventListener('keydown',k); } });
   $('ovroot').appendChild(ov);
   const d=await api({action:'native-view',product_id:id});
-  if(!d||d.error){ ov.querySelector('#gvb').innerHTML='<div class="empty">'+esc((d&&d.error)||'Not found.')+'</div>'; return; }
+  if(!d||d.error){ ov.querySelector('.ovhead h3').textContent='Not on the shelf'; ov.querySelector('#gvb').innerHTML='<div class="empty">'+esc((d&&d.error)||'Not found.')+' — there is no game #'+esc(id)+' listed. <a href="/" style="color:var(--gold)">Back to the store</a></div>'; return; }
   const p=d.product, dev=d.dev||{};
   const media=[]; (p.videos||[]).forEach(v=>media.push({t:'v',s:v})); if(p.image) media.push({t:'i',s:p.image}); (p.media||[]).forEach(m=>media.push({t:'i',s:m})); if(!media.length) media.push({t:'i',s:''});
   const showThumbs=media.length>1;
