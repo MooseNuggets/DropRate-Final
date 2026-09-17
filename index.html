@@ -417,7 +417,6 @@
   </div>
 </header>
 
-<div class="ribbon"><div class="track" id="ticker"></div></div>
 
 <div class="wrap">
   <section class="hero">
@@ -534,12 +533,6 @@ const MARK=c=>'<svg class="'+c+'" viewBox="0 0 100 116" aria-hidden="true"><use 
    no discount for holding it — the token's perks are in the raffles and the
    crates, and deliberately nowhere near a game purchase. */
 
-/* ticker */
-(function(){
-  const items=['Games you actually own','Resell them like a disc','Devs earn on every resale','Open editions or limited runs','Devs keep 95% of every sale','No subscription, no lock-in'];
-  const one=items.map((t,i)=>'<span>'+SPARK()+t+'</span>').join('');
-  $('ticker').innerHTML=one+one;
-})();
 
 async function api(body){
   try{ const r=await fetch('/api/crate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ns:'devmarket',...body})}); return await r.json(); }
