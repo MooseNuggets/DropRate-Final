@@ -96,10 +96,13 @@
       <span>DROP<span class="rate">RATE</span></span>
     </a>
     <nav class="nav-links">
-      <a href="/draws.html">Draws</a>
-      <a href="/store.html">Store</a>
+      <a href="/">Store</a>
       <a href="/marketplace.html">Marketplace</a>
-      <a href="/library.html" class="on">Library</a>
+      <a href="/crates.html">Crates</a>
+      <a href="/raffles.html">Raffles</a>
+      <a class="on" href="/library.html">Library</a>
+      <a href="/docs.html">Docs</a>
+      <a href="/download.html" style="color:var(--gold)">Get the app</a>
       <button class="wallet" id="connectBtn">Connect Wallet</button>
     </nav>
   </div>
@@ -158,7 +161,7 @@ function card(c) {
             ? `<button class="btn" disabled>No longer yours</button>`
             : (c.runtime === 'web'
               ? `<a class="btn" href="/play.html?id=${encodeURIComponent(c.product_id)}">Play</a>`
-              : `<a class="btn" href="/store.html?game=${encodeURIComponent(c.product_id)}">Download</a>`)}
+              : `<a class="btn" href="/?game=${encodeURIComponent(c.product_id)}">Download</a>`)}
           <a class="btn ghost" href="${solscan}" target="_blank" rel="noopener" title="View on-chain">↗</a>
         </div>
       </div>
@@ -201,7 +204,7 @@ async function load() {
     sub.textContent = 'Everything you own, checked against the chain — not against our records.';
     empty('No games yet',
       'Buy something from the store and it lands here, with its serial number, ready to play.',
-      `<a class="btn" href="/store.html">Browse the store</a>`);
+      `<a class="btn" href="/">Browse the store</a>`);
     return;
   }
 

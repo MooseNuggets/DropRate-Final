@@ -25,7 +25,7 @@
   .brand .rate{color:var(--gold)}
   .nav-links{display:flex;align-items:center;gap:26px;font-size:.8rem;color:#97a0c8;letter-spacing:.08em}
   .nav-links a{text-decoration:none;color:#97a0c8;transition:color .2s}
-  .nav-links a:hover{color:var(--gold)}
+  .nav-links a:hover,.nav-links a.on{color:var(--gold)}
   .navright{display:flex;align-items:center;gap:18px}
   .wins-btn{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);cursor:pointer;border:1px solid var(--line-2);background:rgba(255,255,255,.04);padding:10px 14px;border-radius:10px;transition:.15s}
   .wins-btn:hover{border-color:var(--gold);color:var(--gold-2)}
@@ -124,9 +124,11 @@
     <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
     <div class="navright" id="nav">
       <nav class="nav-links">
-        <a href="/draws.html">Draws</a>
+        <a href="/">Store</a>
+        <a class="on" href="/marketplace.html">Marketplace</a>
         <a href="/crates.html">Crates</a>
-        <a href="/marketplace.html">Marketplace</a>
+        <a href="/raffles.html">Raffles</a>
+        <a href="/library.html">Library</a>
         <a href="/docs.html">Docs</a>
       </nav>
       <button class="wins-btn" id="myKeysBtn">My Keys</button>
@@ -152,7 +154,7 @@
 
   <!-- RESALE (player-to-player won keys) -->
   <section id="view-resale" class="hide">
-    <p class="lede">Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price; you pay the live $DROP equivalent.</p>
+    <p class="lede">Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price in USD; pay with <b>$DROP, USDC or SOL</b> at the live rate. The seller gets exactly what you paid.</p>
     <div class="note" id="resaleNote">Loading listings…</div>
     <div class="grid" id="resaleGrid"></div>
   </section>
@@ -181,6 +183,9 @@ const ini=g=>(g||'?').split(' ').map(w=>w[0]||'').join('').slice(0,3).toUpperCas
 const shortW=w=>w&&w.length>10?(w.slice(0,4)+'…'+w.slice(-4)):(w||'');
 const usd=c=>'$'+((c||0)/100).toFixed(2);
 const fmtDrop=(raw,dec)=>{const n=Number(raw)/Math.pow(10,dec||6);return n>=1000?Math.round(n).toLocaleString('en-US'):n.toLocaleString('en-US',{maximumFractionDigits:2});};
+const fmtSol=raw=>{const n=Number(raw)/1e9;return (n>=10?n.toFixed(2):n.toFixed(3)).replace(/\.?0+$/,'');};
+const fmtUsdc=raw=>(Number(raw)/1e6).toFixed(2);
+const RESALE_CUR_LABEL={DROP:'$DROP',USDC:'USDC',SOL:'SOL'};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);}
 function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
 
@@ -246,22 +251,29 @@ function renderResale(d){
   grid.innerHTML=L.map(it=>{
     const rc=RC[it.rarity]||'var(--muted)';
     const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.game));
+    // one button per rail; the seller is paid in whatever the buyer picks
+    const btns=[
+      '<button class="buy" data-rid="'+it.id+'" data-cur="DROP" style="width:100%">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP</button>',
+      '<button class="buy ghostbuy" data-rid="'+it.id+'" data-cur="USDC" style="width:100%">'+fmtUsdc(it.usdc_raw)+' USDC</button>',
+      it.sol_raw?'<button class="buy ghostbuy" data-rid="'+it.id+'" data-cur="SOL" style="width:100%">≈ '+fmtSol(it.sol_raw)+' SOL</button>':'',
+    ].join('');
     return '<div class="card" style="--rc:'+rc+'"><div class="cover">'+cover+'</div><div class="body">'+
       '<div class="tag" style="color:'+rc+'">'+esc(it.rarity)+' · '+esc(it.crate)+' crate</div>'+
       '<div class="title">'+esc(it.game)+'</div>'+
-      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">≈ '+fmtDrop(it.drop_raw,d.decimals)+' $DROP'+(it.msrp_cents?(' · MSRP '+usd(it.msrp_cents)):'')+'</div></div>'+
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+(it.msrp_cents?('MSRP '+usd(it.msrp_cents)+' · '):'')+'pay in any of three</div></div>'+
       '<div class="seller">seller '+esc(shortW(it.seller))+'</div>'+
-      '<button class="buy" data-rid="'+it.id+'">Buy with $DROP</button></div></div>';
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:auto">'+btns+'</div></div></div>';
   }).join('');
 }
 async function loadResale(){ const d=await capi({action:'market'}); if(d&&!d.error) renderResale(d); else $('resaleNote').textContent=''; }
-$('resaleGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-rid]'); if(b) buyResale(b.dataset.rid,b); });
-async function buyResale(id,btn){
+$('resaleGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-rid]'); if(b) buyResale(b.dataset.rid,b.dataset.cur||'DROP',b); });
+async function buyResale(id,cur,btn){
   if(!await ensureWallet()) return;
+  const label=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Working…';}
-  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent='Buy with $DROP';} };
-  toast('Preparing your purchase…');
-  const o=await capi({action:'buy-open',pullId:Number(id),buyer:OWNER});
+  const restore=()=>{ if(btn){btn.disabled=false;btn.textContent=label;} };
+  toast('Preparing your purchase · '+(RESALE_CUR_LABEL[cur]||cur)+'…');
+  const o=await capi({action:'buy-open',pullId:Number(id),buyer:OWNER,currency:cur});
   if(o.error){ toast(o.error); restore(); return; }
   const bp=await capi({action:'buy-buildpay',reference:o.reference,payer:OWNER});
   if(bp.error){ toast('Could not build payment: '+bp.error); restore(); return; }

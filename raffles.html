@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DropRate · Raffles — hold $DROP, win game keys</title>
+<meta name="description" content="DROPRATE is a Solana token that pays holders in games. Hold 10k+ $DROP, get auto-entered in 3 provably fair draws a day, win sealed mystery game keys. Free entry open to everyone.">
+<meta property="og:title" content="DROPRATE">
+<meta property="og:description" content="Every drop is a mystery. Even to us. 3 provably random game-key draws daily for $DROP holders.">
+<meta property="og:image" content="/assets/banner.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/assets/banner.png">
+<link rel="icon" type="image/png" href="/assets/mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0d1020; --panel:#161b31; --panel2:#1b2140; --line:#262d52;
+  --gold:#ffc24b; --gold-deep:#e8941b; --gold-hi:#ffecbe;
+  --violet:#8b7bff; --cyan:#4ec9ff;
+  --ice:#eef1fc; --dim:#97a0c8;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--void);color:var(--ice);font-family:'Poppins',sans-serif;overflow-x:hidden}
+a{color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.disp{font-family:'Chakra Petch',sans-serif;text-transform:uppercase}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+/* grid floor + grain */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+background-size:44px 44px;opacity:.16;
+mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 0%,transparent 75%)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.05;
+background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E")}
+#rain{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-drop{position:absolute;top:-120px;animation:fall linear infinite;opacity:.1}
+@keyframes fall{to{transform:translateY(115vh)}}
+/* header */
+header{position:sticky;top:0;z-index:20;background:rgba(13,16,32,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:.1em;font-size:1.02rem;text-decoration:none}
+.brand .rate{color:var(--gold)}
+.nav-links{display:flex;gap:26px;font-size:.8rem;color:var(--dim);letter-spacing:.08em}
+.nav-links a{text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--gold)}
+.menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:8px;
+color:var(--gold);font-size:1.3rem;padding:4px 12px;cursor:pointer;line-height:1.4}
+@media(max-width:700px){
+  .nav-links{display:none;position:absolute;top:64px;left:0;right:0;
+    background:var(--panel);border-bottom:1px solid var(--line);
+    flex-direction:column;gap:0;padding:8px 0;z-index:30}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:14px 24px;border-top:1px solid var(--line);font-size:.95rem}
+  .menu-btn{display:block}
+}
+.ticker{background:var(--gold);color:#231a05;font-weight:600;font-size:.72rem;letter-spacing:.14em;
+overflow:hidden;white-space:nowrap;padding:7px 0;position:relative;z-index:19;font-family:'JetBrains Mono',monospace}
+.ticker-track{display:inline-block;animation:tick 30s linear infinite}
+@keyframes tick{to{transform:translateX(-50%)}}
+.ticker span{margin:0 18px}
+/* ambient lighting zones */
+.amb{position:absolute;pointer-events:none;z-index:0;filter:blur(90px);opacity:.5}
+.amb-gold{width:560px;height:560px;background:radial-gradient(circle,rgba(255,194,75,.16),transparent 65%);top:-120px;right:-140px}
+.amb-cyan{width:480px;height:480px;background:radial-gradient(circle,rgba(78,201,255,.10),transparent 65%);top:340px;left:-180px}
+.amb-violet{width:520px;height:520px;background:radial-gradient(circle,rgba(139,123,255,.12),transparent 65%);bottom:-160px;left:30%}
+/* hero — split stage */
+.hero{position:relative;z-index:1;padding:58px 0 72px}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center;text-align:left}
+.hero-right{display:flex;flex-direction:column;align-items:center;gap:22px}
+@media(max-width:860px){
+  .hero-grid{grid-template-columns:1fr;text-align:center}
+  .hero .sysbar,.hero .cta-row,.hero .count{justify-content:center}
+  .hero .sub{margin-left:auto;margin-right:auto}
+}
+.sysbar{display:flex;gap:12px;margin-bottom:30px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(22,27,49,.8);
+padding:8px 16px;font-size:.7rem;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+font-family:'JetBrains Mono',monospace;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.chip b{color:var(--ice);font-weight:600}
+.chip .dot{width:7px;height:7px;border-radius:50%}
+.dot-live{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite}
+.dot-gold{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.dot-violet{background:var(--violet);box-shadow:0 0 8px var(--violet)}
+@keyframes pulse{50%{opacity:.4}}
+/* reticle drop — the signature */
+.reticle{position:relative;width:290px;height:315px}
+.reticle .drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation:float 5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.reticle .glow{position:absolute;inset:-24px;background:radial-gradient(closest-side,rgba(255,194,75,.3),transparent 70%);animation:pulse 4.5s infinite}
+.reticle .ring{position:absolute;inset:8px;border-radius:50%;border:1.5px dashed rgba(78,201,255,.4);animation:spin 24s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.reticle .corner{position:absolute;width:26px;height:26px;border:2px solid var(--cyan);opacity:.8}
+.reticle .c1{top:0;left:0;border-right:none;border-bottom:none}
+.reticle .c2{top:0;right:0;border-left:none;border-bottom:none}
+.reticle .c3{bottom:0;left:0;border-right:none;border-top:none}
+.reticle .c4{bottom:0;right:0;border-left:none;border-top:none}
+.reticle .tick{position:absolute;background:rgba(78,201,255,.55)}
+.reticle .tv{width:2px;height:12px;left:50%;transform:translateX(-50%)}
+.reticle .th{height:2px;width:12px;top:50%;transform:translateY(-50%)}
+.reticle .t-top{top:-2px}.reticle .t-bot{bottom:-2px}.reticle .t-left{left:-2px}.reticle .t-right{right:-2px}
+.reticle .scan{position:absolute;left:6%;right:6%;height:2px;background:linear-gradient(90deg,transparent,rgba(78,201,255,.5),transparent);
+animation:scan 4.5s ease-in-out infinite;top:10%}
+@keyframes scan{0%,100%{top:10%;opacity:0}12%{opacity:1}50%{top:88%}88%{opacity:1}}
+.reticle .tag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--void);
+border:1px solid var(--cyan);color:var(--cyan);font-size:.62rem;letter-spacing:.26em;padding:3px 12px;
+font-family:'JetBrains Mono',monospace}
+h1{font-family:'Chakra Petch',sans-serif;font-size:clamp(2.2rem,5.4vw,4rem);font-weight:700;letter-spacing:.03em;line-height:1.05}
+h1 .rate{background:linear-gradient(180deg,var(--gold-hi),var(--gold) 45%,var(--gold-deep));
+-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{transition:text-shadow .15s}
+h1:hover{text-shadow:3px 0 rgba(78,201,255,.55),-3px 0 rgba(139,123,255,.55);animation:jitter .25s steps(2) infinite}
+@keyframes jitter{50%{transform:translateX(1px)}}
+.tagline{margin-top:12px;font-family:'Chakra Petch',sans-serif;font-size:clamp(.9rem,2.3vw,1.15rem);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.tagline .q{color:var(--violet)}
+.sub{color:var(--dim);max-width:520px;margin:18px 0 0;line-height:1.75;font-size:.95rem}
+.sub b{color:var(--ice);font-weight:600}
+.count{display:flex;gap:12px;margin-top:34px}
+.cbox{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+min-width:86px;padding:14px 8px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.cbox b{display:block;font-family:'JetBrains Mono',monospace;font-size:1.9rem;font-weight:600;color:var(--gold)}
+.cbox span{font-size:.62rem;letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
+.count-label{margin-top:12px;font-size:.72rem;color:var(--cyan);letter-spacing:.22em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+.btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:8px;padding:15px 30px;
+font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;
+text-decoration:none;transition:transform .15s;border:1px solid transparent;
+clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.btn:hover{transform:translateY(-2px)}
+.btn-gold{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;box-shadow:0 8px 30px rgba(255,194,75,.28)}
+.btn-gold::after{content:"";position:absolute;top:0;left:-80%;width:50%;height:100%;
+background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);animation:shine 3.4s ease-in-out infinite}
+@keyframes shine{0%,55%{left:-80%}75%,100%{left:130%}}
+.btn-ghost{border-color:var(--line);color:var(--ice);background:rgba(22,27,49,.7)}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.console{width:300px;background:var(--panel);border:1px solid var(--line);
+clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,0 100%)}
+.console .sec{padding:15px 18px}
+.console .sec+.sec{border-top:1px solid var(--line)}
+.console .lt-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.26em;color:var(--cyan);margin-bottom:9px}
+.console .lt-prize{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em}
+.console .lt-win{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--gold);margin-top:6px}
+.console .entry-row{display:flex;gap:8px;margin-top:11px}
+.console input{flex:1;min-width:0;background:var(--void);border:1px solid var(--line);color:var(--ice);
+padding:10px 11px;font-size:.7rem;outline:none;font-family:'JetBrains Mono',monospace}
+.console input:focus{border-color:var(--gold)}
+.console .go{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#231a05;border:none;
+font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+padding:0 14px;cursor:pointer}
+.console .go:disabled{opacity:.5}
+.console .msg{font-size:.7rem;margin-top:8px;line-height:1.5}
+.console .msg.ok{color:#4ade80}.console .msg.err{color:#f87171}
+.console .fine{font-size:.62rem;color:var(--dim);margin-top:7px;line-height:1.5}
+.console .lt-link{font-size:.68rem;color:var(--dim);text-decoration:none}
+.console .lt-link:hover{color:var(--cyan)}
+.ca{display:inline-flex;align-items:center;gap:10px;margin-top:30px;background:var(--panel);
+border:1px dashed var(--line);padding:11px 16px;font-size:.78rem;color:var(--dim);cursor:pointer;transition:border-color .2s}
+.ca:hover{border-color:var(--gold)}
+.ca code{font-family:'JetBrains Mono',monospace;color:var(--ice);word-break:break-all;font-size:.72rem}
+.ca .copy{color:var(--gold);font-weight:600;white-space:nowrap}
+/* sections */
+section{position:relative;z-index:1;padding:78px 0}
+.eyebrow{font-family:'JetBrains Mono',monospace;color:var(--cyan);letter-spacing:.3em;font-size:.66rem;
+font-weight:600;text-transform:uppercase;margin-bottom:14px}
+.eyebrow::before{content:"[ "}.eyebrow::after{content:" ]"}
+h2{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;font-size:clamp(1.5rem,3.6vw,2.2rem);
+font-weight:700;margin-bottom:14px;letter-spacing:.03em}
+.section-sub{color:var(--dim);line-height:1.75;max-width:600px;font-size:.93rem}
+.section-sub b{color:var(--ice)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+@media(max-width:760px){.steps{grid-template-columns:1fr}}
+.step{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));
+border:1px solid var(--line);padding:30px 24px;transition:border-color .25s,transform .25s;
+clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%)}
+.step::before{content:"";position:absolute;top:0;left:0;right:22px;height:2px;background:var(--gold);
+transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.step:hover::before{transform:scaleX(1)}
+.step:hover{border-color:var(--gold);transform:translateY(-5px)}
+.step:hover .ico{filter:drop-shadow(0 0 8px rgba(255,194,75,.6))}
+.step .ico{transition:filter .3s}
+.step .num{font-family:'JetBrains Mono',monospace;color:var(--cyan);font-size:.68rem;letter-spacing:.26em;margin-bottom:14px}
+.step .ico{width:44px;height:44px;margin-bottom:16px}
+.step h3{font-family:'Chakra Petch',sans-serif;text-transform:uppercase;font-size:.98rem;margin-bottom:10px;letter-spacing:.05em}
+.step p{color:var(--dim);font-size:.87rem;line-height:1.7}
+.step .hl{color:var(--gold);font-weight:600}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
+@media(max-width:860px){.hud{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.hud{grid-template-columns:1fr}}
+.hudbox{position:relative;background:var(--panel);border:1px solid var(--line);padding:24px 18px;text-align:center}
+.hudbox::before,.hudbox::after{content:"";position:absolute;width:13px;height:13px;border:2px solid var(--gold)}
+.hb-cyan::before,.hb-cyan::after{border-color:var(--cyan)} .hb-cyan b{color:var(--cyan)}
+.hb-violet::before,.hb-violet::after{border-color:var(--violet)} .hb-violet b{color:var(--violet)}
+.hudbox::before{top:-2px;left:-2px;border-right:none;border-bottom:none}
+.hudbox::after{bottom:-2px;right:-2px;border-left:none;border-top:none}
+.hudbox b{display:block;font-family:'JetBrains Mono',monospace;font-size:2.1rem;color:var(--gold);font-weight:600}
+.hudbox small{display:block;color:var(--dim);font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;margin-top:5px}
+/* loot table */
+.mystery{background:linear-gradient(180deg,rgba(139,123,255,.06),transparent);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.loot-flex{display:flex;align-items:center;gap:52px;margin-top:14px}
+@media(max-width:860px){.loot-flex{flex-direction:column;gap:32px}}
+.qdrop{flex:0 0 auto;width:180px;position:relative;animation:float 5s ease-in-out infinite}
+.qdrop .qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+font-family:'Chakra Petch',sans-serif;font-size:4.4rem;font-weight:700;color:#231a05;padding-top:30px}
+.loot{flex:1;width:100%;background:var(--panel);border:1px solid var(--line);overflow:hidden;
+clip-path:polygon(0 0,calc(100% - 26px) 0,100% 26px,100% 100%,0 100%)}
+.loot .lt-head{display:flex;justify-content:space-between;padding:13px 22px;background:var(--panel2);
+font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+.lt-row{display:flex;align-items:center;gap:14px;padding:15px 22px;border-top:1px solid var(--line);
+border-left:3px solid transparent;font-size:.87rem;transition:background .2s,border-left-color .2s}
+.lt-row:nth-child(2):hover{border-left-color:var(--dim)}
+.lt-row:nth-child(3):hover{border-left-color:var(--cyan)}
+.lt-row:nth-child(4):hover{border-left-color:var(--violet)}
+.lt-row:nth-child(5):hover{border-left-color:var(--gold)}
+.lt-row:hover{background:rgba(255,194,75,.04)}
+.lt-row .tier{flex:0 0 118px;font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase}
+.lt-row .desc{flex:1;color:var(--dim);font-size:.83rem}
+.lt-row .rate{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:600}
+.t-common{color:var(--dim)} .t-rare{color:var(--cyan)} .t-epic{color:var(--violet)} .t-legend{color:var(--gold)}
+.loot .lt-foot{padding:12px 22px;border-top:1px dashed var(--line);font-size:.74rem;color:var(--dim);font-style:italic}
+/* receipt */
+.receipt{max-width:680px;margin-top:36px;background:var(--panel);border:1px dashed var(--gold);
+padding:32px 32px 26px;font-family:'JetBrains Mono',monospace}
+.receipt h3{font-size:.8rem;letter-spacing:.24em;text-align:center;margin-bottom:20px;color:var(--gold)}
+.ritem{display:flex;justify-content:space-between;gap:16px;font-size:.76rem;line-height:1.7;
+padding:9px 0;border-bottom:1px dotted var(--line);color:var(--dim)}
+.ritem:last-of-type{border-bottom:none}
+.ritem .k{color:var(--ice)}
+.ritem .v{color:var(--gold);white-space:nowrap}
+.receipt .total{margin-top:16px;padding-top:13px;border-top:2px solid var(--line);
+display:flex;justify-content:space-between;font-size:.8rem;color:var(--ice);font-weight:600}
+.receipt .total span:last-child{color:var(--gold)}
+.faq{max-width:720px;margin-top:34px}
+details{border-bottom:1px solid var(--line);padding:19px 4px}
+summary{cursor:pointer;font-weight:600;font-size:.94rem;list-style:none;display:flex;justify-content:space-between;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--gold);font-size:1.3rem;font-weight:400;transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{color:var(--dim);font-size:.87rem;line-height:1.75;padding-top:12px;max-width:640px}
+details p b{color:var(--ice)}
+footer{border-top:1px solid var(--line);padding:38px 0;position:relative;z-index:1}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.foot small{color:var(--dim);font-size:.73rem;line-height:1.6;max-width:520px}
+.foot .tag{color:var(--gold);font-style:italic;font-size:.78rem;margin-top:4px}
+::selection{background:var(--gold);color:#231a05}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+/* ---------- mobile breathing room ---------- */
+@media(max-width:640px){
+  .wrap{padding:0 18px}
+  .hero{padding:40px 0 56px}
+  .hero-grid{gap:34px}
+  .sysbar{gap:8px;margin-bottom:24px}
+  .chip{padding:7px 12px;font-size:.62rem;letter-spacing:.1em}
+  h1{font-size:clamp(1.9rem,9.5vw,2.6rem)}
+  .tagline{font-size:.82rem;letter-spacing:.04em}
+  .sub{font-size:.9rem;line-height:1.7}
+  .count{gap:8px;margin-top:28px}
+  .cbox{min-width:0;flex:1;padding:12px 4px}
+  .cbox b{font-size:1.5rem}
+  .cbox span{font-size:.56rem;letter-spacing:.16em}
+  .cta-row{flex-direction:column;gap:10px;margin-top:26px}
+  .btn{width:100%;justify-content:center;padding:14px 20px}
+  .ca{margin-top:24px;padding:10px 12px;width:100%;justify-content:space-between}
+  .ca code{font-size:.62rem}
+  .reticle{width:240px;height:262px}
+  .reticle .drop svg{width:168px;height:210px}
+  .console{width:100%;max-width:360px}
+  section{padding:56px 0}
+  h2{font-size:1.35rem}
+  .steps{gap:14px;margin-top:32px}
+  .step{padding:24px 20px}
+  .hud{gap:12px;margin-top:32px}
+  .hudbox{padding:18px 12px}
+  .hudbox b{font-size:1.7rem}
+  .loot-flex{gap:24px}
+  .qdrop{width:130px}
+  .qdrop .qmark{font-size:3.2rem;padding-top:22px}
+  .lt-row{padding:13px 14px;gap:10px}
+  .lt-row .tier{flex:0 0 92px;font-size:.66rem}
+  .lt-row .desc{font-size:.76rem}
+  .receipt{padding:24px 18px 20px}
+  .ritem{font-size:.68rem;gap:10px}
+  .ticker{font-size:.64rem}
+}
+@media (prefers-reduced-motion: reduce){
+  .bg-drop,.reticle .drop,.reticle .glow,.reticle .ring,.btn-gold::after,.ticker-track,.chip .dot{animation:none!important}
+  .bg-drop{display:none}
+}
+.nav-links a.active{color:var(--gold)}
+</style>
+</head>
+<body>
+<div id="rain" aria-hidden="true"></div>
+<header>
+  <div class="wrap nav">
+    <a class="brand disp" href="/">
+      <svg width="22" height="26" viewBox="0 0 100 116" aria-hidden="true">
+        <defs><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+        <path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="url(#gh)"/>
+      </svg>
+      <span>DROP<span class="rate">RATE</span></span>
+    </a>
+    <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
+<nav class="nav-links" id="nav-links">
+      <a href="/">Store</a>
+      <a href="/marketplace.html">Marketplace</a>
+      <a href="/crates.html">Crates</a>
+      <a class="active" href="/raffles.html">Raffles</a>
+      <a href="/library.html">Library</a>
+      <a href="/docs.html">Docs</a>
+    </nav>
+  </div>
+</header>
+<!-- raffle section tabs: everything raffle-related lives behind these -->
+<div class="rafnav" style="border-bottom:1px solid rgba(255,255,255,.08);background:rgba(8,11,24,.6);backdrop-filter:blur(6px)">
+  <div style="max-width:1120px;margin:0 auto;padding:0 20px;display:flex;gap:4px;overflow-x:auto;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase">
+    <span style="padding:11px 10px 11px 0;color:#F6AC29;font-weight:700;white-space:nowrap">Raffles</span>
+    <a href="/raffles.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#EDEFF9;border-bottom:2px solid #F6AC29">Overview</a>
+    <a href="/draws.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Draws</a>
+    <a href="/verify.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Verify</a>
+    <a href="/check.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Check eligibility</a>
+    <a href="/claim.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Claim a key</a>
+  </div>
+</div>
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <span>◆ 3 MYSTERY DRAWS EVERY DAY</span><span>◆ HOLD 10K $DROP = 1 TICKET</span><span>◆ CAPPED AT 100 TICKETS</span><span>◆ SELLING TRIGGERS COOLDOWN — DIAMOND HANDS ONLY</span><span>◆ PROVABLY RANDOM — RE-RUN THE MATH YOURSELF</span><span>◆ NOBODY KNOWS WHAT'S IN THE KEYS. NOBODY.</span><span>◆ SNAPSHOTS STRIKE WITHOUT WARNING</span><span>◆ 3 MYSTERY DRAWS EVERY DAY</span><span>◆ HOLD 10K $DROP = 1 TICKET</span><span>◆ CAPPED AT 100 TICKETS</span><span>◆ SELLING TRIGGERS COOLDOWN — DIAMOND HANDS ONLY</span><span>◆ PROVABLY RANDOM — RE-RUN THE MATH YOURSELF</span><span>◆ NOBODY KNOWS WHAT'S IN THE KEYS. NOBODY.</span><span>◆ SNAPSHOTS STRIKE WITHOUT WARNING</span>
+  </div>
+</div>
+<main>
+<section class="hero wrap">
+  <div class="amb amb-gold"></div><div class="amb amb-cyan"></div>
+  <div class="hero-grid">
+    <div class="hero-left">
+<div class="sysbar">
+        <div class="chip"><span class="dot dot-live"></span>DRAWS <b>LIVE</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>$DROP BURNED <b id="burned-n">—</b></div>
+        <div class="chip"><span class="dot dot-violet"></span>CRATES PULLED <b id="cratesopened-n">0</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>CRATE KEYS CLAIMED <b id="cratekeys-n">0</b></div>
+        <div class="chip"><span class="dot dot-gold"></span>RAFFLE KEYS CLAIMED <b id="claimed-n">0</b></div>
+        <div class="chip"><span class="dot dot-violet"></span>HOLDERS <b id="holders-n">—</b></div>
+      </div>
+      <h1>Hold $DROP.<br>Win <span class="rate">game keys.</span></h1>
+      <div class="tagline">Sealed game keys · 3 draws daily · <span class="q">free entry for everyone</span></div>
+      <p class="sub"><b>DROPRATE is a Solana token that pays its holders in games.</b> Hold 10,000+ $DROP
+         and you're automatically entered in every draw — no staking, no forms. Winners unseal
+         encrypted <b>mystery keys</b>: nobody knows what's inside until you claim.
+         Every drop is a mystery. Even to us.</p>
+      <div class="count" id="countdown">
+        <div class="cbox"><b id="cd-d">--</b><span>Days</span></div>
+        <div class="cbox"><b id="cd-h">--</b><span>Hours</span></div>
+        <div class="cbox"><b id="cd-m">--</b><span>Min</span></div>
+        <div class="cbox"><b id="cd-s">--</b><span>Sec</span></div>
+      </div>
+      <div class="count-label" id="count-label">Until the next drop falls</div>
+      <div class="cta-row">
+        <a class="btn btn-gold" id="buy-link" href="https://pump.fun/coin/3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump" target="_blank" rel="noopener">Buy $DROP</a>
+        <a class="btn btn-ghost" href="/draws.html">Enter a draw</a>
+        <a class="btn btn-ghost" id="x-link" href="https://x.com/DropRateGames" target="_blank" rel="noopener">Follow on X</a>
+      </div>
+      <div class="ca" id="ca" role="button" tabindex="0" aria-label="Copy contract address">
+        CA: <code id="ca-text">3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump</code>
+        <span class="copy" id="ca-copy">Copy</span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="reticle" aria-label="Sealed DROPRATE drop">
+        <div class="glow"></div>
+        <div class="ring"></div>
+        <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+        <span class="tick tv t-top"></span><span class="tick tv t-bot"></span><span class="tick th t-left"></span><span class="tick th t-right"></span>
+        <span class="scan"></span>
+        <span class="tag">SEALED</span>
+        <div class="drop">
+          <svg width="205" height="256" viewBox="0 0 120 150" role="img">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/>
+              </linearGradient>
+              <radialGradient id="hi1" cx="0.38" cy="0.34" r="0.32">
+                <stop offset="0" stop-color="#ffecbe" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="#ffecbe" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <path d="M60.0 12.0L60.0 12.2L60.1 12.9L60.3 14.0L60.6 15.6L61.2 17.6L62.1 20.0L63.2 22.9L64.7 26.0L66.5 29.6L68.5 33.4L70.9 37.6L73.5 42.0L76.3 46.6L79.3 51.5L82.3 56.5L85.4 61.6L88.3 66.8L91.2 72.0L93.8 77.2L96.0 82.4L97.9 87.5L99.3 92.5L100.2 97.4L100.5 102.0L100.2 106.4L99.2 110.6L97.6 114.4L95.4 118.0L92.5 121.1L89.1 124.0L85.1 126.4L80.7 128.4L75.9 130.0L70.7 131.1L65.4 131.8L60.0 132.0L54.6 131.8L49.3 131.1L44.1 130.0L39.3 128.4L34.9 126.4L30.9 124.0L27.5 121.1L24.6 118.0L22.4 114.4L20.8 110.6L19.8 106.4L19.5 102.0L19.8 97.4L20.7 92.5L22.1 87.5L24.0 82.4L26.2 77.2L28.8 72.0L31.7 66.8L34.6 61.6L37.7 56.5L40.7 51.5L43.7 46.6L46.5 42.0L49.1 37.6L51.5 33.4L53.5 29.6L55.3 26.0L56.8 22.9L57.9 20.0L58.8 17.6L59.4 15.6L59.7 14.0L59.9 12.9L60.0 12.2L60.0 12.0Z" fill="url(#g1)"/>
+            <path d="M60.0 12.0L60.0 12.2L60.1 12.9L60.3 14.0L60.6 15.6L61.2 17.6L62.1 20.0L63.2 22.9L64.7 26.0L66.5 29.6L68.5 33.4L70.9 37.6L73.5 42.0L76.3 46.6L79.3 51.5L82.3 56.5L85.4 61.6L88.3 66.8L91.2 72.0L93.8 77.2L96.0 82.4L97.9 87.5L99.3 92.5L100.2 97.4L100.5 102.0L100.2 106.4L99.2 110.6L97.6 114.4L95.4 118.0L92.5 121.1L89.1 124.0L85.1 126.4L80.7 128.4L75.9 130.0L70.7 131.1L65.4 131.8L60.0 132.0L54.6 131.8L49.3 131.1L44.1 130.0L39.3 128.4L34.9 126.4L30.9 124.0L27.5 121.1L24.6 118.0L22.4 114.4L20.8 110.6L19.8 106.4L19.5 102.0L19.8 97.4L20.7 92.5L22.1 87.5L24.0 82.4L26.2 77.2L28.8 72.0L31.7 66.8L34.6 61.6L37.7 56.5L40.7 51.5L43.7 46.6L46.5 42.0L49.1 37.6L51.5 33.4L53.5 29.6L55.3 26.0L56.8 22.9L57.9 20.0L58.8 17.6L59.4 15.6L59.7 14.0L59.9 12.9L60.0 12.2L60.0 12.0Z" fill="url(#hi1)"/>
+            <circle cx="44" cy="46" r="5" fill="#fff6dc" opacity="0.92"/>
+          </svg>
+        </div>
+      </div>
+      <div class="console" id="console">
+        <div class="sec">
+          <div class="lt-tag">// NEXT DROP — ENTER NOW</div>
+          <div class="lt-prize" id="next-prize">Loading…</div>
+          <div class="entry-row">
+            <input id="entry-wallet" placeholder="Your Solana wallet" spellcheck="false" autocomplete="off">
+            <input type="text" id="entry-hp" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off">
+            <button class="go" id="entry-go">Enter</button>
+          </div>
+          <div class="msg" id="entry-msg"></div>
+          <div class="fine" id="next-count"></div>
+          <div class="fine">Free entry · no purchase · 1 ticket. Holders are entered automatically.</div>
+        </div>
+        <div class="sec">
+          <div class="lt-tag">// LAST WINNER</div>
+          <div class="lt-prize" id="latest-prize">Awaiting first drop…</div>
+          <div class="lt-win" id="latest-winner"></div>
+          <a class="lt-link" href="/draws.html">All draws &amp; receipts →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">01 // How it works</div>
+    <h2>Hold. Snapshot. Win.</h2>
+    <p class="section-sub">No staking. No forms. No gas wars at 3am. If you hold, <b>you're automatically in every single draw.</b></p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">STEP_01</div>
+        <svg class="ico" viewBox="0 0 48 48"><path d="M24.0 4.0L24.0 4.1L24.0 4.3L24.1 4.6L24.2 5.1L24.4 5.8L24.7 6.5L25.0 7.4L25.5 8.4L26.0 9.6L26.7 10.8L27.4 12.1L28.2 13.5L29.1 15.0L30.0 16.5L31.0 18.1L31.9 19.7L32.9 21.3L33.7 23.0L34.5 24.7L35.3 26.3L35.8 27.9L36.3 29.5L36.6 31.0L36.7 32.5L36.6 33.9L36.3 35.2L35.8 36.4L35.1 37.6L34.2 38.6L33.1 39.5L31.8 40.2L30.5 40.9L29.0 41.4L27.4 41.7L25.7 41.9L24.0 42.0L22.3 41.9L20.6 41.7L19.0 41.4L17.5 40.9L16.2 40.2L14.9 39.5L13.8 38.6L12.9 37.6L12.2 36.4L11.7 35.2L11.4 33.9L11.3 32.5L11.4 31.0L11.7 29.5L12.2 27.9L12.7 26.3L13.5 24.7L14.3 23.0L15.1 21.3L16.1 19.7L17.0 18.1L18.0 16.5L18.9 15.0L19.8 13.5L20.6 12.1L21.3 10.8L22.0 9.6L22.5 8.4L23.0 7.4L23.3 6.5L23.6 5.8L23.8 5.1L23.9 4.6L24.0 4.3L24.0 4.1L24.0 4.0Z" fill="#ffc24b"/></svg>
+        <h3>Hold $DROP</h3>
+        <p>Every <span class="hl">10,000 $DROP</span> = one ticket, capped at <span class="hl">100 tickets</span> per wallet
+           so whales can't vacuum every draw. Tokens never leave your wallet. Ever.</p>
+      </div>
+      <div class="step">
+        <div class="num">STEP_02</div>
+        <svg class="ico" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="#8b7bff" stroke-width="3.5"/><path d="M24 13 v11 l8 5" fill="none" stroke="#8b7bff" stroke-width="3.5" stroke-linecap="round"/></svg>
+        <h3>Ninja snapshots</h3>
+        <p>Balances get snapshotted at <span class="hl">random, unannounced moments</span>. Hold the streak to qualify —
+           and <span class="hl">selling anything triggers a cooldown</span>. Diamond hands only.</p>
+      </div>
+      <div class="step">
+        <div class="num">STEP_03</div>
+        <svg class="ico" viewBox="0 0 48 48"><rect x="8" y="14" width="32" height="22" rx="5" fill="none" stroke="#4ec9ff" stroke-width="3.5"/><path d="M8 22 h32 M20 30 h8" stroke="#4ec9ff" stroke-width="3.5" stroke-linecap="round"/></svg>
+        <h3>Win &amp; unseal</h3>
+        <p>Winners are picked by <span class="hl">public randomness that doesn't exist yet</span> when the
+           draw locks. Sign one message, get your key, find out what you won.</p>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hudbox hb-cyan"><b data-count="3">3</b><small>Draws per day</small></div>
+      <div class="hudbox hb-gold"><b data-count="10" data-suffix="k">10k</b><small>$DROP per ticket</small></div>
+      <div class="hudbox hb-violet"><b data-count="100" data-suffix="%">100%</b><small>Verifiable draws</small></div>
+      <div class="hudbox hb-gold"><b id="claimed-hud">0</b><small>Keys claimed 🎁</small></div>
+    </div>
+  </div>
+</section>
+<section id="loot" class="mystery">
+  <div class="amb amb-violet"></div>
+  <div class="wrap">
+    <div class="eyebrow">02 // The loot table</div>
+    <h2>Every key has a drop rate.<br>Nobody's seen the table.</h2>
+    <div class="loot-flex">
+      <div class="qdrop">
+        <svg width="180" height="222" viewBox="0 0 120 150">
+          <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc24b"/><stop offset="1" stop-color="#e8941b"/></linearGradient></defs>
+          <path d="M60.0 12.0L60.0 12.2L60.1 12.9L60.3 14.0L60.6 15.6L61.2 17.6L62.1 20.0L63.2 22.9L64.7 26.0L66.5 29.6L68.5 33.4L70.9 37.6L73.5 42.0L76.3 46.6L79.3 51.5L82.3 56.5L85.4 61.6L88.3 66.8L91.2 72.0L93.8 77.2L96.0 82.4L97.9 87.5L99.3 92.5L100.2 97.4L100.5 102.0L100.2 106.4L99.2 110.6L97.6 114.4L95.4 118.0L92.5 121.1L89.1 124.0L85.1 126.4L80.7 128.4L75.9 130.0L70.7 131.1L65.4 131.8L60.0 132.0L54.6 131.8L49.3 131.1L44.1 130.0L39.3 128.4L34.9 126.4L30.9 124.0L27.5 121.1L24.6 118.0L22.4 114.4L20.8 110.6L19.8 106.4L19.5 102.0L19.8 97.4L20.7 92.5L22.1 87.5L24.0 82.4L26.2 77.2L28.8 72.0L31.7 66.8L34.6 61.6L37.7 56.5L40.7 51.5L43.7 46.6L46.5 42.0L49.1 37.6L51.5 33.4L53.5 29.6L55.3 26.0L56.8 22.9L57.9 20.0L58.8 17.6L59.4 15.6L59.7 14.0L59.9 12.9L60.0 12.2L60.0 12.0Z" fill="url(#g2)"/>
+        </svg>
+        <div class="qmark">?</div>
+      </div>
+      <div class="loot">
+        <div class="lt-head"><span>Rarity</span><span>Drop rate</span></div>
+        <div class="lt-row"><span class="tier t-common">■ Common</span><span class="desc">A game. Definitely a game. Possibly about fishing.</span><span class="rate">??%</span></div>
+        <div class="lt-row"><span class="tier t-rare">■ Rare</span><span class="desc">Solid title you'd actually wishlist.</span><span class="rate">??%</span></div>
+        <div class="lt-row"><span class="tier t-epic">■ Epic</span><span class="desc">The screenshot-your-claim kind of win.</span><span class="rate">??%</span></div>
+        <div class="lt-row"><span class="tier t-legend">■ Legendary</span><span class="desc">AAA keys are in the pool. Somewhere.</span><span class="rate">??%</span></div>
+        <div class="lt-foot">Keys are encrypted before anyone on the team can read them — the table above is unknowable by design. GL;HF.</div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="verify">
+  <div class="wrap">
+    <div class="eyebrow">03 // Trust, but verify</div>
+    <h2>Don't trust us. Check us.</h2>
+    <p class="section-sub">Every draw publishes its receipts. If the numbers don't reproduce, we can't hide it — <b>that's the design.</b></p>
+    <div class="receipt">
+      <h3>★ DRAW RECEIPT ★</h3>
+      <div class="ritem"><span class="k">Snapshot merkle root</span><span class="v">published ✓</span></div>
+      <div class="ritem"><span class="k">Randomness source</span><span class="v">public beacon ✓</span></div>
+      <div class="ritem"><span class="k">Round committed</span><span class="v">before it exists ✓</span></div>
+      <div class="ritem"><span class="k">Selection script</span><span class="v">open source ✓</span></div>
+      <div class="ritem"><span class="k">Winner claims</span><span class="v">wallet signature ✓</span></div>
+      <div class="ritem"><span class="k">Keys posted publicly</span><span class="v">never ✗</span></div>
+      <div class="total"><span>RIGGABLE</span><span><a href="/verify.html" style="color:var(--gold);text-decoration:none">NO — RE-RUN IT YOURSELF →</a></span></div>
+    </div>
+  </div>
+</section>
+<section id="faq">
+  <div class="wrap">
+    <div class="eyebrow">04 // Player FAQ</div>
+    <h2>Questions</h2>
+    <div class="faq">
+      <details>
+        <summary>Do I need to register, stake, or click anything?</summary>
+        <p>No. That's the point. Hold 10,000+ $DROP in a normal wallet and <b>you're automatically in every draw.</b> The only people who fill out a form are non-holders using the free entry lane.</p>
+      </details>
+      <details>
+        <summary>When exactly are snapshots taken?</summary>
+        <p>Wouldn't you like to know. (So would snipers.) Snapshots fire at <b>random, unannounced times</b>, and you need a clean consecutive streak to qualify — so the only winning strategy is the boring one: actually holding.</p>
+      </details>
+      <details>
+        <summary>What happens if I sell?</summary>
+        <p><b>Cooldown.</b> Selling any amount — or moving tokens out — pauses your eligibility until a clean, unbroken holding streak covers the cooldown window. Buying more never hurts you. Diamond hands are the meta.</p>
+      </details>
+      <details>
+        <summary>What game will I win?</summary>
+        <p><b>Nobody knows.</b> Keys are encrypted before anyone on the team can read them and only unsealed by the winner's wallet signature. Might be legendary. Might be a very sincere farming game. That reveal moment is yours alone.</p>
+      </details>
+      <details>
+        <summary>How do I know a draw wasn't rigged?</summary>
+        <p>Each draw commits to a <b>future round of public randomness</b> — run by Cloudflare, EPFL and the League of Entropy — before that randomness exists. Snapshot, seed, and winners are all published, and the selection script is open source. Run it yourself; you'll get the same winners or we've got a very public problem.</p>
+      </details>
+      <details>
+        <summary>What if a winner never claims?</summary><p>After 7 days the key returns to the prize pool and goes into a future draw — no replacement is drawn from the old snapshot, because the people in it already didn't show. Mystery keys wait for no one.</p>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <div class="wrap foot">
+    <div>
+      <a class="brand disp" href="/" style="font-size:.9rem">
+        <svg width="19" height="23" viewBox="0 0 100 116" aria-hidden="true"><path d="M50.0 10.0L50.0 10.2L50.1 10.7L50.2 11.6L50.5 12.9L51.0 14.5L51.7 16.4L52.6 18.7L53.7 21.2L55.1 24.1L56.8 27.1L58.6 30.5L60.7 34.0L62.9 37.7L65.3 41.6L67.7 45.6L70.1 49.7L72.4 53.8L74.7 58.0L76.7 62.2L78.5 66.3L80.0 70.4L81.1 74.4L81.8 78.3L82.1 82.0L81.8 85.5L81.1 88.9L79.8 91.9L78.0 94.8L75.7 97.3L73.0 99.6L69.9 101.5L66.4 103.1L62.6 104.4L58.5 105.3L54.3 105.8L50.0 106.0L45.7 105.8L41.5 105.3L37.4 104.4L33.6 103.1L30.1 101.5L27.0 99.6L24.3 97.3L22.0 94.8L20.2 91.9L18.9 88.9L18.2 85.5L17.9 82.0L18.2 78.3L18.9 74.4L20.0 70.4L21.5 66.3L23.3 62.2L25.3 58.0L27.6 53.8L29.9 49.7L32.3 45.6L34.7 41.6L37.1 37.7L39.3 34.0L41.4 30.5L43.2 27.1L44.9 24.1L46.3 21.2L47.4 18.7L48.3 16.4L49.0 14.5L49.5 12.9L49.8 11.6L49.9 10.7L50.0 10.2L50.0 10.0Z" fill="#ffc24b"/></svg>
+        <span>DROP<span class="rate">RATE</span></span>
+      </a>
+      <div class="tag">Built different. Verifiably.</div>
+    </div>
+    <small>$DROP is a community token. Draws are giveaways — holding is the only entry, prizes are game keys, and nothing here is financial advice. Play games, have fun.</small>
+  </div>
+</footer>
+<script>
+/* ================= CONFIG — edit these ================= */
+const CONFIG = {
+  launchAt: "2026-08-05T23:00:00Z",
+  contract: "3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump",
+  buyUrl:   "https://pump.fun/coin/3AyrpVnc8MTDJLVLWGUQbthq4dwAycARygXpm6dSpump",
+  xUrl:     "https://x.com/DropRateGames",
+  tgUrl:    "https://t.me/DropRateGames",
+};
+/* ======================================================= */
+/* Everything below is progressive enhancement — the page is complete without it. */
+document.getElementById("menu-btn").addEventListener("click", () => {
+  document.getElementById("nav-links").classList.toggle("open");
+});
+document.getElementById("buy-link").href = CONFIG.buyUrl;
+document.getElementById("x-link").href   = CONFIG.xUrl;
+const caText = document.getElementById("ca-text");
+const caCopy = document.getElementById("ca-copy");
+if (CONFIG.contract) caText.textContent = CONFIG.contract;
+function copyCA(){
+  if (!CONFIG.contract) return;
+  navigator.clipboard.writeText(CONFIG.contract).then(() => {
+    caCopy.textContent = "Copied!";
+    setTimeout(() => caCopy.textContent = "Copy", 1600);
+  });
+}
+const caBox = document.getElementById("ca");
+caBox.addEventListener("click", copyCA);
+caBox.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") copyCA(); });
+/* countdown — targets the next scheduled draw */
+let nextDrawAt = null, nextDrawId = null;
+async function loadNextDraw(){
+  try {
+    const r = await fetch("/api/draws");
+    const { draws, live_holders } = await r.json();
+    const up = (draws || [])
+      .filter(d => d.status !== "drawn" && new Date(d.scheduled_at) > new Date())
+      .sort((a,b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+    nextDrawAt = up.length ? new Date(up[0].scheduled_at) : null;
+    nextDrawId = up.length ? up[0].id : null;
+    document.getElementById("next-prize").textContent =
+      up.length ? (up[0].prize_title || "Mystery game key") : "Scheduling…";
+    if (up.length) {
+      const n = up[0].live_free || 0;
+      const hh = live_holders || 0;
+      const holderTxt = hh > 0 ? `💎 ${hh} holders auto-entered` : "holders auto-entered";
+      document.getElementById("next-count").textContent =
+        n > 0 ? `🎟 ${n} free ${n===1?"entry":"entries"} · ${holderTxt}` : `Be the first free entry 🎟 · ${holderTxt}`;
+    }
+    const done = (draws || []).filter(d => d.status === "drawn" && d.winners && d.winners.length)
+      .sort((a,b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
+    if (done.length) {
+      const d = done[0];
+      const w = d.winners[0].wallet;
+      document.getElementById("latest-prize").textContent = d.prize_title || "Mystery game key";
+      document.getElementById("latest-winner").textContent = "WON BY " + w.slice(0,4) + "…" + w.slice(-4);
+    }
+    tick();
+  } catch { nextDrawAt = null; }
+}
+function tick(){
+  const el = id => document.getElementById(id);
+  if (!nextDrawAt){
+    el("cd-d").textContent = "--"; el("cd-h").textContent = "--";
+    el("cd-m").textContent = "--"; el("cd-s").textContent = "--";
+    document.getElementById("count-label").textContent = "Next drop scheduling…";
+    return;
+  }
+  const diff = nextDrawAt - Date.now();
+  if (diff <= 0){ loadNextDraw(); return; }
+  const s = Math.floor(diff/1000);
+  el("cd-d").textContent = Math.floor(s/86400);
+  el("cd-h").textContent = String(Math.floor(s%86400/3600)).padStart(2,"0");
+  el("cd-m").textContent = String(Math.floor(s%3600/60)).padStart(2,"0");
+  el("cd-s").textContent = String(s%60).padStart(2,"0");
+  document.getElementById("count-label").textContent = "Until the next drop falls";
+}
+setInterval(tick, 1000);
+/* The countdown ticks locally off nextDrawAt, so the draw only needs refetching
+   occasionally — and only while someone is actually looking at the tab. */
+(function(){
+  var last = 0;
+  function poll(){ last = Date.now(); loadNextDraw(); }
+  poll();
+  setInterval(function(){ if (document.visibilityState === 'visible') poll(); }, 300000);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && Date.now() - last > 150000) poll();
+  });
+})();
+/* live stats: claimed keys + holders */
+(function liveStats(){
+  const setN = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = Number(v).toLocaleString("en-US"); };
+  function load(){
+    fetch("/api/stats-public", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((s) => {
+      if (!s) return;
+      if (typeof s.keys_claimed === "number") {
+        setN("claimed-n", s.keys_claimed);
+        const hud = document.getElementById("claimed-hud");
+        if (hud) hud.textContent = s.keys_claimed.toLocaleString("en-US");
+      }
+      setN("cratekeys-n", s.crate_keys_claimed);
+      setN("cratesopened-n", s.crates_opened);
+      if (s.drop_burned_raw != null) {
+        const dec = s.decimals || 6;
+        setN("burned-n", Math.round(Number(s.drop_burned_raw) / Math.pow(10, dec)));
+      }
+      if (typeof s.holders === "number" && s.holders > 0) setN("holders-n", s.holders);
+    }).catch(() => {});
+  }
+  /* Poll only while the tab is visible. A forgotten background tab used to hold
+     the database awake indefinitely, which is what burned the compute quota. */
+  var lastLoad = 0;
+  function poll(){ lastLoad = Date.now(); load(); }
+  poll();
+  setInterval(function(){ if (document.visibilityState === 'visible') poll(); }, 120000);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible' && Date.now() - lastLoad > 60000) poll();
+  });
+})();
+/* hero entry console */
+(function heroEntry(){
+  const go = document.getElementById("entry-go");
+  const msg = document.getElementById("entry-msg");
+  go.addEventListener("click", async () => {
+    const wallet = document.getElementById("entry-wallet").value.trim();
+    msg.className = "msg"; msg.textContent = "";
+    if (!wallet) { msg.className = "msg err"; msg.textContent = "Paste your wallet address first."; return; }
+    if (!nextDrawId) { msg.className = "msg err"; msg.textContent = "Next draw is still scheduling — try the draws page."; return; }
+    go.disabled = true;
+    try {
+      const res = await fetch("/api/free-entry", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, draw_id: nextDrawId, website: document.getElementById("entry-hp").value }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "entry failed");
+      msg.className = "msg ok"; msg.textContent = "You're in. Good luck 🎁";
+      document.getElementById("entry-wallet").value = "";
+    } catch (e) {
+      msg.className = "msg err"; msg.textContent = e.message;
+    } finally { go.disabled = false; }
+  });
+  document.getElementById("entry-wallet").addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
+})();
+/* loot table: drop rates taunt you */
+(function scramble(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const rates = [...document.querySelectorAll(".lt-row .rate")];
+  if (!rates.length) return;
+  const CH = "0123456789";
+  let i = 0;
+  setInterval(() => {
+    const el = rates[i % rates.length]; i++;
+    let f = 0;
+    const spin = setInterval(() => {
+      el.textContent = CH[Math.floor(Math.random()*10)] + CH[Math.floor(Math.random()*10)] + "%";
+      if (++f >= 7) { clearInterval(spin); el.textContent = "??%"; }
+    }, 55);
+  }, 1400);
+})();
+/* HUD count-up on first view (static values remain without JS) */
+(function countUp(){
+  const els = document.querySelectorAll("[data-count]");
+  if (!("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const el = e.target, target = +el.dataset.count, suffix = el.dataset.suffix || "";
+      const t0 = performance.now(), dur = 800;
+      (function step(t){
+        const p = Math.min((t - t0) / dur, 1);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      })(t0);
+      io.unobserve(el);
+    });
+  }, { threshold: 0.6 });
+  els.forEach((c) => io.observe(c));
+})();
+/* falling droplets */
+(function rain(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  function dropPath(cx, cy, w, h, n = 72){
+    let d = "";
+    for(let i = 0; i <= n; i++){
+      const t = 2 * Math.PI * i / n;
+      const x = cx + (Math.sin(t) * Math.sin(t/2) ** 2) / 0.77 * w / 2;
+      const y = cy - Math.cos(t) * h / 2;
+      d += (i ? "L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
+    }
+    return d + "Z";
+  }
+  const host = document.getElementById("rain");
+  const colors = ["#ffc24b","#ffc24b","#ffc24b","#8b7bff","#4ec9ff"];
+  for (let i = 0; i < 14; i++){
+    const size = 10 + Math.random() * 26;
+    const el = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    el.setAttribute("class","bg-drop");
+    el.setAttribute("width", size);
+    el.setAttribute("viewBox","0 0 100 124");
+    el.style.left = Math.random() * 100 + "vw";
+    el.style.animationDuration = (14 + Math.random() * 22) + "s";
+    el.style.animationDelay = (-Math.random() * 30) + "s";
+    const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d", dropPath(50, 62, 76, 96));
+    p.setAttribute("fill", colors[i % colors.length]);
+    el.appendChild(p);
+    host.appendChild(el);
+  }
+})();
+</script>
+</body>
+</html>

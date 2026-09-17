@@ -258,11 +258,12 @@
     <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
     <div class="navright" id="navRight">
       <nav class="nav-links">
-        <a href="/draws.html">Draws</a>
-        <a class="active" href="/crates.html">Crates</a>
+        <a href="/">Store</a>
         <a href="/marketplace.html">Marketplace</a>
+        <a class="active" href="/crates.html">Crates</a>
+        <a href="/raffles.html">Raffles</a>
+        <a href="/library.html">Library</a>
         <a href="/docs.html">Docs</a>
-        <a href="/verify.html">Verify</a>
       </nav>
       <button class="wins-btn" id="winsBtn">My Wins</button>
       <button class="wallet" id="walletBtn" style="cursor:pointer;font:inherit">Connect Wallet</button>
@@ -952,7 +953,7 @@ function renderWins(items){
         <div class="wintag">${esc(s.rarity)} · ${esc(s.crate)}</div>
         <div class="wintitle">${title}</div>
         <div class="winmeta">${money(s.price_cents)}${s.date?(' · '+esc(dt(s.date))):''}</div>
-        <div class="winsold">+ <b>${fmtDrop(s.drop_raw)}</b> $DROP received</div>
+        <div class="winsold">+ <b>${(()=>{const rc=s.pay_currency||'DROP'; if(s.pay_decimals!=null) CUR_DEC[rc]=s.pay_decimals; return esc(fmtAmt(s.amount_raw||s.drop_raw,rc));})()}</b> received</div>
         <div>${pill}</div>${vlink}</div></div>`;
     };
     body.innerHTML=tabs+'<div class="wingrid">'+sold.map(scard).join('')+'</div>';

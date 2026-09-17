@@ -88,7 +88,7 @@
 </defs></svg>
 
 <div class="bar">
-  <a class="back" href="/store.html">
+  <a class="back" href="/">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
     <span>Store</span>
   </a>
@@ -143,7 +143,7 @@ async function api(body){
 
 async function boot(){
   if(!Number.isFinite(id)||id<1){
-    return state('No game selected','Open a game from the <a href="/store.html">store</a> and press play.');
+    return state('No game selected','Open a game from the <a href="/">store</a> and press play.');
   }
   const d=await api({action:'native-view',product_id:id});
   if(!d||d.error){ return state('Could not load that game',esc((d&&d.error)||'It may have been removed.')); }

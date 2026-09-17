@@ -106,14 +106,26 @@
       </a>
       <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
       <nav id="nav-links">
-        <a href="/draws.html">Draws</a>
-        <a href="/crates.html">Crates</a>
+        <a href="/">Store</a>
         <a href="/marketplace.html">Marketplace</a>
+        <a href="/crates.html">Crates</a>
+        <a class="active" href="/raffles.html">Raffles</a>
+        <a href="/library.html">Library</a>
         <a href="/docs.html">Docs</a>
-        <a class="active" href="/verify.html">Verify</a>
       </nav>
     </div>
   </header>
+<!-- raffle section tabs: everything raffle-related lives behind these -->
+<div class="rafnav" style="border-bottom:1px solid rgba(255,255,255,.08);background:rgba(8,11,24,.6);backdrop-filter:blur(6px)">
+  <div style="max-width:1120px;margin:0 auto;padding:0 20px;display:flex;gap:4px;overflow-x:auto;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase">
+    <span style="padding:11px 10px 11px 0;color:#F6AC29;font-weight:700;white-space:nowrap">Raffles</span>
+    <a href="/raffles.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Overview</a>
+    <a href="/draws.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Draws</a>
+    <a href="/verify.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#EDEFF9;border-bottom:2px solid #F6AC29">Verify</a>
+    <a href="/check.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Check eligibility</a>
+    <a href="/claim.html" style="padding:11px 10px;text-decoration:none;white-space:nowrap;color:#98A1C6;border-bottom:2px solid transparent">Claim a key</a>
+  </div>
+</div>
 
   <div class="page">
     <div class="kicker">Provably fair</div>

@@ -146,6 +146,10 @@ export default async function handler(req, res) {
       settled_at timestamptz
     )`;
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS uniq_purchase_paid_sig ON purchases(paid_sig) WHERE paid_sig IS NOT NULL`;
+    // Resale rail: the buyer picks DROP, USDC or SOL; the seller is paid in the
+    // same currency the buyer paid (no swap, no FX on the escrow). Old rows = DROP.
+    await sql`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS pay_currency text NOT NULL DEFAULT 'DROP'`;
+    await sql`ALTER TABLE purchases ADD COLUMN IF NOT EXISTS pay_decimals int`;
     const b = req.body ?? {};
    // ---- PRICE: public live $DROP price + per-crate token amounts ---------
     if (b.action === "price") {
@@ -384,18 +388,18 @@ export default async function handler(req, res) {
       }
       // Marketplace escrow self-heal: retry stuck seller payouts + buyer refunds.
       let payoutsSent = 0, mktRefundsSent = 0;
-      const pp = await sql`SELECT id, seller, amount_quoted_raw FROM purchases WHERE status = 'payout_pending' ORDER BY id ASC LIMIT 25`;
+      const pp = await sql`SELECT id, seller, amount_quoted_raw, pay_currency FROM purchases WHERE status = 'payout_pending' ORDER BY id ASC LIMIT 25`;
       for (const row of pp.rows) {
         try {
-          const sig = await dispatchRefund(row.seller, String(row.amount_quoted_raw));
+          const sig = await dispatchRefund(row.seller, String(row.amount_quoted_raw), row.pay_currency || "DROP");
           await sql`UPDATE purchases SET status = 'settled', payout_sig = ${sig} WHERE id = ${row.id}`;
           payoutsSent++;
         } catch (e) { console.error("sweep payout retry failed:", e.message); }
       }
-      const rp = await sql`SELECT id, buyer, amount_quoted_raw FROM purchases WHERE status = 'refund_pending' ORDER BY id ASC LIMIT 25`;
+      const rp = await sql`SELECT id, buyer, amount_quoted_raw, pay_currency FROM purchases WHERE status = 'refund_pending' ORDER BY id ASC LIMIT 25`;
       for (const row of rp.rows) {
         try {
-          const sig = await dispatchRefund(row.buyer, String(row.amount_quoted_raw));
+          const sig = await dispatchRefund(row.buyer, String(row.amount_quoted_raw), row.pay_currency || "DROP");
           await sql`UPDATE purchases SET status = 'refunded', refund_sig = ${sig} WHERE id = ${row.id}`;
           mktRefundsSent++;
         } catch (e) { console.error("sweep mkt refund retry failed:", e.message); }
@@ -507,18 +511,31 @@ export default async function handler(req, res) {
         SELECT id FROM purchases WHERE pull_id = ${pull.id}
           AND status = 'awaiting_payment' AND quote_expires_at > now()`;
       if (live.rows.length) return res.status(409).json({ error: "another buyer is checking out — try again shortly" });
-      const dropUsd = await currentDropUsd();
-      const amountRaw = tokensForCrate(pull.list_price_cents, dropUsd, DECIMALS).toString();
+      // Buyer picks the rail. Listing price is USD; convert at the live rate.
+      const currency = String(b.currency || "DROP").toUpperCase();
+      if (!CRATE_CURRENCIES.includes(currency)) return res.status(400).json({ error: "pay in DROP, USDC or SOL" });
+      let amountRaw, dropUsd = null, solUsd = null;
+      if (currency === "DROP") {
+        dropUsd = await currentDropUsd();
+        amountRaw = tokensForCrate(pull.list_price_cents, dropUsd, DECIMALS).toString();
+      } else if (currency === "USDC") {
+        amountRaw = String(BigInt(pull.list_price_cents) * 10_000n); // cents → 6dp
+      } else {
+        const { currentSolUsd } = await import("../lib/paymulti.js");
+        solUsd = await currentSolUsd();
+        if (!(solUsd > 0)) return res.status(503).json({ error: "SOL price unavailable — try again" });
+        amountRaw = String(BigInt(Math.round((pull.list_price_cents / 100 / solUsd) * 1e9)));
+      }
       const reference = makeReference();
       const ttlMs = 120000;
       const ins = await sql`
-        INSERT INTO purchases(pull_id, buyer, seller, reference, amount_quoted_raw, price_cents, quote_expires_at)
+        INSERT INTO purchases(pull_id, buyer, seller, reference, amount_quoted_raw, price_cents, quote_expires_at, pay_currency, pay_decimals)
         VALUES (${pull.id}, ${b.buyer}, ${pull.owner}, ${reference}, ${amountRaw}, ${pull.list_price_cents},
-                to_timestamp(${(Date.now() + ttlMs) / 1000}))
+                to_timestamp(${(Date.now() + ttlMs) / 1000}), ${currency}, ${decimalsFor(currency)})
         RETURNING id`;
       return res.status(200).json({
-        ok: true, purchaseId: ins.rows[0].id, reference, amountRaw,
-        price_cents: pull.list_price_cents, seller: pull.owner, dropUsd, decimals: DECIMALS,
+        ok: true, purchaseId: ins.rows[0].id, reference, amountRaw, currency, decimals: decimalsFor(currency),
+        price_cents: pull.list_price_cents, seller: pull.owner, dropUsd, solUsd,
         expiresAt: Date.now() + ttlMs,
       });
     }
@@ -532,9 +549,16 @@ export default async function handler(req, res) {
       if (pur.buyer !== b.payer) return res.status(403).json({ error: "not your purchase" });
       if (pur.status !== "awaiting_payment") return res.status(409).json({ error: `purchase ${pur.status}` });
       if (new Date(pur.quote_expires_at).getTime() < Date.now()) return res.status(409).json({ error: "quote expired — start again" });
-      const { buildDirectPaymentTx } = await import("../lib/solana.js");
-      const built = await buildDirectPaymentTx(b.payer, pur.reference, process.env.TREASURY_WALLET, String(pur.amount_quoted_raw));
-      return res.status(200).json({ ok: true, purchaseId: pur.id, amountRaw: String(pur.amount_quoted_raw), ...built });
+      const cur = pur.pay_currency || "DROP";
+      let built;
+      if (FIAT(cur)) {
+        const { buildDirectPaymentMulti } = await import("../lib/paymulti.js");
+        built = await buildDirectPaymentMulti(b.payer, pur.reference, process.env.TREASURY_WALLET, String(pur.amount_quoted_raw), cur);
+      } else {
+        const { buildDirectPaymentTx } = await import("../lib/solana.js");
+        built = await buildDirectPaymentTx(b.payer, pur.reference, process.env.TREASURY_WALLET, String(pur.amount_quoted_raw));
+      }
+      return res.status(200).json({ ok: true, purchaseId: pur.id, currency: cur, decimals: pur.pay_decimals ?? decimalsFor(cur), amountRaw: String(pur.amount_quoted_raw), ...built });
     }
     // ---- MARKETPLACE BUY: confirm escrow, flip owner, forward to seller ------
     if (b.action === "buy-confirm") {
@@ -545,16 +569,27 @@ export default async function handler(req, res) {
       if (pur.status === "settled") return res.status(200).json({ ok: true, state: "settled", already: true, pullId: pur.pull_id });
       if (pur.status === "refunded") return res.status(200).json({ ok: false, state: "refunded", already: true });
       if (pur.status !== "awaiting_payment") return res.status(409).json({ error: `purchase ${pur.status}` });
-      const { findPaymentByReference, resolveWalletAta } = await import("../lib/solana.js");
-      const found = await findPaymentByReference(pur.reference);
-      if (!found) return res.status(402).json({ error: "payment-not-found" });
-      const treasuryAta = await resolveWalletAta(process.env.TREASURY_WALLET);
+      const cur = pur.pay_currency || "DROP";
+      let found, treasuryDest, expectMint;
+      if (FIAT(cur)) {
+        const { findDirectPayment, resolveUsdcAta } = await import("../lib/paymulti.js");
+        found = await findDirectPayment(pur.reference, cur);
+        if (!found) return res.status(402).json({ error: "payment-not-found" });
+        treasuryDest = cur === "SOL" ? process.env.TREASURY_WALLET : await resolveUsdcAta(process.env.TREASURY_WALLET);
+        expectMint = cur === "USDC" ? process.env.USDC_MINT : null;
+      } else {
+        const { findPaymentByReference, resolveWalletAta } = await import("../lib/solana.js");
+        found = await findPaymentByReference(pur.reference);
+        if (!found) return res.status(402).json({ error: "payment-not-found" });
+        treasuryDest = await resolveWalletAta(process.env.TREASURY_WALLET);
+        expectMint = process.env.DROP_MINT;
+      }
       const legToTreasury = (found.legs || [])
-        .filter((l) => String(l.destination) === String(treasuryAta))
+        .filter((l) => String(l.destination) === String(treasuryDest))
         .reduce((a, l) => a + BigInt(l.amountRaw), 0n);
       const v = validateTransfer(
-        { mint: found.mint, destination: treasuryAta, amountRaw: legToTreasury.toString(), reference: pur.reference, sender: found.sender },
-        { mint: process.env.DROP_MINT, destination: treasuryAta, amountRaw: String(pur.amount_quoted_raw),
+        { mint: FIAT(cur) ? expectMint : found.mint, destination: treasuryDest, amountRaw: legToTreasury.toString(), reference: pur.reference, sender: found.sender },
+        { mint: expectMint, destination: treasuryDest, amountRaw: String(pur.amount_quoted_raw),
           reference: pur.reference, expiresAt: new Date(pur.quote_expires_at).getTime() },
         { nowMs: Date.now(), underpayToleranceBps: 0 }
       );
@@ -573,7 +608,7 @@ export default async function handler(req, res) {
       if (deliver.rows.length) {
         // the key is the buyer's now — forward the full escrow to the seller (no fee)
         try {
-          const sig = await dispatchRefund(pur.seller, String(pur.amount_quoted_raw));
+          const sig = await dispatchRefund(pur.seller, String(pur.amount_quoted_raw), cur);
           await sql`UPDATE purchases SET status = 'settled', payout_sig = ${sig}, settled_at = now() WHERE id = ${pur.id}`;
         } catch (e) {
           console.error("seller payout deferred:", e.message);
@@ -583,7 +618,7 @@ export default async function handler(req, res) {
       }
       // undeliverable (already sold / revealed / delisted) -> refund the buyer in full
       try {
-        const sig = await dispatchRefund(pur.buyer, String(pur.amount_quoted_raw));
+        const sig = await dispatchRefund(pur.buyer, String(pur.amount_quoted_raw), cur);
         await sql`UPDATE purchases SET status = 'refunded', refund_sig = ${sig}, settled_at = now() WHERE id = ${pur.id}`;
       } catch (e) {
         console.error("buyer refund deferred:", e.message);
@@ -593,7 +628,8 @@ export default async function handler(req, res) {
     }
     // ---- MARKETPLACE: public browse of active listings ---------------------
     if (b.action === "market") {
-      const dropUsd = await currentDropUsd();
+      const { currentSolUsd } = await import("../lib/paymulti.js");
+      const [dropUsd, solUsd] = await Promise.all([currentDropUsd(), currentSolUsd()]);
       const rows = await sql`
         SELECT p.id, p.owner, p.crate, p.rarity, p.list_price_cents, p.listed_at,
                k.game_title, k.image, k.msrp_cents
@@ -612,9 +648,11 @@ export default async function handler(req, res) {
         msrp_cents: r.msrp_cents,
         price_cents: r.list_price_cents,
         drop_raw: tokensForCrate(r.list_price_cents, dropUsd, DECIMALS).toString(),
+        usdc_raw: String(BigInt(r.list_price_cents) * 10_000n),
+        sol_raw: solUsd > 0 ? String(BigInt(Math.round((r.list_price_cents / 100 / solUsd) * 1e9))) : null,
         listed_at: r.listed_at,
       }));
-      return res.status(200).json({ ok: true, dropUsd, decimals: DECIMALS, listings });
+      return res.status(200).json({ ok: true, dropUsd, solUsd, decimals: DECIMALS, fiatDecimals: FIAT_DECIMALS, currencies: CRATE_CURRENCIES, listings });
     }
     // ---- VERIFY ----------------------------------------------------------
     if (b.action === "verify") {
@@ -673,6 +711,7 @@ export default async function handler(req, res) {
       // (no house fee). 'settled' = paid out; 'payout_pending' = payout retrying.
       const saleRows = await sql`
         SELECT pu.id AS purchase_id, pu.pull_id, pu.price_cents, pu.amount_quoted_raw,
+               pu.pay_currency, pu.pay_decimals,
                pu.status, pu.settled_at, pu.created_at,
                p.crate, p.rarity, k.game_title, k.image
         FROM purchases pu
@@ -686,7 +725,10 @@ export default async function handler(req, res) {
         crate: r.crate, rarity: r.rarity,
         game: r.game_title, image: r.image,
         price_cents: r.price_cents ?? null,
-        drop_raw: r.amount_quoted_raw != null ? String(r.amount_quoted_raw) : null,
+        drop_raw: r.amount_quoted_raw != null ? String(r.amount_quoted_raw) : null, // legacy name; see pay_currency
+        amount_raw: r.amount_quoted_raw != null ? String(r.amount_quoted_raw) : null,
+        pay_currency: r.pay_currency || "DROP",
+        pay_decimals: r.pay_decimals ?? decimalsFor(r.pay_currency || "DROP"),
         date: r.settled_at || r.created_at,
         status: r.status, // 'settled' | 'payout_pending'
       }));

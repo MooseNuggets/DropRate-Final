@@ -1,5 +1,15 @@
 {
   "rewrites": [
-    { "source": "/api/free-entries", "destination": "/api/free-entry" }
+    {
+      "source": "/api/free-entries",
+      "destination": "/api/free-entry"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/store.html",
+      "destination": "/",
+      "permanent": false
+    }
   ]
 }
