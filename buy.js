@@ -781,10 +781,10 @@ export async function sell(copy) {
     const you = Math.floor(cents * q.seller_bps / 10000), dev = Math.floor(cents * q.royalty_bps / 10000), fee = cents - you - dev;
     return `You get <b>$${(you / 100).toFixed(2)}</b> · developer $${(dev / 100).toFixed(2)} (${pct(q.royalty_bps)}) · DropRate $${(fee / 100).toFixed(2)} (${pct(q.fee_bps)})`;
   };
-  const start = Math.max(floor, Math.round(list * 0.8));
+  const start = Math.max(floor, list);
   bd.innerHTML = `
     <div style="font-weight:600;font-size:15px;margin-bottom:4px">${esc(copy.title)} <span style="color:var(--dim2,#6b73a0);font-weight:400">· copy #${copy.copy_number}</span></div>
-    <p class="drb-note" style="text-align:left;margin:0 0 12px">New copies sell for $${(list / 100).toFixed(2)}. The developer's minimum for pre-owned is <b>$${(floor / 100).toFixed(2)}</b>.</p>
+    <p class="drb-note" style="text-align:left;margin:0 0 12px">New copies sell for $${(list / 100).toFixed(2)}. The developer's minimum is <b>$${(floor / 100).toFixed(2)}</b>; there's no ceiling — a low serial number or a sold-out run can be worth more than new.</p>
     <label style="font-family:var(--mono,monospace);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim2,#6b73a0)">Your price (USD)</label>
     <input id="drb-price" type="number" min="${(floor / 100).toFixed(2)}" step="0.01" value="${(start / 100).toFixed(2)}" style="width:100%;margin:6px 0 8px;background:#0b0f21;border:1px solid var(--line,#28305a);border-radius:10px;color:#f3f5ff;padding:12px;font-size:18px;font-family:var(--display,inherit)">
     <div id="drb-split" style="font-size:12.5px;color:var(--dim,#98a1c8);line-height:1.5;margin-bottom:14px">${render(start)}</div>
