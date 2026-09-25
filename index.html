@@ -335,6 +335,14 @@
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .ovc{background:linear-gradient(180deg,#111632,#0a0d1e);border:1px solid var(--line2);border-radius:22px;width:min(1060px,96vw);padding:26px;box-shadow:0 50px 110px -40px #000;animation:pop .3s cubic-bezier(.2,.8,.3,1)}
   @keyframes pop{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+  .achs{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .ach{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+  .ach .ai{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);color:var(--dim2);font-size:16px;flex:0 0 auto;overflow:hidden}
+  .ach .ai img{width:100%;height:100%;object-fit:cover}
+  .ach .an{font-weight:600;font-size:13.5px} .ach .ad{color:var(--dim);font-size:12px;line-height:1.4}
+  .ach .ap{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim2);flex:0 0 auto}
+  .ach.got{border-color:rgba(255,194,75,.45);background:rgba(255,194,75,.06)} .ach.got .ai{background:rgba(255,194,75,.18);color:var(--gold-hi)} .ach.got .ap{color:var(--gold)}
+  .ach.hid{opacity:.6} .ach.hid .an{font-style:italic}
   .ovhead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}
   .ovhead h3{font-family:var(--display);font-size:25px;letter-spacing:.02em}
   .x{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;color:var(--dim);font-size:20px;width:36px;height:36px;cursor:pointer;line-height:1;flex:0 0 auto;transition:color .2s,border-color .2s}
@@ -853,6 +861,7 @@ async function openGame(id){
     '<div class="gv"><div>'+
       '<div class="gv-main" id="gvm"></div><div class="gv-thumbs" id="gvt">'+thumbs+'</div>'+
       (p.description?('<div class="gv-desc"><h4>About this game</h4>'+esc(p.description)+'</div>'):'')+
+      '<div id="gvach"></div>'+
     '</div><div>'+
       '<div class="devrow" data-dev="'+esc(dev.wallet||'')+'">'+avatar(dev)+'<div><div style="font-weight:600">'+esc(dev.studio||'Developer')+(dev.trusted?VERI_IC:'')+'</div><div style="color:var(--dim2);font-size:12px">View developer →</div></div></div>'+
       '<div class="buybox">'+
@@ -881,6 +890,20 @@ async function openGame(id){
     if(bb){ if(window.DropRateBuy){ window.DropRateBuy.open(bb.dataset.buy); } else { toast&&toast('Checkout is still loading — one moment.'); } return; }
     const dv=e.target.closest('[data-dev]'); if(dv&&dv.dataset.dev){ close(); openDev(dv.dataset.dev); } });
   show(0);
+  loadAchievements(ov.querySelector('#gvach'),p.id);
+}
+/* Achievements block on the store sheet. Public read; personalised (unlocked
+   ticks) when a wallet is connected — no signature needed, it's read-only. */
+async function loadAchievements(el,pid){
+  if(!el) return;
+  let me=null; try{ me=window.DropRateBuy&&window.DropRateBuy.owner?window.DropRateBuy.owner():null; }catch{}
+  const d=await api({action:'sdk-ach-public',product_id:pid,wallet:me});
+  if(!d||d.error||!d.total) return;
+  const rows=d.achievements.map(a=>'<div class="ach'+(a.unlocked?' got':'')+(a.hidden&&!a.unlocked?' hid':'')+'">'+
+    '<div class="ai">'+(a.icon?('<img src="'+esc(a.icon)+'" alt="">'):(a.unlocked?'★':(a.hidden?'?':'☆')))+'</div>'+
+    '<div><div class="an">'+esc(a.name)+'</div><div class="ad">'+esc(a.description)+'</div></div>'+
+    '<div class="ap">'+a.points+'</div></div>').join('');
+  el.innerHTML='<div class="gv-desc"><h4>Achievements <span style="color:var(--dim2);font-weight:400">· '+(me?(d.unlocked+' of '):'')+d.total+'</span></h4><div class="achs">'+rows+'</div></div>';
 }
 async function openDev(wallet){
   const ov=document.createElement('div'); ov.className='ov';

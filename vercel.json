@@ -3,6 +3,10 @@
     {
       "source": "/api/free-entries",
       "destination": "/api/free-entry"
+    },
+    {
+      "source": "/sdk/v1/:action",
+      "destination": "/api/crate?sdk=:action"
     }
   ],
   "redirects": [

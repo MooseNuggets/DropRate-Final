@@ -166,3 +166,20 @@ at its scheduled time, and 7-day expiry redraws.
 Eligibility runs from the very first snapshot — the mint never changes at graduation,
 so as long as the curve address is excluded, day-one holders count immediately.
 First draws become possible once 4 snapshots exist (~24h after the cron starts).
+
+### Game SDK (achievements, cloud saves, leaderboards)
+
+`lib/gamesdk.js`, reachable at `POST /sdk/v1/<action>` (CORS on; rewritten to
+`/api/crate?sdk=<action>` by `vercel.json`) and from our own pages as
+`{ns:"devmarket", action:"sdk-<action>"}`. Public docs: `/sdk.html`; browser client:
+`/sdk/droprate.js`.
+
+Auth is a **ticket** — an HMAC-signed `{wallet, product_id, exp}` — issued by:
+- the launcher (`native-device-ticket`, device-token auth, ownership re-checked) → passed
+  to the game as `DROPRATE_TICKET` / `DROPRATE_API` / `DROPRATE_WALLET` / `DROPRATE_PRODUCT` env vars
+- the web player (`sdk-ticket-web`, wallet signature) → `postMessage` to the game iframe
+- the dev portal (`sdk-ticket-dev`, one hour, for testing)
+
+Env: `SDK_TICKET_SECRET` (any long random string; falls back to a key derived from
+`CODE_VAULT_KEY` if unset — set it explicitly so rotating one doesn't invalidate the other).
+Tables: `game_achievements`, `player_achievements`, `game_saves`, `game_boards`, `game_scores`.

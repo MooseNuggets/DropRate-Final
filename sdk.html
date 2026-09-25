@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DropRate Game SDK</title>
+<meta name="description" content="Achievements, cloud saves and leaderboards for games sold on DropRate. One ticket, three endpoints, any engine.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 116'%3E%3Cpath d='M50 10C50 34 18 52 18 82a32 32 0 0 0 64 0C82 52 50 34 50 10Z' fill='%23ffc24b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#080b18;--panel:#141930;--line:#28305a;--line2:rgba(255,255,255,.11);--gold:#ffc24b;--gold-deep:#e8941b;--gold-hi:#ffe6a8;--violet:#8b7bff;--ice:#f3f5ff;--dim:#98a1c8;--dim2:#6b73a0;--good:#5fd39b;
+    --font:'Poppins',sans-serif;--display:'Chakra Petch',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--void);color:var(--ice);font-family:var(--font);-webkit-font-smoothing:antialiased;line-height:1.6}
+  header{position:sticky;top:0;z-index:40;background:rgba(8,11,24,.85);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:1080px;margin:0 auto;padding:0 24px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;letter-spacing:.1em;font-size:1.02rem;text-decoration:none;color:var(--ice);text-transform:uppercase}
+  .brand .rate{color:var(--gold)}
+  .nav-links{display:flex;gap:26px;font-size:.8rem;color:var(--dim);letter-spacing:.08em}
+  .nav-links a{text-decoration:none;color:var(--dim)} .nav-links a:hover,.nav-links a.on{color:var(--gold)}
+  @media(max-width:760px){.nav-links{gap:14px;font-size:.72rem}}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:220px 1fr;gap:40px}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}.toc{display:none}}
+  .toc{position:sticky;top:84px;align-self:start;padding-top:48px;font-size:13px}
+  .toc a{display:block;color:var(--dim);text-decoration:none;padding:5px 0;border-left:2px solid transparent;padding-left:12px}
+  .toc a:hover{color:var(--ice)} .toc .h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim2);margin:18px 0 6px 14px}
+  main{padding:48px 0 120px;min-width:0}
+  .kick{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+  .kick .dot{width:7px;height:7px;border-radius:50%;background:#2ee6a6;box-shadow:0 0 10px #2ee6a6}
+  h1{font-family:var(--display);font-size:clamp(34px,4.6vw,52px);line-height:1.02;letter-spacing:.01em;text-transform:uppercase}
+  h1 .g{background:linear-gradient(175deg,#fff6df 4%,var(--gold-hi) 34%,var(--gold) 68%,var(--gold-deep));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--dim);font-size:16.5px;margin:18px 0 30px;max-width:680px}
+  .lede b{color:var(--ice)}
+  h2{font-family:var(--display);font-size:24px;letter-spacing:.02em;margin:56px 0 12px;padding-top:8px;text-transform:uppercase}
+  h3{font-family:var(--display);font-size:17px;letter-spacing:.02em;margin:28px 0 8px;color:var(--gold-hi)}
+  p{color:var(--dim);margin:10px 0;max-width:720px} p b,li b{color:var(--ice)}
+  a{color:var(--gold)}
+  pre{background:#0b0f21;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:12px 0 18px;color:#dfe3ff}
+  code{font-family:var(--mono);font-size:.92em;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:5px;color:var(--gold-hi)}
+  pre code{background:none;padding:0;color:inherit}
+  .c{color:#6b73a0} .k{color:#8b7bff} .s{color:#5fd39b} .n{color:#ffc24b}
+  table{border-collapse:collapse;width:100%;margin:12px 0 20px;font-size:13.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim2)}
+  td code{white-space:nowrap}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+  @media(max-width:760px){.grid3{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:16px;padding:18px;background:linear-gradient(180deg,rgba(20,25,46,.9),rgba(13,17,34,.9))}
+  .card h4{font-family:var(--display);font-size:15px;letter-spacing:.03em;margin-bottom:6px}
+  .card p{font-size:13px;margin:0}
+  .note{border-left:3px solid var(--gold);background:rgba(255,194,75,.06);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px;color:var(--dim)}
+  .note b{color:var(--gold-hi)}
+  .tabs{display:flex;gap:6px;margin:14px 0 0;flex-wrap:wrap}
+  .tab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--dim);cursor:pointer;background:transparent}
+  .tab.on{color:#241a04;background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-color:transparent}
+  .pane{display:none} .pane.on{display:block}
+  .foot{text-align:center;padding:40px 0 60px;font-family:var(--mono);font-size:11px;color:var(--dim2)}
+</style>
+</head>
+<body>
+<header><div class="nav">
+  <a class="brand" href="/"><svg width="22" height="26" viewBox="0 0 100 116"><path d="M50 10C50 34 18 52 18 82a32 32 0 0 0 64 0C82 52 50 34 50 10Z" fill="#ffc24b"/></svg><span>DROP<span class="rate">RATE</span></span></a>
+  <nav class="nav-links"><a href="/">Store</a><a href="/devportal.html">Dev Portal</a><a class="on" href="/sdk.html">SDK</a><a href="/docs.html">Docs</a></nav>
+</div></header>
+
+<div class="wrap">
+<aside class="toc">
+  <div class="h">Start</div>
+  <a href="#how">How it works</a><a href="#ticket">The ticket</a><a href="#quick">Quick start</a>
+  <div class="h">Features</div>
+  <a href="#ach">Achievements</a><a href="#saves">Cloud saves</a><a href="#boards">Leaderboards</a>
+  <div class="h">Reference</div>
+  <a href="#rest">REST endpoints</a><a href="#engines">Unity · Godot · C</a><a href="#limits">Limits &amp; rules</a>
+</aside>
+<main>
+  <div class="kick"><span class="dot"></span>Game SDK · v1</div>
+  <h1>Achievements, saves,<br><span class="g">leaderboards.</span></h1>
+  <p class="lede">Three things every game wants and nobody wants to build a backend for. On DropRate they're <b>one HTTPS endpoint and one ticket</b>. Any engine that can make a POST request is done in an afternoon — and your game <b>still runs without us</b>: the SDK is a bonus layer, never a lock.</p>
+
+  <div class="grid3">
+    <div class="card"><h4>Achievements</h4><p>Define them in the portal, unlock with one call. Shown on your store page, in players' libraries, and in the app.</p></div>
+    <div class="card"><h4>Cloud saves</h4><p>Up to 8 slots per player, 1 MB each, versioned so two devices never silently overwrite each other.</p></div>
+    <div class="card"><h4>Leaderboards</h4><p>Best-score boards, higher-or-lower-wins, with rank lookups and a one-click cheater wipe for you.</p></div>
+  </div>
+
+  <h2 id="how">How it works</h2>
+  <p>Your game never touches a wallet. When DropRate launches it — through the desktop app or the web player — it hands the game a short-lived <b>ticket</b> that says "this wallet, this game, for the next 12 hours". Every SDK call carries that ticket. The server checks it and refuses anything else: a game can't unlock achievements for another player, read another game's saves, or post to a board it doesn't own.</p>
+  <p>If there's no ticket (the player isn't signed in, or your game is running outside DropRate), the client library puts itself in <b>guest mode</b>: every write quietly returns <code>{guest:true}</code> instead of throwing, so you don't need two code paths.</p>
+
+  <h2 id="ticket">The ticket</h2>
+  <table><tr><th>Where your game runs</th><th>How it gets the ticket</th></tr>
+  <tr><td>DropRate desktop app (native build)</td><td>Environment variables at launch: <code>DROPRATE_TICKET</code>, <code>DROPRATE_API</code>, <code>DROPRATE_WALLET</code>, <code>DROPRATE_PRODUCT</code>. Missing = guest.</td></tr>
+  <tr><td>DropRate web player (browser build)</td><td><code>postMessage</code> from the player page. <code>droprate.js</code> handles the handshake for you.</td></tr>
+  <tr><td>Your own testing</td><td>Dev Portal → your game → SDK tab → <b>Get test ticket</b>. Valid one hour, tied to your wallet.</td></tr></table>
+  <p>Send it as <code>Authorization: Bearer &lt;ticket&gt;</code>. Tickets expire on their own; when one does, the API answers <code>401</code> with "ticket expired" and the player relaunches. There's nothing to store and nothing to revoke.</p>
+
+  <h2 id="quick">Quick start</h2>
+  <div class="tabs" data-tabs="qs"><button class="tab on" data-t="js">Browser / JS</button><button class="tab" data-t="curl">Plain HTTP</button></div>
+  <div class="pane on" data-p="qs-js"><pre><code><span class="c">&lt;!-- in your game's index.html --&gt;</span>
+&lt;script src=<span class="s">"https://droprate.xyz/sdk/droprate.js"</span>&gt;&lt;/script&gt;
+&lt;script&gt;
+<span class="k">const</span> dr = <span class="k">await</span> DropRate.ready();          <span class="c">// finds the ticket, or goes guest</span>
+<span class="k">if</span> (dr.guest) showSignInHint();              <span class="c">// optional: dr.requestSignIn() opens the wallet</span>
+
+<span class="k">await</span> dr.achievements.unlock(<span class="s">"first_blood"</span>);
+<span class="k">await</span> dr.saves.put(<span class="s">"slot1"</span>, { level: <span class="n">3</span>, hp: <span class="n">80</span> });
+<span class="k">const</span> save = <span class="k">await</span> dr.saves.get(<span class="s">"slot1"</span>);        <span class="c">// save.value → { level: 3, hp: 80 }</span>
+<span class="k">await</span> dr.leaderboards.submit(<span class="s">"high_score"</span>, <span class="n">12450</span>);
+<span class="k">const</span> top = <span class="k">await</span> dr.leaderboards.top(<span class="s">"high_score"</span>, <span class="n">10</span>);
+
+dr.on(<span class="s">"unlock"</span>, a =&gt; toast(<span class="s">`Achievement: ${a.name}`</span>));
+&lt;/script&gt;</code></pre></div>
+  <div class="pane" data-p="qs-curl"><pre><code><span class="c"># every call is POST + JSON + the ticket header</span>
+curl -X POST https://droprate.xyz/sdk/v1/ach-unlock \
+  -H <span class="s">"Authorization: Bearer $DROPRATE_TICKET"</span> \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"key":"first_blood"}'</span>
+
+<span class="c"># → {"ok":true,"unlocked":true,"new":true,"achievement":{"key":"first_blood","name":"First Blood",…}}</span></code></pre></div>
+
+  <h2 id="ach">Achievements</h2>
+  <p>Define them once in the Dev Portal (key, name, description, icon, points, hidden). Keys are what your code uses: lowercase, <code>a-z 0-9 _ . -</code>, up to 64 characters. Unlocking is idempotent — calling it twice is harmless, and the response tells you whether it was <code>new</code> so you can show a toast only the first time.</p>
+  <p><b>Hidden</b> achievements show as "Hidden achievement" on the store page until a player earns them. <b>Points</b> are a display number (default 10) that adds up to a player's score in their library.</p>
+  <pre><code><span class="c">// list with this player's progress</span>
+<span class="k">const</span> { achievements, total, unlocked, points } = <span class="k">await</span> dr.achievements.list();
+<span class="c">// achievements[i] = { key, name, description, icon, hidden, points, unlocked, unlocked_at }</span></code></pre>
+
+  <h2 id="saves">Cloud saves</h2>
+  <p>Per player, per game: up to <b>8 slots</b>, <b>1 MB</b> each, any bytes. The JS client accepts an object (stored as JSON), a string, or a <code>Uint8Array</code>, and gives it back the same way. Over HTTP the payload is base64 in a <code>data</code> field.</p>
+  <p><b>Versioning.</b> Every write bumps the slot's <code>version</code>. If you pass the version you last read and it's no longer current — the player saved from another PC — the server answers <code>409 save-conflict</code> with the current version instead of overwriting. Omit <code>version</code> to force.</p>
+  <pre><code><span class="k">const</span> cur = <span class="k">await</span> dr.saves.get(<span class="s">"auto"</span>);                 <span class="c">// { exists, value, version, updated_at }</span>
+<span class="k">const</span> r = <span class="k">await</span> dr.saves.put(<span class="s">"auto"</span>, state, { version: cur.version, label: <span class="s">"Chapter 3"</span> });
+<span class="k">if</span> (r.error === <span class="s">"save-conflict"</span>) askWhichToKeep(cur, r.current_version);</code></pre>
+
+  <h2 id="boards">Leaderboards</h2>
+  <p>Define boards in the portal with a key, a name, and a direction: <b>desc</b> (higher is better — points) or <b>asc</b> (lower is better — speedrun times). Submit whatever you like; the server keeps each player's <b>best</b> and tells you their rank. <code>meta</code> is a free 200-char string for things like character name or a replay id.</p>
+  <pre><code><span class="k">const</span> r = <span class="k">await</span> dr.leaderboards.submit(<span class="s">"any_percent"</span>, <span class="n">4231</span>, <span class="s">"Knight"</span>);  <span class="c">// ms, asc board</span>
+<span class="c">// r = { accepted: true, best: "4231", rank: 17 }</span>
+<span class="k">const</span> t = <span class="k">await</span> dr.leaderboards.top(<span class="s">"any_percent"</span>, <span class="n">25</span>);
+<span class="c">// t.entries[i] = { rank, player: "3emX…KkJc", score, meta, me }   t.me = { rank, score } for this player</span></code></pre>
+  <div class="note"><b>Cheating.</b> A client can only ever submit for its own wallet, but it can submit any number. Treat boards as social, not authoritative; the portal has a one-click wipe per player or per board. If you need trusted scores, keep the scoring logic server-side in your own game and submit from there with the same ticket.</div>
+
+  <h2 id="rest">REST endpoints</h2>
+  <p>Base <code>https://droprate.xyz/sdk/v1/</code>. All <code>POST</code>, JSON body, CORS-enabled. Header <code>Authorization: Bearer &lt;ticket&gt;</code> unless marked public.</p>
+  <table><tr><th>Endpoint</th><th>Body</th><th>Returns</th></tr>
+  <tr><td><code>whoami</code></td><td>—</td><td><code>wallet, product_id, source, expires_at</code></td></tr>
+  <tr><td><code>ach-list</code></td><td>—</td><td><code>achievements[], total, unlocked, points</code></td></tr>
+  <tr><td><code>ach-unlock</code></td><td><code>key</code></td><td><code>unlocked, new, achievement</code></td></tr>
+  <tr><td><code>save-put</code></td><td><code>slot, data(base64), version?, label?</code></td><td><code>slot, version, bytes</code> · 409 on conflict</td></tr>
+  <tr><td><code>save-get</code></td><td><code>slot</code></td><td><code>exists, data, version, label, updated_at</code></td></tr>
+  <tr><td><code>save-list</code></td><td>—</td><td><code>slots[]</code></td></tr>
+  <tr><td><code>save-delete</code></td><td><code>slot</code></td><td><code>deleted</code></td></tr>
+  <tr><td><code>score-submit</code></td><td><code>board, score, meta?</code></td><td><code>accepted, best, rank</code></td></tr>
+  <tr><td><code>score-top</code> <i>(public)</i></td><td><code>board, limit?, product_id</code> (if no ticket)</td><td><code>entries[], total, me</code></td></tr>
+  <tr><td><code>board-list</code> <i>(public)</i></td><td><code>product_id</code> (if no ticket)</td><td><code>boards[]</code></td></tr>
+  <tr><td><code>ach-public</code> <i>(public)</i></td><td><code>product_id, wallet?</code></td><td>same as <code>ach-list</code>, read-only</td></tr></table>
+  <p>Errors are <code>{"error":"…"}</code> with a meaningful status: 400 bad input, 401 ticket missing/expired, 403 not yours, 404 undefined key/board, 409 conflict, 413 too big.</p>
+
+  <h2 id="engines">Unity · Godot · C</h2>
+  <p>No plugin needed — read the environment, POST JSON. These are complete and drop-in.</p>
+  <div class="tabs" data-tabs="eng"><button class="tab on" data-t="unity">Unity (C#)</button><button class="tab" data-t="godot">Godot 4</button><button class="tab" data-t="c">C / C++</button></div>
+  <div class="pane on" data-p="eng-unity"><pre><code><span class="c">// DropRate.cs — drop into Assets/. Requires nothing but UnityEngine.Networking.</span>
+<span class="k">using</span> System; <span class="k">using</span> System.Collections; <span class="k">using</span> System.Text;
+<span class="k">using</span> UnityEngine; <span class="k">using</span> UnityEngine.Networking;
+
+<span class="k">public static class</span> DropRate {
+    <span class="k">static readonly string</span> Api    = Environment.GetEnvironmentVariable(<span class="s">"DROPRATE_API"</span>) ?? <span class="s">"https://droprate.xyz/sdk/v1"</span>;
+    <span class="k">static readonly string</span> Ticket = Environment.GetEnvironmentVariable(<span class="s">"DROPRATE_TICKET"</span>);
+    <span class="k">public static bool</span> Guest =&gt; string.IsNullOrEmpty(Ticket);
+
+    <span class="k">public static</span> IEnumerator Unlock(<span class="k">string</span> key)            =&gt; Post(<span class="s">"ach-unlock"</span>,   <span class="s">"{\"key\":\""</span> + key + <span class="s">"\"}"</span>);
+    <span class="k">public static</span> IEnumerator Submit(<span class="k">string</span> board, <span class="k">long</span> s) =&gt; Post(<span class="s">"score-submit"</span>, <span class="s">"{\"board\":\""</span> + board + <span class="s">"\",\"score\":"</span> + s + <span class="s">"}"</span>);
+    <span class="k">public static</span> IEnumerator Save(<span class="k">string</span> slot, <span class="k">string</span> json) =&gt;
+        Post(<span class="s">"save-put"</span>, <span class="s">"{\"slot\":\""</span> + slot + <span class="s">"\",\"data\":\""</span> + Convert.ToBase64String(Encoding.UTF8.GetBytes(json)) + <span class="s">"\"}"</span>);
+
+    <span class="k">static</span> IEnumerator Post(<span class="k">string</span> action, <span class="k">string</span> body) {
+        <span class="k">if</span> (Guest) <span class="k">yield break</span>;                                   <span class="c">// no ticket: silently skip</span>
+        <span class="k">var</span> req = <span class="k">new</span> UnityWebRequest(Api + <span class="s">"/"</span> + action, <span class="s">"POST"</span>);
+        req.uploadHandler   = <span class="k">new</span> UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+        req.downloadHandler = <span class="k">new</span> DownloadHandlerBuffer();
+        req.SetRequestHeader(<span class="s">"Content-Type"</span>, <span class="s">"application/json"</span>);
+        req.SetRequestHeader(<span class="s">"Authorization"</span>, <span class="s">"Bearer "</span> + Ticket);
+        <span class="k">yield return</span> req.SendWebRequest();
+        <span class="k">if</span> (req.result != UnityWebRequest.Result.Success) Debug.LogWarning(<span class="s">"DropRate "</span> + action + <span class="s">": "</span> + req.downloadHandler.text);
+    }
+}
+<span class="c">// usage, from any MonoBehaviour:   StartCoroutine(DropRate.Unlock("first_blood"));</span></code></pre></div>
+  <div class="pane" data-p="eng-godot"><pre><code><span class="c"># droprate.gd — add as an Autoload named DropRate</span>
+<span class="k">extends</span> Node
+<span class="k">var</span> api: String = OS.get_environment(<span class="s">"DROPRATE_API"</span>)
+<span class="k">var</span> ticket: String = OS.get_environment(<span class="s">"DROPRATE_TICKET"</span>)
+<span class="k">var</span> guest: bool = ticket == <span class="s">""</span>
+
+<span class="k">func</span> _ready():
+    <span class="k">if</span> api == <span class="s">""</span>: api = <span class="s">"https://droprate.xyz/sdk/v1"</span>
+
+<span class="k">func</span> unlock(key: String): _post(<span class="s">"ach-unlock"</span>, {<span class="s">"key"</span>: key})
+<span class="k">func</span> submit(board: String, score: int): _post(<span class="s">"score-submit"</span>, {<span class="s">"board"</span>: board, <span class="s">"score"</span>: score})
+<span class="k">func</span> save(slot: String, data: Dictionary):
+    _post(<span class="s">"save-put"</span>, {<span class="s">"slot"</span>: slot, <span class="s">"data"</span>: Marshalls.utf8_to_base64(JSON.stringify(data))})
+
+<span class="k">func</span> _post(action: String, body: Dictionary):
+    <span class="k">if</span> guest: <span class="k">return</span>
+    <span class="k">var</span> http := HTTPRequest.new(); add_child(http)
+    http.request_completed.connect(<span class="k">func</span>(_r, code, _h, b): <span class="k">if</span> code &gt;= 400: push_warning(<span class="s">"DropRate %s: %s"</span> % [action, b.get_string_from_utf8()]); http.queue_free())
+    http.request(api + <span class="s">"/"</span> + action, [<span class="s">"Content-Type: application/json"</span>, <span class="s">"Authorization: Bearer "</span> + ticket], HTTPClient.METHOD_POST, JSON.stringify(body))</code></pre></div>
+  <div class="pane" data-p="eng-c"><pre><code><span class="c">/* droprate.c — libcurl. cc droprate.c -lcurl */</span>
+<span class="k">#include</span> &lt;curl/curl.h&gt;
+<span class="k">#include</span> &lt;stdio.h&gt;
+<span class="k">#include</span> &lt;stdlib.h&gt;
+<span class="k">#include</span> &lt;string.h&gt;
+
+<span class="k">static int</span> droprate_post(<span class="k">const char</span> *action, <span class="k">const char</span> *json) {
+    <span class="k">const char</span> *ticket = getenv(<span class="s">"DROPRATE_TICKET"</span>); <span class="k">if</span> (!ticket) <span class="k">return</span> 0;   <span class="c">/* guest */</span>
+    <span class="k">const char</span> *api = getenv(<span class="s">"DROPRATE_API"</span>); <span class="k">if</span> (!api) api = <span class="s">"https://droprate.xyz/sdk/v1"</span>;
+    <span class="k">char</span> url[512], auth[1024];
+    snprintf(url, <span class="k">sizeof</span> url, <span class="s">"%s/%s"</span>, api, action);
+    snprintf(auth, <span class="k">sizeof</span> auth, <span class="s">"Authorization: Bearer %s"</span>, ticket);
+    CURL *c = curl_easy_init(); <span class="k">if</span> (!c) <span class="k">return</span> -1;
+    <span class="k">struct</span> curl_slist *h = NULL;
+    h = curl_slist_append(h, <span class="s">"Content-Type: application/json"</span>); h = curl_slist_append(h, auth);
+    curl_easy_setopt(c, CURLOPT_URL, url); curl_easy_setopt(c, CURLOPT_HTTPHEADER, h);
+    curl_easy_setopt(c, CURLOPT_POSTFIELDS, json);
+    <span class="k">int</span> rc = curl_easy_perform(c) == CURLE_OK ? 0 : -1;
+    curl_slist_free_all(h); curl_easy_cleanup(c); <span class="k">return</span> rc;
+}
+<span class="c">/* droprate_post("ach-unlock", "{\"key\":\"first_blood\"}"); */</span></code></pre></div>
+
+  <h2 id="limits">Limits &amp; rules</h2>
+  <table><tr><th>Thing</th><th>Limit</th></tr>
+  <tr><td>Achievements per game</td><td>200</td></tr>
+  <tr><td>Leaderboards per game</td><td>50</td></tr>
+  <tr><td>Save slots per player per game</td><td>8, 1 MB each</td></tr>
+  <tr><td>Ticket lifetime</td><td>12 h (launcher / web) · 1 h (dev test)</td></tr>
+  <tr><td>Keys</td><td><code>a-z 0-9 _ . -</code>, ≤ 64 chars, case-insensitive</td></tr></table>
+  <p>Player data belongs to the player: it's keyed by wallet, follows them across devices, and survives a resale (a new owner starts fresh; the old owner's progress stays with their wallet). You can read every player's achievement counts and wipe leaderboard entries from the portal; you cannot read their saves.</p>
+  <p>Questions or a feature you need? The <a href="/devportal.html">Dev Portal</a> has a message box that reaches us directly.</p>
+</main>
+</div>
+<div class="foot">DropRate Game SDK v1 · <a href="/docs.html">docs</a> · <a href="/whitepaper.html">whitepaper</a></div>
+<script>
+document.querySelectorAll('[data-tabs]').forEach(g=>{
+  const name=g.dataset.tabs;
+  g.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    g.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+    document.querySelectorAll('[data-p^="'+name+'-"]').forEach(p=>p.classList.toggle('on',p.dataset.p===name+'-'+t.dataset.t));
+  }));
+});
+</script>
+</body>
+</html>

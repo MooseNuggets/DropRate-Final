@@ -120,6 +120,7 @@ color:var(--ink);padding:12px 18px;border-radius:12px;font-size:.86rem;opacity:0
         <a href="/raffles.html">Raffles</a>
         <a href="/library.html">Library</a>
         <a href="/docs.html">Docs</a>
+        <a href="/sdk.html" style="color:var(--gold)">SDK</a>
       </nav>
       <button class="wallet" id="connectBtn">Connect Wallet</button>
     </div>
@@ -640,6 +641,7 @@ function renderNative(games){
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+
       '<button class="btn ghost" data-ngedit="'+g.id+'">Edit</button>'+
       '<button class="btn ghost" data-ngup="'+g.id+'">Upload files</button>'+
+      '<button class="btn ghost" data-ngsdk="'+g.id+'" title="Achievements, cloud saves, leaderboards">SDK</button>'+
       ((g.preview_url||g.web_bundle_url)?('<button class="btn ghost" data-ngplay="'+g.id+'">Preview</button>'):'')+
       ((g.review_status==='draft'||g.review_status==='rejected')?('<button class="btn" data-ngsub="'+g.id+'">Submit for review</button>'):'')+
       (g.locked?'':('<button class="btn ghost" data-ngtoggle="'+g.id+'" data-on="'+(g.active?1:0)+'">'+(g.active?'Hide':'Publish')+'</button>'))+
@@ -673,6 +675,7 @@ function renderNative(games){
       const u=g&&(g.preview_url||g.web_bundle_url);
       if(u) window.open(u,'_blank','noopener'); return; }
     const up=e.target.closest('[data-ngup]'); if(up){ const g=gm.find(x=>x.id===Number(up.dataset.ngup)); if(g) openGameFiles(g); return; }
+    const sk=e.target.closest('[data-ngsdk]'); if(sk){ const g=gm.find(x=>x.id===Number(sk.dataset.ngsdk)); if(g) openGameSdk(g); return; }
     const tg=e.target.closest('[data-ngtoggle]'); if(tg){ tg.disabled=true; const r=await apiSigned('native-set-active',{product_id:Number(tg.dataset.ngtoggle),active:tg.dataset.on!=='1'}); if(r.error){ tg.disabled=false; toast(r.error);} else loadNative(); return; }
     const dl=e.target.closest('[data-ngdel]'); if(dl){ if(dl.dataset.confirm){ dl.disabled=true; dl.textContent='Deleting…'; const r=await apiSigned('native-delete',{product_id:Number(dl.dataset.ngdel)}); if(r.error){ dl.disabled=false; dl.textContent='Delete'; dl.removeAttribute('data-confirm'); toast(r.error);} else loadNative(); } else { dl.dataset.confirm='1'; dl.textContent='Confirm'; } return; }
   });
@@ -739,6 +742,71 @@ function putWithProgress(url, blob, onProgress, headers){
                    else reject(new Error('Upload failed ('+x.status+'). '+(x.responseText||'').slice(0,160))); };
     x.onerror=()=>reject(new Error('Network error during upload — check the bucket CORS rule.'));
     x.send(blob);
+  });
+}
+/* ---------------------------------------------------------------------------
+   Game SDK panel: achievements + leaderboards definitions, a test ticket.
+   Definitions are replaced as a whole on save (what you see is what the game
+   gets); unlock counts show which ones players are actually hitting.
+--------------------------------------------------------------------------- */
+async function openGameSdk(g){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML='<div class="ovcard" style="max-width:720px;max-height:90vh;overflow:auto">'+
+    '<h3 class="disp" style="font-size:1rem">Game SDK — '+esc(g.title)+'</h3>'+
+    '<div class="mini" style="margin:4px 0 12px">Achievements, cloud saves and leaderboards for this game. <a href="/sdk.html" target="_blank" rel="noopener" style="color:var(--gold)">Integration guide ↗</a> · product id <b style="color:var(--ink)">'+g.id+'</b></div>'+
+    '<div id="sdk-body"><div class="mini">Loading…</div></div>'+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-close="1" style="flex:0 0 auto">Done</button></div></div>';
+  ov.addEventListener('click',e=>{ if(e.target.dataset.close||e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const box=ov.querySelector('#sdk-body');
+  const [ach,brd]=await Promise.all([apiSigned('sdk-ach-dev-list',{product_id:g.id}),apiSigned('sdk-board-dev-list',{product_id:g.id})]);
+  if(ach.error||brd.error){ box.innerHTML='<div class="mini" style="color:var(--red)">'+esc(ach.error||brd.error)+'</div>'; return; }
+  let A=(ach.achievements||[]).map(a=>({...a})), B=(brd.boards||[]).map(b=>({...b}));
+  const achRow=(a,i)=>'<div class="upsec" data-ai="'+i+'" style="padding:12px 14px">'+
+    '<div class="row"><div style="flex:0 0 150px"><label class="mini">Key (code uses this)</label><input data-f="key" value="'+esc(a.key||'')+'" placeholder="first_blood"></div>'+
+    '<div><label class="mini">Name</label><input data-f="name" value="'+esc(a.name||'')+'" placeholder="First Blood"></div>'+
+    '<div style="flex:0 0 80px"><label class="mini">Points</label><input data-f="points" type="number" min="0" max="1000" value="'+(a.points??10)+'"></div></div>'+
+    '<div class="row" style="margin-top:8px"><div><label class="mini">Description</label><input data-f="description" value="'+esc(a.description||'')+'" placeholder="Win your first fight."></div>'+
+    '<div style="flex:0 0 220px"><label class="mini">Icon URL (optional)</label><input data-f="icon" value="'+esc(a.icon||'')+'" placeholder="https://…/icon.png"></div></div>'+
+    '<div class="row" style="margin-top:8px;align-items:center"><label class="chk" style="margin:0"><input type="checkbox" data-f="hidden"'+(a.hidden?' checked':'')+'> Hidden until unlocked</label>'+
+    '<span class="mini" style="flex:1;text-align:right">'+(a.unlocked_by?('unlocked by <b style="color:var(--ink)">'+a.unlocked_by+'</b> player'+(a.unlocked_by===1?'':'s')):'not unlocked by anyone yet')+'</span>'+
+    '<button class="btn ghost" data-adel="'+i+'" style="flex:0 0 auto;padding:6px 10px;font-size:.75rem">Remove</button></div></div>';
+  const brdRow=(b,i)=>'<div class="upsec" data-bi="'+i+'" style="padding:12px 14px"><div class="row" style="align-items:flex-end">'+
+    '<div style="flex:0 0 150px"><label class="mini">Key</label><input data-f="key" value="'+esc(b.key||'')+'" placeholder="high_score"></div>'+
+    '<div><label class="mini">Name</label><input data-f="name" value="'+esc(b.name||'')+'" placeholder="High score"></div>'+
+    '<div style="flex:0 0 150px"><label class="mini">Better is</label><select data-f="sort"><option value="desc"'+(b.sort_dir!=='asc'?' selected':'')+'>Higher</option><option value="asc"'+(b.sort_dir==='asc'?' selected':'')+'>Lower (times)</option></select></div>'+
+    '<div style="flex:0 0 80px"><label class="mini">Unit</label><input data-f="unit" value="'+esc(b.unit||'')+'" placeholder="pts"></div>'+
+    '<div style="flex:0 0 auto"><span class="mini">'+(b.entries||0)+' entries</span></div>'+
+    '<button class="btn ghost" data-bdel="'+i+'" style="flex:0 0 auto;padding:6px 10px;font-size:.75rem">Remove</button>'+
+    (b.entries?('<button class="btn danger" data-bwipe="'+esc(b.key)+'" style="flex:0 0 auto;padding:6px 10px;font-size:.75rem">Wipe scores</button>'):'')+
+    '</div></div>';
+  function paint(){
+    box.innerHTML=
+      '<div class="upsec"><h4 class="disp">Test ticket</h4><div class="hint mini">Run your integration before anyone owns the game. Valid one hour, tied to your wallet — progress is real.</div>'+
+        '<div class="row" style="align-items:center"><button class="btn ghost" id="sdk-tk" style="flex:0 0 auto">Get test ticket</button><input id="sdk-tkv" readonly placeholder="Click to generate…" style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem"></div>'+
+        '<div class="mini" style="margin-top:6px">Set it as <code>DROPRATE_TICKET</code> in your game\'s environment, or pass it to <code>DropRate.ready({ticket})</code> in a browser build.</div></div>'+
+      '<h4 class="disp" style="margin:16px 0 4px">Achievements <span class="mini">('+A.length+' / 200)</span></h4>'+
+      '<div id="sdk-ach">'+A.map(achRow).join('')+'</div>'+
+      '<div class="row"><button class="btn ghost" id="sdk-aadd" style="flex:0 0 auto">+ Add achievement</button><button class="btn" id="sdk-asave" style="flex:0 0 auto">Save achievements</button><span class="res" id="sdk-ares"></span></div>'+
+      '<h4 class="disp" style="margin:22px 0 4px">Leaderboards <span class="mini">('+B.length+' / 50)</span></h4>'+
+      '<div id="sdk-brd">'+B.map(brdRow).join('')+'</div>'+
+      '<div class="row"><button class="btn ghost" id="sdk-badd" style="flex:0 0 auto">+ Add leaderboard</button><button class="btn" id="sdk-bsave" style="flex:0 0 auto">Save leaderboards</button><span class="res" id="sdk-bres"></span></div>';
+  }
+  function readA(){ return [...box.querySelectorAll('[data-ai]')].map(row=>{ const v=f=>row.querySelector('[data-f="'+f+'"]'); return {key:v('key').value.trim(),name:v('name').value.trim(),description:v('description').value.trim(),icon:v('icon').value.trim()||null,points:Number(v('points').value)||0,hidden:v('hidden').checked}; }); }
+  function readB(){ return [...box.querySelectorAll('[data-bi]')].map(row=>{ const v=f=>row.querySelector('[data-f="'+f+'"]'); return {key:v('key').value.trim(),name:v('name').value.trim(),sort:v('sort').value,unit:v('unit').value.trim()||null}; }); }
+  paint();
+  box.addEventListener('click',async e=>{
+    const t=e.target;
+    if(t.id==='sdk-tk'){ t.disabled=true; const r=await apiSigned('sdk-ticket-dev',{product_id:g.id}); t.disabled=false; if(r.error){ toast(r.error); return; } box.querySelector('#sdk-tkv').value=r.ticket; try{ await navigator.clipboard.writeText(r.ticket); toast('Test ticket copied to clipboard.'); }catch{} return; }
+    if(t.id==='sdk-aadd'){ A=readA().map(a=>({...a})); A.push({key:'',name:'',description:'',icon:null,points:10,hidden:false}); paint(); return; }
+    if(t.id==='sdk-badd'){ B=readB().map(b=>({...b,sort_dir:b.sort})); B.push({key:'',name:'',sort_dir:'desc',unit:''}); paint(); return; }
+    if(t.dataset.adel!=null){ A=readA(); A.splice(Number(t.dataset.adel),1); paint(); return; }
+    if(t.dataset.bdel!=null){ B=readB().map(b=>({...b,sort_dir:b.sort})); B.splice(Number(t.dataset.bdel),1); paint(); return; }
+    if(t.id==='sdk-asave'){ t.disabled=true; const r=await apiSigned('sdk-ach-set',{product_id:g.id,achievements:readA()}); t.disabled=false;
+      const res=box.querySelector('#sdk-ares'); if(r.error){ res.textContent=r.error; res.style.color='var(--red)'; } else { res.textContent='Saved '+r.count+'.'; res.style.color='var(--green)'; const fresh=await apiSigned('sdk-ach-dev-list',{product_id:g.id}); if(!fresh.error){ A=fresh.achievements; paint(); } } return; }
+    if(t.id==='sdk-bsave'){ t.disabled=true; const r=await apiSigned('sdk-board-set',{product_id:g.id,boards:readB()}); t.disabled=false;
+      const res=box.querySelector('#sdk-bres'); if(r.error){ res.textContent=r.error; res.style.color='var(--red)'; } else { res.textContent='Saved '+r.count+'.'; res.style.color='var(--green)'; const fresh=await apiSigned('sdk-board-dev-list',{product_id:g.id}); if(!fresh.error){ B=fresh.boards; paint(); } } return; }
+    if(t.dataset.bwipe){ if(!t.dataset.confirm){ t.dataset.confirm='1'; t.textContent='Confirm wipe'; return; } t.disabled=true; const r=await apiSigned('sdk-score-remove',{product_id:g.id,board:t.dataset.bwipe}); if(r.error) toast(r.error); else { toast('Removed '+r.removed+' scores.'); const fresh=await apiSigned('sdk-board-dev-list',{product_id:g.id}); if(!fresh.error){ B=fresh.boards; paint(); } } return; }
   });
 }
 async function openGameFiles(g){

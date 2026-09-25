@@ -108,6 +108,22 @@ async function dispatchRefund(toWallet, amountRaw, currency = "DROP") {
   return sendTreasuryTransfer(toWallet, amountRaw);
 }
 export default async function handler(req, res) {
+  /* ---- Game SDK: POST /sdk/v1/<action> (vercel.json rewrites here) --------
+     Games call this from anywhere — a desktop exe, a web build on the storage
+     origin, a Unity player — so it is the one route that answers CORS. Auth is
+     the ticket in the Authorization header, never a cookie, so a permissive
+     origin policy gives an attacker nothing they don't already hold. */
+  const sdkAction = req.query && req.query.sdk;
+  if (sdkAction) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    if (req.method === "OPTIONS") return res.status(204).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+    const { gamesdk } = await import("../lib/gamesdk.js");
+    return gamesdk(req, res, "sdk-" + String(sdkAction).replace(/[^a-z0-9-]/gi, ""), req.body || {});
+  }
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   // Dev-key marketplace shares this serverless function (Vercel Hobby caps at 12
   // functions). Its routes live in lib/devmarket.js — not a new /api file — and are
