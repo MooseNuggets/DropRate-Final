@@ -321,10 +321,11 @@
   .preown{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:2px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.08)}
   .preown b{color:var(--gold-hi)} .preown svg{width:11px;height:11px;color:var(--gold)}
   .po{margin-top:14px}
-  .po .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-top:6px;flex-wrap:wrap}
+  .po .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-top:6px}
+  .po .meta{display:flex;align-items:baseline;gap:10px;flex:1 1 110px;min-width:0;white-space:nowrap}
+  .po .acts{display:flex;gap:6px;flex:0 0 auto;margin-left:auto}
   .po .cp{font-family:var(--mono);font-size:10.5px;color:var(--dim2);flex:0 0 auto}
   .po .pr{font-family:var(--display);font-weight:700;font-size:17px;flex:0 0 auto}
-  .po .sl{font-family:var(--mono);font-size:10px;color:var(--dim2);flex:1;min-width:80px}
   .po .bt{font-family:var(--display);font-weight:700;font-size:11.5px;letter-spacing:.04em;border-radius:9px;padding:8px 12px;cursor:pointer;border:1px solid rgba(255,194,75,.5);background:rgba(255,194,75,.1);color:var(--gold-hi)}
   .po .bt:hover{background:rgba(255,194,75,.2)}
   .po .note{font-size:11.5px;color:var(--dim2);margin-top:8px;line-height:1.5}
@@ -913,8 +914,8 @@ async function loadPreowned(el,p){
   const d=await api({action:'native-resale-browse',product_id:p.id});
   if(!d||d.error||!d.listings||!d.listings.length){ el.innerHTML=''; return; }
   const acc=d.accepted_currencies||['USDC','SOL'];
-  const rows=d.listings.map(l=>'<div class="row"><div style="display:flex;align-items:baseline;gap:10px;flex:1;min-width:0"><span class="cp">Copy #'+l.copy_number+'</span><span class="pr gold-text">'+usd(l.price_cents)+'</span><span class="sl">seller '+esc(l.seller.slice(0,4)+'…'+l.seller.slice(-4))+'</span></div>'+
-    '<div style="display:flex;gap:6px;flex:0 0 auto">'+
+  const rows=d.listings.map(l=>'<div class="row"><div class="meta"><span class="cp">Copy #'+l.copy_number+'</span><span class="pr gold-text">'+usd(l.price_cents)+'</span></div>'+
+    '<div class="acts">'+
     (acc.includes('USDC')?('<button class="bt" data-po="'+l.id+'" data-cur="USDC">'+(Number(l.usdc_raw)/1e6).toFixed(2)+' USDC</button>'):'')+
     (acc.includes('SOL')&&l.sol_raw?('<button class="bt" data-po="'+l.id+'" data-cur="SOL">≈ '+(Number(l.sol_raw)/1e9).toFixed(3).replace(/\.?0+$/,'')+' SOL</button>'):'')+
     '</div></div>').join('');
