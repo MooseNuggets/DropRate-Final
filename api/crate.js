@@ -131,7 +131,13 @@ export default async function handler(req, res) {
   // BEFORE crate's own actions because some names (market/buy-open/…) overlap.
   if (req.body && req.body.ns === "devmarket") {
     const { devmarket } = await import("../lib/devmarket.js");
-    return devmarket(req, res);
+    try { return await devmarket(req, res); }
+    catch (err) {
+      // Never let a rejection escape to Vercel's generic crash page — the
+      // message is the only thing that makes a failure diagnosable.
+      console.error("devmarket:", err);
+      return res.status(err.status || 500).json({ error: String(err.message || err) });
+    }
   }
   try {
     await migrateGacha();
