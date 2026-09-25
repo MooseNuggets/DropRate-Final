@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",
-    "@solana/web3.js": "1.91.6",
+    "@solana/web3.js": "^1.99.0",
     "@solana/spl-token": "^0.4.9",
     "@solana/pay": "^0.2.6",
     "bs58": "^6.0.0",
@@ -16,7 +16,6 @@
     "@metaplex-foundation/umi-bundle-defaults": "^1.5.1"
   },
   "overrides": {
-    "rpc-websockets": "7.10.0",
-    "@solana/web3.js": "1.91.6"
+    "@solana/web3.js": "^1.99.0"
   }
 }
