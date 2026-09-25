@@ -291,8 +291,8 @@ function shell(title, bodyHtml) {
     document.addEventListener('keydown', escClose);
   }
   back.innerHTML =
-    `<div class="drb" role="dialog" aria-modal="true" aria-label="${title}">
-       <div class="drb-hd"><h3>${title}</h3><button class="drb-x" aria-label="Close">&times;</button></div>
+    `<div class="drb" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+       <div class="drb-hd"><h3>${esc(title)}</h3><button class="drb-x" aria-label="Close">&times;</button></div>
        <div class="drb-bd">${bodyHtml}</div>
      </div>`;
   back.querySelector('.drb-x').addEventListener('click', close);
@@ -456,9 +456,23 @@ const STEPS = [
   ['record', 'Add it to your library'],
 ];
 
-function progress(title, activeKey, message, errorHtml) {
-  const rows = STEPS.map(([key, label], i) => {
-    const at = STEPS.findIndex(([k]) => k === activeKey);
+// Each flow narrates its own steps. Selling is not buying: nobody pays, nothing
+// is minted — the copy is signed for, moved into escrow, and put on the shelf.
+const SELL_STEPS = [
+  ['price', 'Set your price'],
+  ['sign', 'Sign the listing'],
+  ['escrow', 'Move the copy into escrow'],
+  ['live', 'Go live on the game\'s page'],
+];
+const DELIST_STEPS = [
+  ['sign', 'Sign the delist request'],
+  ['return', 'Return the copy from escrow'],
+  ['back', 'Back in your library'],
+];
+
+function progress(title, activeKey, message, errorHtml, steps = STEPS) {
+  const rows = steps.map(([key, label], i) => {
+    const at = steps.findIndex(([k]) => k === activeKey);
     const cls = i < at ? 'done' : i === at ? 'now' : '';
     return `<div class="drb-st ${cls}"><span class="dot"></span>${label}</div>`;
   }).join('');
@@ -798,11 +812,12 @@ export async function sell(copy) {
   bd.querySelector('#drb-list').addEventListener('click', async () => {
     const cents = Math.round(Number(inp.value) * 100);
     if (!(cents >= floor)) return;
-    progress('Sell', 'pay', 'Preparing the listing…');
+    const sellTitle = `Selling ${copy.title} · copy #${copy.copy_number}`;
+    progress(sellTitle, 'sign', 'Approve the listing message in your wallet — this proves the copy is yours and locks in your price.', '', SELL_STEPS);
     const s2 = await signMsg('native-resale-list');
     const l = await dapi({ action: 'native-resale-list', product_id: copy.product_id, asset_address: copy.asset_address, price_cents: cents, wallet: OWNER, ...s2 });
     if (l.error) return failure(l.error, 'Try again', () => sell(copy));
-    progress('Sell', 'verify', 'Approve the transfer into escrow in your wallet.');
+    progress(sellTitle, 'escrow', 'Approve the transfer in your wallet. The copy moves into DropRate\'s escrow, where it sits until it sells or you take it back.', '', SELL_STEPS);
     let signedB64;
     try {
       const tx = decodeTx(l.transaction, !!l.versioned);
@@ -813,7 +828,7 @@ export async function sell(copy) {
       await dapi({ action: 'native-resale-delist', listing_id: l.listing_id, wallet: OWNER, ...(await signMsg('native-resale-delist')) }).catch(() => {});
       return failure('The transfer was rejected or cancelled in your wallet. Nothing was listed.', 'Try again', () => sell(copy));
     }
-    progress('Sell', 'mint', 'Confirming the copy is in escrow…');
+    progress(sellTitle, 'live', 'Waiting for the network to confirm the copy is in escrow…', '', SELL_STEPS);
     let first = true;
     const done = await poll(
       () => { const body = { action: 'native-resale-list-confirm', listing_id: l.listing_id }; if (first) { body.signed_tx = signedB64; first = false; } return dapi(body); },
@@ -832,8 +847,11 @@ export async function sell(copy) {
 /* Take a listing down; the copy comes back to the wallet. */
 export async function delist(listingId, title) {
   try { await ensureWallet(); } catch (e) { return; }
-  progress('Delist', 'pay', 'Returning the copy to your wallet…');
-  const r = await dapi({ action: 'native-resale-delist', listing_id: Number(listingId), wallet: OWNER, ...(await signMsg('native-resale-delist')) });
+  const dtitle = title ? `Delisting ${title}` : 'Delist';
+  progress(dtitle, 'sign', 'Approve the delist message in your wallet.', '', DELIST_STEPS);
+  const dsig = await signMsg('native-resale-delist');
+  progress(dtitle, 'return', 'Taking the listing down and sending the copy back to your wallet…', '', DELIST_STEPS);
+  const r = await dapi({ action: 'native-resale-delist', listing_id: Number(listingId), wallet: OWNER, ...dsig });
   if (r.error) return failure(r.error, null, null);
   const bd = shell('Delisted', `<p class="drb-note">${esc(title || 'The copy')} is back in your wallet and your library.</p><button class="drb-go" data-close>Done</button>`);
   bd.querySelector('[data-close]').addEventListener('click', () => { close(); document.dispatchEvent(new CustomEvent('droprate:library-changed')); });
