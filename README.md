@@ -109,6 +109,7 @@ Money flows on three rails. Which one applies is decided per product, not per us
 | Crates, paid in $DROP | $DROP | 70% treasury · 10% LP · 10% marketing · 10% burn. **10% off** if the wallet holds ≥ 100,000 $DROP (checked on-chain at quote time). |
 | Crates, paid in USDC / SOL | USDC, SOL | 70% treasury · 15% marketing · 15% owner. No burn. **No discount**, even if the wallet holds $DROP. |
 | Store + dev marketplace | USDC, SOL (dev picks one or both) | Flat 5% fee, dev keeps 95%. No holder discount, ever. |
+| Pre-owned game resale | USDC, SOL | 70% seller · 25% developer (royalty, dev may set lower) · 5% platform. Copy escrowed while listed. `lib/nativeresale.js`. |
 
 Sell-backs refund 70% of what was paid, in the currency it was paid in.
 

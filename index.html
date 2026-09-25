@@ -318,6 +318,16 @@
   .card:hover .price .pu{opacity:0;transform:translateY(-7px)}
   .card:hover .price .pd{opacity:1;transform:none}
   .studio{font-size:11.5px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52%}
+  .preown{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:2px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.08)}
+  .preown b{color:var(--gold-hi)} .preown svg{width:11px;height:11px;color:var(--gold)}
+  .po{margin-top:14px}
+  .po .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-top:6px;flex-wrap:wrap}
+  .po .cp{font-family:var(--mono);font-size:10.5px;color:var(--dim2);flex:0 0 auto}
+  .po .pr{font-family:var(--display);font-weight:700;font-size:17px;flex:0 0 auto}
+  .po .sl{font-family:var(--mono);font-size:10px;color:var(--dim2);flex:1;min-width:80px}
+  .po .bt{font-family:var(--display);font-weight:700;font-size:11.5px;letter-spacing:.04em;border-radius:9px;padding:8px 12px;cursor:pointer;border:1px solid rgba(255,194,75,.5);background:rgba(255,194,75,.1);color:var(--gold-hi)}
+  .po .bt:hover{background:rgba(255,194,75,.2)}
+  .po .note{font-size:11.5px;color:var(--dim2);margin-top:8px;line-height:1.5}
   .scar-row{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim2);margin-bottom:6px}
   .scar-row b{color:var(--gold-hi)}
   .scar-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
@@ -696,6 +706,7 @@ function card(g){
       (g.tagline?('<div class="ctag">'+esc(g.tagline)+'</div>'):'')+
       scarcityHTML(g)+
       '<div class="cmeta"><span class="price gold-text"><span class="pu">'+usd(g.price_cents)+'</span></span><span class="studio">'+esc((g.dev&&g.dev.studio)||'')+'</span></div>'+
+      (g.preowned_count>0?('<div class="preown">'+KEY_IC+'Pre-owned from <b>'+usd(g.preowned_from_cents)+'</b> · '+g.preowned_count+' listed</div>'):'')+
     '</div></div>';
 }
 function spotShellHTML(){
@@ -877,10 +888,11 @@ async function openGame(id){
         '</div>'+
         (p.play_url ? '<a class="cta play" href="/play.html?id='+p.id+'">'+PLAY_IC+'Play free in your browser</a>' : '')+
         (p.sold_out
-          ? '<button class="cta soon">Sold out — resale only (soon)</button>'
+          ? '<button class="cta soon">Sold out — new copies · see pre-owned below</button>'
           : '<button class="cta" data-buy="'+p.id+'">Buy · '+usd(p.price_cents)+'</button>')+
         '<p style="position:relative;color:var(--dim2);font-size:11.5px;margin-top:11px;line-height:1.6">Two approvals: one to pay, one to mint the copy into your wallet. Then it is yours.</p>'+
       '</div>'+
+      '<div class="po" id="gvpo"></div>'+
     '</div></div>';
   const gm=ov.querySelector('#gvm'), gt=ov.querySelector('#gvt');
   function show(i){ const m=media[i]; if(!m) return; gm.innerHTML=m.t==='v'?videoEmbed(m.s):(m.s?'<img src="'+esc(m.s)+'">':'<div style="text-align:center;color:var(--dim2);font-size:12.5px">'+MARK('em-mark')+'No screenshots yet</div>'); gt.querySelectorAll('.gv-thumb').forEach(t=>t.classList.toggle('on',Number(t.dataset.idx)===i)); }
@@ -891,6 +903,26 @@ async function openGame(id){
     const dv=e.target.closest('[data-dev]'); if(dv&&dv.dataset.dev){ close(); openDev(dv.dataset.dev); } });
   show(0);
   loadAchievements(ov.querySelector('#gvach'),p.id);
+  loadPreowned(ov.querySelector('#gvpo'),p);
+}
+/* Pre-owned copies for sale: cheapest first, pay in USDC or SOL, the seller
+   is paid in what you paid. Sits under the new-copy buy box so "new" stays the
+   headline and "used" is the deal. */
+async function loadPreowned(el,p){
+  if(!el) return;
+  const d=await api({action:'native-resale-browse',product_id:p.id});
+  if(!d||d.error||!d.listings||!d.listings.length){ el.innerHTML=''; return; }
+  const acc=d.accepted_currencies||['USDC','SOL'];
+  const rows=d.listings.map(l=>'<div class="row"><div style="display:flex;align-items:baseline;gap:10px;flex:1;min-width:0"><span class="cp">Copy #'+l.copy_number+'</span><span class="pr gold-text">'+usd(l.price_cents)+'</span><span class="sl">seller '+esc(l.seller.slice(0,4)+'…'+l.seller.slice(-4))+'</span></div>'+
+    '<div style="display:flex;gap:6px;flex:0 0 auto">'+
+    (acc.includes('USDC')?('<button class="bt" data-po="'+l.id+'" data-cur="USDC">'+(Number(l.usdc_raw)/1e6).toFixed(2)+' USDC</button>'):'')+
+    (acc.includes('SOL')&&l.sol_raw?('<button class="bt" data-po="'+l.id+'" data-cur="SOL">≈ '+(Number(l.sol_raw)/1e9).toFixed(3).replace(/\.?0+$/,'')+' SOL</button>'):'')+
+    '</div></div>').join('');
+  const sellerPct=(10000-(d.royalty_bps||0)-(d.fee_bps||0))/100, devPct=(d.royalty_bps||0)/100, feePct=(d.fee_bps||0)/100;
+  el.innerHTML='<div class="sec-label" style="margin:0 0 4px"><h2 style="font-size:16px">Pre-owned</h2><span class="ln"></span><span class="note">'+d.listings.length+' for sale</span></div>'+rows+
+    '<div class="note">Same copy, same ownership, lower price. The seller gets '+sellerPct+'%, the developer '+devPct+'%, DropRate '+feePct+'%. Transferred to your wallet the moment you pay.</div>';
+  el.addEventListener('click',e=>{ const b=e.target.closest('[data-po]'); if(!b) return;
+    if(window.DropRateBuy&&window.DropRateBuy.buyPreowned) window.DropRateBuy.buyPreowned(b.dataset.po,b.dataset.cur,{title:p.title}); else toast&&toast('Checkout is still loading — one moment.'); });
 }
 /* Achievements block on the store sheet. Public read; personalised (unlocked
    ticks) when a wallet is connected — no signature needed, it's read-only. */

@@ -758,8 +758,119 @@ export async function resumeWallet() {
   } catch { return null; }
 }
 
+// ============================================================================
+// PRE-OWNED: sell a copy you hold, buy a copy someone else listed.
+//
+// Selling = one wallet signature that moves the copy into DropRate's escrow.
+// Buying  = one payment; the copy is transferred to you and the money splits
+//           seller / developer / platform in the currency you paid.
+// ============================================================================
+const usdc = (raw) => (Number(raw) / 1e6).toFixed(2);
+const solf = (raw) => { const n = Number(raw) / 1e9; return (n >= 10 ? n.toFixed(2) : n.toFixed(3)).replace(/\.?0+$/, ''); };
+const pct = (bps) => (bps / 100).toFixed(bps % 100 ? 1 : 0) + '%';
+
+/* Open the "sell this copy" sheet. `copy` is a row from native-buy-library. */
+export async function sell(copy) {
+  try { await ensureWallet(); } catch (e) { return; }
+  const bd = shell('Sell this copy', `<p class="drb-note">Loading…</p>`);
+  const sig = await signMsg('native-resale-quote-list');
+  const q = await dapi({ action: 'native-resale-quote-list', product_id: copy.product_id, asset_address: copy.asset_address, wallet: OWNER, ...sig });
+  if (q.error) return failure(q.error, null, null);
+  const floor = q.min_price_cents, list = q.list_price_cents;
+  const render = (cents) => {
+    const you = Math.floor(cents * q.seller_bps / 10000), dev = Math.floor(cents * q.royalty_bps / 10000), fee = cents - you - dev;
+    return `You get <b>$${(you / 100).toFixed(2)}</b> · developer $${(dev / 100).toFixed(2)} (${pct(q.royalty_bps)}) · DropRate $${(fee / 100).toFixed(2)} (${pct(q.fee_bps)})`;
+  };
+  const start = Math.max(floor, Math.round(list * 0.8));
+  bd.innerHTML = `
+    <div style="font-weight:600;font-size:15px;margin-bottom:4px">${esc(copy.title)} <span style="color:var(--dim2,#6b73a0);font-weight:400">· copy #${copy.copy_number}</span></div>
+    <p class="drb-note" style="text-align:left;margin:0 0 12px">New copies sell for $${(list / 100).toFixed(2)}. The developer's minimum for pre-owned is <b>$${(floor / 100).toFixed(2)}</b>.</p>
+    <label style="font-family:var(--mono,monospace);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim2,#6b73a0)">Your price (USD)</label>
+    <input id="drb-price" type="number" min="${(floor / 100).toFixed(2)}" step="0.01" value="${(start / 100).toFixed(2)}" style="width:100%;margin:6px 0 8px;background:#0b0f21;border:1px solid var(--line,#28305a);border-radius:10px;color:#f3f5ff;padding:12px;font-size:18px;font-family:var(--display,inherit)">
+    <div id="drb-split" style="font-size:12.5px;color:var(--dim,#98a1c8);line-height:1.5;margin-bottom:14px">${render(start)}</div>
+    ${q.cooldown_ok ? '' : `<div class="drb-err">This copy can be listed after ${new Date(q.ready_at).toLocaleString()}.</div>`}
+    <button class="drb-go" id="drb-list" ${q.cooldown_ok ? '' : 'disabled'}>List for sale</button>
+    <p class="drb-note" style="margin-top:10px">Listing moves the copy into DropRate's escrow until it sells or you delist. You won't be able to play it while it's listed.</p>
+    <button class="drb-ghost" data-close>Cancel</button>`;
+  bd.querySelector('[data-close]').addEventListener('click', close);
+  const inp = bd.querySelector('#drb-price');
+  inp.addEventListener('input', () => { const c = Math.round(Number(inp.value) * 100) || 0; bd.querySelector('#drb-split').innerHTML = c >= floor ? render(c) : `<span style="color:#ff9aa8">Below the developer's minimum of $${(floor / 100).toFixed(2)}</span>`; });
+  bd.querySelector('#drb-list').addEventListener('click', async () => {
+    const cents = Math.round(Number(inp.value) * 100);
+    if (!(cents >= floor)) return;
+    progress('Sell', 'pay', 'Preparing the listing…');
+    const s2 = await signMsg('native-resale-list');
+    const l = await dapi({ action: 'native-resale-list', product_id: copy.product_id, asset_address: copy.asset_address, price_cents: cents, wallet: OWNER, ...s2 });
+    if (l.error) return failure(l.error, 'Try again', () => sell(copy));
+    progress('Sell', 'verify', 'Approve the transfer into escrow in your wallet.');
+    let signedB64;
+    try {
+      const tx = decodeTx(l.transaction, !!l.versioned);
+      if (typeof wallet.signTransaction !== 'function') throw new Error('This wallet cannot sign transactions.');
+      const signed = await wallet.signTransaction(tx);
+      signedB64 = bytesToB64(signed.serialize());
+    } catch (e) {
+      await dapi({ action: 'native-resale-delist', listing_id: l.listing_id, wallet: OWNER, ...(await signMsg('native-resale-delist')) }).catch(() => {});
+      return failure('The transfer was rejected or cancelled in your wallet. Nothing was listed.', 'Try again', () => sell(copy));
+    }
+    progress('Sell', 'mint', 'Confirming the copy is in escrow…');
+    let first = true;
+    const done = await poll(
+      () => { const body = { action: 'native-resale-list-confirm', listing_id: l.listing_id }; if (first) { body.signed_tx = signedB64; first = false; } return dapi(body); },
+      (r) => r.state === 'active',
+      (r) => r.error && !/pending/i.test(r.error),
+      30, 2500);
+    if (!done.ok) return failure(done.result?.error || 'Could not confirm the escrow transfer yet — if your wallet says it went through, refresh your library in a minute.', null, null);
+    const bd2 = shell('Listed', `<div style="text-align:center;padding:10px 0"><div style="font-size:34px">🏷</div>
+      <div style="font-weight:600;font-size:16px;margin:8px 0 4px">${esc(copy.title)} is on the market</div>
+      <p class="drb-note">Listed at $${(cents / 100).toFixed(2)}. Buyers see it on the game's page. Delist any time from your library.</p></div>
+      <button class="drb-go" data-close>Done</button>`);
+    bd2.querySelector('[data-close]').addEventListener('click', () => { close(); document.dispatchEvent(new CustomEvent('droprate:library-changed')); });
+  });
+}
+
+/* Take a listing down; the copy comes back to the wallet. */
+export async function delist(listingId, title) {
+  try { await ensureWallet(); } catch (e) { return; }
+  progress('Delist', 'pay', 'Returning the copy to your wallet…');
+  const r = await dapi({ action: 'native-resale-delist', listing_id: Number(listingId), wallet: OWNER, ...(await signMsg('native-resale-delist')) });
+  if (r.error) return failure(r.error, null, null);
+  const bd = shell('Delisted', `<p class="drb-note">${esc(title || 'The copy')} is back in your wallet and your library.</p><button class="drb-go" data-close>Done</button>`);
+  bd.querySelector('[data-close]').addEventListener('click', () => { close(); document.dispatchEvent(new CustomEvent('droprate:library-changed')); });
+}
+
+/* Buy a pre-owned copy. */
+export async function buyPreowned(listingId, currency, meta) {
+  try { await ensureWallet(); } catch (e) { return; }
+  const RSTEPS = [['pay', 'Pay'], ['verify', 'Confirm the payment on-chain'], ['mint', 'Transfer the copy to you']];
+  const prog = (key, msg) => shell('Buy pre-owned', `<div class="drb-steps">${RSTEPS.map(([k, l], i) => { const at = RSTEPS.findIndex(([x]) => x === key); return `<div class="drb-st ${i < at ? 'done' : i === at ? 'now' : ''}"><span class="dot"></span>${l}</div>`; }).join('')}</div><p class="drb-note">${esc(msg)}</p>`);
+  prog('pay', 'Locking the price…');
+  const o = await dapi({ action: 'native-resale-buy-open', listing_id: Number(listingId), buyer: OWNER, pay_currency: currency });
+  if (o.error) return failure(o.error, 'Try again', () => buyPreowned(listingId, currency, meta));
+  prog('pay', `Approve ${currency === 'SOL' ? solf(o.amount_raw) + ' SOL' : usdc(o.amount_raw) + ' USDC'} in your wallet.`);
+  const bp = await dapi({ action: 'native-resale-buy-buildpay', order_id: o.order_id, payer: OWNER });
+  if (bp.error) return failure(bp.error, 'Try again', () => buyPreowned(listingId, currency, meta));
+  try { await wallet.signAndSendTransaction(decodeTx(bp.transaction, !!bp.versioned)); }
+  catch (e) { return failure('Payment was rejected or cancelled in your wallet. Nothing has been charged.', 'Try again', () => buyPreowned(listingId, currency, meta)); }
+  prog('verify', 'Waiting for the network to confirm…');
+  const done = await poll(
+    () => dapi({ action: 'native-resale-buy-confirm', order_id: o.order_id }),
+    (r) => r.state === 'settled' || r.state === 'delivered' || r.state === 'refunded',
+    (r) => r.error && !/payment-not-found/i.test(r.error),
+    36, 2500);
+  if (!done.ok) return failure(done.result?.error === 'payment-not-found' ? "We couldn't find your payment on-chain yet. If your wallet says it went through, wait a moment and check again — nothing is lost." : (done.result?.error || 'Could not confirm the purchase.'), 'Check again', () => buyPreowned(listingId, currency, meta));
+  if (done.result.state === 'refunded') return failure('That copy was no longer for sale — your payment has been refunded.', null, null);
+  const bd = shell('It\'s yours', `<div style="text-align:center;padding:10px 0"><div style="font-size:34px">🔑</div>
+    <div style="font-weight:600;font-size:16px;margin:8px 0 4px">${esc((meta && meta.title) || 'Your copy')} is in your wallet</div>
+    <p class="drb-note">Pre-owned, and now yours to keep — or to sell on again. Find it in your library.</p></div>
+    <a class="drb-go" href="/library.html" style="display:block;text-align:center;text-decoration:none">Open library</a>
+    <button class="drb-ghost" data-close>Close</button>`);
+  bd.querySelector('[data-close]').addEventListener('click', close);
+}
+
 window.DropRateBuy = {
   open, close, libraryRead,
+  sell, delist, buyPreowned,
   connect: connectUI, owner: currentOwner, provider: currentProvider,
   disconnect, menu: walletMenu, pick: pickWallet, resume: resumeWallet,
   signFor, signLibrary,

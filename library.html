@@ -61,6 +61,7 @@
   .chip{border:1px solid var(--line);border-radius:999px;padding:3px 9px}
   .chip.own{border-color:rgba(95,211,155,.4);color:var(--good)}
   .chip.gone{border-color:rgba(255,107,107,.4);color:var(--bad)}
+  .chip.listed{border-color:rgba(255,194,75,.5);color:var(--gold)}
   .row{display:flex;gap:8px;margin-top:auto}
   .btn{flex:1;text-align:center;text-decoration:none;font-family:var(--display);font-weight:700;
     font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;border:0;border-radius:10px;
@@ -142,7 +143,8 @@ function empty(title, body, cta) {
    Watching it disappear with no explanation is how people assume they were
    robbed; seeing "sold" next to it is how they remember they sold it. */
 function card(c) {
-  const gone = !c.still_owned;
+  const listed = !!c.listed;                       // in DropRate escrow, for sale
+  const gone = !c.still_owned && !listed;
   // devs may paste an https URL or a client-resized data: URL — both render
   const art = c.image && /^(https?:\/\/|data:image\/)/i.test(c.image)
     ? `<img src="${esc(c.image)}" alt="" loading="lazy">`
@@ -153,15 +155,18 @@ function card(c) {
       <div class="body">
         <div class="name">${esc(c.title)}</div>
         <div class="meta">
-          <span class="chip ${gone ? 'gone' : 'own'}">${gone ? 'Sold' : 'Owned'}</span>
+          <span class="chip ${gone ? 'gone' : listed ? 'listed' : 'own'}">${gone ? 'Sold' : listed ? ('Listed · $' + (c.listing_price_cents / 100).toFixed(2)) : 'Owned'}</span>
           <span class="chip">${c.runtime === 'web' ? 'Browser' : 'Download'}</span>
         </div>
         <div class="row">
           ${gone
             ? `<button class="btn" disabled>No longer yours</button>`
-            : (c.runtime === 'web'
-              ? `<a class="btn" href="/play.html?id=${encodeURIComponent(c.product_id)}">Play</a>`
-              : `<a class="btn" href="/?game=${encodeURIComponent(c.product_id)}">Download</a>`)}
+            : listed
+              ? `<button class="btn ghost" style="flex:1" data-delist="${c.listing_id}" data-title="${esc(c.title)}">Delist</button>`
+              : (c.runtime === 'web'
+                ? `<a class="btn" href="/play.html?id=${encodeURIComponent(c.product_id)}">Play</a>`
+                : `<a class="btn" href="/?game=${encodeURIComponent(c.product_id)}">Download</a>`)}
+          ${(!gone && !listed) ? `<button class="btn ghost" data-sell="${esc(c.asset_address)}" title="Sell this copy">Sell</button>` : ''}
           <a class="btn ghost" href="${solscan}" target="_blank" rel="noopener" title="View on-chain">↗</a>
         </div>
       </div>
@@ -213,7 +218,12 @@ async function load() {
     ? `${owned} ${owned === 1 ? 'game' : 'games'}, all still yours.`
     : `${owned} of ${copies.length} still yours — the rest you've sold on.`;
   out.innerHTML = `<div class="grid">${copies.map(card).join('')}</div>`;
+  out.onclick = (e) => {
+    const s = e.target.closest('[data-sell]'); if (s) { const c = copies.find((x) => x.asset_address === s.dataset.sell); if (c) window.DropRateBuy.sell(c); return; }
+    const d = e.target.closest('[data-delist]'); if (d) window.DropRateBuy.delist(d.dataset.delist, d.dataset.title);
+  };
 }
+document.addEventListener('droprate:library-changed', () => load());
 
 paint(window.DropRateBuy?.owner());
 load();
