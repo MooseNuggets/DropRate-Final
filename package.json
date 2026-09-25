@@ -16,6 +16,9 @@
     "@metaplex-foundation/umi-bundle-defaults": "^1.5.1"
   },
   "overrides": {
-    "@solana/web3.js": "^1.99.0"
+    "@solana/web3.js": "^1.99.0",
+    "rpc-websockets": {
+      "uuid": "^11.1.0"
+    }
   }
 }
