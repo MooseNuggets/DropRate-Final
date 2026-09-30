@@ -541,6 +541,14 @@ function natFormHTML(prefix,g){
     '<div class="mini" style="margin:4px 0 2px">Royalty caps at 25% (the default). On every pre-owned sale the seller gets what is left after your royalty and the flat 5% platform fee: at 25% the split is 70 / 25 / 5. Floor caps at 100% of your list price.</div>'+
     '<label class="chk"><input type="checkbox" id="'+prefix+'-showpre"'+(g.show_preowned!==false?' checked':'')+'> Show pre-owned listings on my game page</label>'+
     '<div class="mini" style="margin:2px 0 6px">Off keeps your page to new copies only. Owners can still resell: their listings stay on the pre-owned marketplace and via direct link, and you still earn your royalty. If a finite run sells out, pre-owned shows on your page regardless, since it is the only way left to buy.</div>'+
+    '<label class="chk"><input type="checkbox" id="'+prefix+'-rent"'+(g.rent_enabled?' checked':'')+'> Offer this game for rent</label>'+
+    '<div id="'+prefix+'-rentrow" style="display:'+(g.rent_enabled?'block':'none')+'">'+
+      '<div class="row"><div><label class="f">Rent price / day (USD)</label><input id="'+prefix+'-rentday" value="'+(g.rent_cents_per_day?(g.rent_cents_per_day/100).toFixed(2):'')+'" inputmode="decimal" placeholder="0.50"></div>'+
+      '<div><label class="f">Min days</label><input id="'+prefix+'-rentmin" value="'+(g.rent_min_days||1)+'" inputmode="numeric"></div>'+
+      '<div><label class="f">Max days</label><input id="'+prefix+'-rentmax" value="'+(g.rent_max_days||14)+'" inputmode="numeric"></div></div>'+
+      '<label class="chk"><input type="checkbox" id="'+prefix+'-rto"'+(g.rent_to_own?' checked':'')+'> Rent-to-own: rent paid in the last 30 days comes off the purchase price</label>'+
+      '<div class="mini" style="margin:2px 0 6px">A rental is time on the play gate — no copy is minted and it never touches your supply, so it works on sold-out runs too. You keep 95% of every rental, same as a sale. Renters keep their saves and achievements, which is what makes rent-to-own convert.</div>'+
+    '</div>'+
     '<label class="f">Cover image</label>'+
     '<div class="imgdrop cover" id="'+prefix+'img-zone"><img class="imgprev" id="'+prefix+'img-prev" alt=""><div class="imgdrop-cta" id="'+prefix+'img-cta">Drag &amp; drop a cover, or click</div><input type="file" accept="image/*" hidden id="'+prefix+'img-file"></div>'+
     '<input id="'+prefix+'img-url" placeholder="…or paste an image URL" style="margin-top:8px">'+
@@ -555,6 +563,8 @@ function wireNatForm(prefix,g){
   const gallery=galleryField(prefix+'gal',(g&&g.media)||[]);
   const sm=$(prefix+'-sm'), cap=$(prefix+'-caprow');
   if(sm&&cap) sm.addEventListener('change',()=>{ cap.style.display=sm.value==='finite'?'block':'none'; });
+  const rent=$(prefix+'-rent'), rentrow=$(prefix+'-rentrow');
+  if(rent&&rentrow) rent.addEventListener('change',()=>{ rentrow.style.display=rent.checked?'block':'none'; });
   // a launcher download can't run on a phone — hide and clear the flag when runtime isn't web
   const rt=$(prefix+'-rt'), mobrow=$(prefix+'-mobrow'), mob=$(prefix+'-mob');
   const demorow=$(prefix+'-demorow'), demo=$(prefix+'-demo');
@@ -586,6 +596,11 @@ function collectNat(prefix,cover,gallery){
     resale_floor_bps:Math.round((parseFloat($(prefix+'-floor').value)||0)*100),
     resale_cooldown_hours:Math.round(parseFloat($(prefix+'-cool').value)||0),
     show_preowned: !!($(prefix+'-showpre')&&$(prefix+'-showpre').checked),
+    rent_enabled: !!($(prefix+'-rent')&&$(prefix+'-rent').checked),
+    rent_cents_per_day: Math.round((parseFloat($(prefix+'-rentday')&&$(prefix+'-rentday').value)||0)*100),
+    rent_min_days: Math.round(parseFloat($(prefix+'-rentmin')&&$(prefix+'-rentmin').value)||1),
+    rent_max_days: Math.round(parseFloat($(prefix+'-rentmax')&&$(prefix+'-rentmax').value)||14),
+    rent_to_own: !!($(prefix+'-rto')&&$(prefix+'-rto').checked),
     image:cover.get()||null, media:gallery.get(),
     videos:$(prefix+'-vids').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),
     description:$(prefix+'-desc').value.trim() };
@@ -638,7 +653,7 @@ function renderNative(games){
   const supplyTxt=g=>g.supply_model==='finite'?(g.available+' of '+g.supply_cap+' left'):'unlimited';
   const rows=games.length?games.map(g=>'<div class="prodrow"><div>'+
     '<div style="font-weight:600">'+esc(g.title)+' <span class="mini">· '+usd(g.price_cents)+' · '+(g.runtime==='web'?'web':'download')+'</span></div>'+
-    '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'% · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div>'+
+    '<div class="mini">'+supplyTxt(g)+' · royalty '+(g.royalty_bps/100)+'% · floor '+(g.resale_floor_bps/100)+'%'+(g.rent?' · rent $'+(g.rent.per_day_cents/100).toFixed(2)+'/day'+(g.rent.rent_to_own?' (rent-to-own)':''):'')+' · '+(g.active?'<span style="color:var(--green)">live</span>':'<span style="color:var(--muted)">hidden</span>')+'</div>'+
     '<div class="mini">'+filesSummary(g)+'</div>'+
     '<div class="mini" style="margin-top:3px">'+reviewPill(g)+'</div></div>'+
     '<div class="prodacts" style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'+

@@ -320,6 +320,8 @@
   .studio{font-size:11.5px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52%}
   .preown{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:2px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.08)}
   .preown b{color:var(--gold-hi)} .preown svg{width:11px;height:11px;color:var(--gold)}
+  .cta.rent{background:transparent;color:var(--gold-hi);border:1px solid rgba(255,194,75,.5);box-shadow:none;margin-top:8px}
+  .cta.rent:hover{background:rgba(255,194,75,.1)}
   .po{margin-top:14px}
   .po-toggle{display:flex;align-items:center;gap:8px;width:100%;background:none;border:1px dashed rgba(255,255,255,.12);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-align:left}
   .po-toggle:hover{border-color:rgba(255,194,75,.4);color:var(--ink)} .po-toggle b{color:var(--gold-hi)} .po-toggle svg{width:11px;height:11px;color:var(--gold);flex:0 0 auto}
@@ -713,6 +715,7 @@ function card(g){
       scarcityHTML(g)+
       '<div class="cmeta"><span class="price gold-text"><span class="pu">'+usd(g.price_cents)+'</span></span><span class="studio">'+esc((g.dev&&g.dev.studio)||'')+'</span></div>'+
       (g.preowned_count>0?('<div class="preown">'+KEY_IC+'Pre-owned from <b>'+usd(g.preowned_from_cents)+'</b> · '+g.preowned_count+' listed</div>'):'')+
+      (g.rent?('<div class="preown">'+KEY_IC+'Rent <b>'+usd(g.rent.per_day_cents)+'/day</b>'+(g.rent.rent_to_own?' · rent-to-own':'')+'</div>'):'')+
     '</div></div>';
 }
 function spotShellHTML(){
@@ -888,14 +891,14 @@ async function openGame(id){
           '<div><span>Plays on</span><span class="v">'+rt+'</span></div>'+
           ((p.genres&&p.genres.length)?('<div><span>Genre</span><span class="v">'+esc(p.genres.join(', '))+'</span></div>'):'')+
           supplyRow+
-          '<div><span>Dev gets on resale</span><span class="v">'+((p.royalty_bps||0)/100)+'%</span></div>'+
-          '<div><span>Minimum resale price</span><span class="v">'+((p.resale_floor_bps||0)/100)+'% of list</span></div>'+
+          (p.rent ? '<div><span>Rent</span><span class="v">'+usd(p.rent.per_day_cents)+'/day · '+p.rent.min_days+'–'+p.rent.max_days+' days'+(p.rent.rent_to_own?' · rent counts toward buying':'')+'</span></div>' : '')+
           '<div><span>Pay with</span><span class="v">USDC or SOL</span></div>'+
         '</div>'+
         (p.play_url ? '<a class="cta play" href="/play.html?id='+p.id+'">'+PLAY_IC+'Play free in your browser</a>' : '')+
         (p.sold_out
           ? '<button class="cta soon">Sold out — new copies</button>'
           : '<button class="cta" data-buy="'+p.id+'">Buy · '+usd(p.price_cents)+'</button>')+
+        (p.rent ? '<button class="cta rent" data-rent="'+p.id+'">Rent · '+usd(p.rent.per_day_cents)+'/day'+(p.rent.rent_to_own?' · rent-to-own':'')+'</button>' : '')+
         '<p style="position:relative;color:var(--dim2);font-size:11.5px;margin-top:11px;line-height:1.6">'+(p.sold_out?'The run is gone. Pre-owned copies below are the way in — same ownership, transferred to your wallet the moment you pay.':'Two approvals: one to pay, one to mint the copy into your wallet. Then it is yours.')+'</p>'+
       '</div>'+
       '<div class="po" id="gvpo"></div>'+
@@ -906,6 +909,8 @@ async function openGame(id){
   ov.querySelector('#gvb').addEventListener('click',e=>{
     const bb=e.target.closest('[data-buy]');
     if(bb){ if(window.DropRateBuy){ window.DropRateBuy.open(bb.dataset.buy); } else { toast&&toast('Checkout is still loading — one moment.'); } return; }
+    const rb=e.target.closest('[data-rent]');
+    if(rb){ if(window.DropRateBuy&&window.DropRateBuy.rent){ window.DropRateBuy.rent(rb.dataset.rent,{title:p.title}); } else { toast&&toast('Checkout is still loading — one moment.'); } return; }
     const dv=e.target.closest('[data-dev]'); if(dv&&dv.dataset.dev){ close(); openDev(dv.dataset.dev); } });
   show(0);
   loadAchievements(ov.querySelector('#gvach'),p.id);
@@ -930,11 +935,10 @@ async function loadPreowned(el,p){
     (acc.includes('USDC')?('<button class="bt" data-po="'+l.id+'" data-cur="USDC">'+(Number(l.usdc_raw)/1e6).toFixed(2)+' USDC</button>'):'')+
     (acc.includes('SOL')&&l.sol_raw?('<button class="bt" data-po="'+l.id+'" data-cur="SOL">≈ '+(Number(l.sol_raw)/1e9).toFixed(3).replace(/\.?0+$/,'')+' SOL</button>'):'')+
     '</div></div>').join('');
-  const sellerPct=(10000-(d.royalty_bps||0)-(d.fee_bps||0))/100, devPct=(d.royalty_bps||0)/100, feePct=(d.fee_bps||0)/100;
   const from=Math.min.apply(null,d.listings.map(l=>l.price_cents));
   const n=d.listings.length;
   const body='<div class="po-body">'+rows+
-    '<div class="note">Same copy, same ownership. The seller gets '+sellerPct+'%, the developer '+devPct+'%, DropRate '+feePct+'%. Transferred to your wallet the moment you pay. <a href="/marketplace.html#preowned">Browse all pre-owned →</a></div></div>';
+    '<div class="note">Same copy, same ownership — transferred to your wallet the moment you pay. <a href="/marketplace.html#preowned">Browse all pre-owned →</a></div></div>';
   if(p.sold_out){
     // The run is gone; used copies are the buy path now, so they get the headline.
     el.innerHTML='<div class="sec-label" style="margin:0 0 4px"><h2 style="font-size:16px">Pre-owned copies</h2><span class="ln"></span><span class="note">'+n+' for sale</span></div>'+body;

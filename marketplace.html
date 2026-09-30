@@ -254,7 +254,7 @@ function showTab(name){
 function renderPreowned(d){
   const grid=$('preGrid'), note=$('preNote');
   const L=(d&&d.listings)||[];
-  note.textContent=L.length?(L.length+' cop'+(L.length===1?'y':'ies')+' listed · seller 70% · developer up to 25% · DropRate 5%'):'';
+  note.textContent=L.length?(L.length+' cop'+(L.length===1?'y':'ies')+' listed'):'';
   if(!L.length){ grid.innerHTML='<div class="empty">Nothing pre-owned yet. When an owner lists a game from their library, it shows up here.</div>'; return; }
   grid.innerHTML=L.map(it=>{
     const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));

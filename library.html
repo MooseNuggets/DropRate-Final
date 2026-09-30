@@ -173,6 +173,34 @@ function card(c) {
     </article>`;
 }
 
+/* Rented games: a clock instead of a serial. When it runs out the card stays a
+   while, greyed, with the way back in — rent again, or buy (rent-to-own devs
+   credit what you paid). */
+const daysLeft = (iso) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400e3));
+function rentCard(r) {
+  const art = r.image && /^(https?:\/\/|data:image\/)/i.test(r.image) ? `<img src="${esc(r.image)}" alt="" loading="lazy">` : `<span class="none">No cover art</span>`;
+  const live = !!r.live, left = daysLeft(r.expires_at);
+  const until = new Date(r.expires_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `<article class="card">
+      <div class="art">${art}<span class="serial">${live ? (left <= 1 ? 'Last day' : left + ' days left') : 'Rental over'}</span></div>
+      <div class="body">
+        <div class="name">${esc(r.title)}</div>
+        <div class="meta">
+          <span class="chip ${live ? 'listed' : 'gone'}">${live ? 'Rented · until ' + esc(until) : 'Expired'}</span>
+          <span class="chip">${r.runtime === 'web' ? 'Browser' : 'Download'}</span>
+        </div>
+        <div class="row">
+          ${live
+            ? (r.runtime === 'web'
+              ? `<a class="btn" href="/play.html?id=${encodeURIComponent(r.product_id)}">Play</a>`
+              : `<a class="btn" href="/?game=${encodeURIComponent(r.product_id)}">Download</a>`)
+            : `<button class="btn" data-rent="${r.product_id}" data-title="${esc(r.title)}">Rent again</button>`}
+          <a class="btn ghost" href="/?game=${encodeURIComponent(r.product_id)}" title="${r.rent_to_own ? 'Rent-to-own: what you paid comes off the price' : 'Buy it'}">${r.rent_to_own ? 'Buy · credit applies' : 'Buy'}</a>
+        </div>
+      </div>
+    </article>`;
+}
+
 async function load() {
   const owner = window.DropRateBuy?.owner();
   warn.innerHTML = '';
@@ -205,7 +233,11 @@ async function load() {
   }
 
   const copies = r.copies || [];
-  if (!copies.length) {
+  const rr = await dapi({ action: 'native-rent-mine', wallet: owner, ...sig }).catch(() => ({}));
+  // expired rentals linger for a week so "where did it go" has an answer
+  const rentals = (rr.rentals || []).filter((x) => x.live || (Date.now() - new Date(x.expires_at).getTime()) < 7 * 86400e3)
+    .filter((x) => !copies.some((c) => c.product_id === x.product_id && c.still_owned));
+  if (!copies.length && !rentals.length) {
     sub.textContent = 'Everything you own, checked against the chain — not against our records.';
     empty('No games yet',
       'Buy something from the store and it lands here, with its serial number, ready to play.',
@@ -214,13 +246,17 @@ async function load() {
   }
 
   const owned = copies.filter((c) => c.still_owned).length;
-  sub.textContent = owned === copies.length
+  const renting = rentals.filter((x) => x.live).length;
+  const ownText = !copies.length ? '' : owned === copies.length
     ? `${owned} ${owned === 1 ? 'game' : 'games'}, all still yours.`
     : `${owned} of ${copies.length} still yours — the rest you've sold on.`;
-  out.innerHTML = `<div class="grid">${copies.map(card).join('')}</div>`;
+  sub.textContent = [ownText, renting ? `${renting} rented.` : ''].filter(Boolean).join(' ');
+  out.innerHTML = (copies.length ? `<div class="grid">${copies.map(card).join('')}</div>` : '') +
+    (rentals.length ? `<h2 style="font-size:15px;margin:${copies.length ? 28 : 0}px 0 10px;color:var(--dim,#98a1c8);font-weight:600;letter-spacing:.04em;text-transform:uppercase">Rented</h2><div class="grid">${rentals.map(rentCard).join('')}</div>` : '');
   out.onclick = (e) => {
     const s = e.target.closest('[data-sell]'); if (s) { const c = copies.find((x) => x.asset_address === s.dataset.sell); if (c) window.DropRateBuy.sell(c); return; }
-    const d = e.target.closest('[data-delist]'); if (d) window.DropRateBuy.delist(d.dataset.delist, d.dataset.title);
+    const d = e.target.closest('[data-delist]'); if (d) { window.DropRateBuy.delist(d.dataset.delist, d.dataset.title); return; }
+    const rb = e.target.closest('[data-rent]'); if (rb) window.DropRateBuy.rent(rb.dataset.rent, { title: rb.dataset.title });
   };
 }
 document.addEventListener('droprate:library-changed', () => load());

@@ -161,14 +161,45 @@ async function boot(){
       esc(p.title)+' runs through the DropRate desktop app rather than the browser. '+
       'It will be playable when the launcher ships.');
   }
-  if(!p.play_url){
-    return state(p.has_build ? 'Not open to play yet' : 'No build uploaded yet',
-      p.has_build
-        ? 'The developer hasn’t opened '+esc(p.title)+' up for free play. It will be playable once you own it.'
-        : esc(dev.studio||'The developer')+' hasn’t uploaded a playable build for '+esc(p.title)+' yet.');
+  if(!p.play_url && p.has_build){
+    // Not a public demo: owners and renters get a play link once they've signed.
+    PRODUCT=p.id;
+    const prov=detectWallet();
+    state('Sign in to play',
+      esc(p.title)+' is playable by anyone who owns or rents a copy. '+
+      (prov ? '<button class="btn" id="ovsign" style="margin-top:14px">Sign in with your wallet</button>' : 'Install Phantom or Solflare to sign in.'));
+    const b=document.getElementById('ovsign');
+    if(b) b.addEventListener('click',async()=>{
+      b.disabled=true; b.textContent='Check your wallet…';
+      try{
+        const r=await prov.connect();
+        WALLET=((r&&r.publicKey)?r.publicKey:prov.publicKey).toString();
+        const sig=await signMsg(prov,WALLET);
+        const v=await api({action:'native-view',product_id:id,wallet:WALLET,...sig});
+        const pp=v&&v.product;
+        if(!pp||!pp.may_play||!pp.play_url){
+          state('Not yours to play — yet',
+            esc((pp&&pp.play_reason)||(v&&v.error)||'This wallet doesn’t own or rent a copy.')+'. <a href="/?game='+id+'">Buy or rent it on the store</a>.');
+          return;
+        }
+        // reuse the same signature for the SDK ticket (same wallet, same window)
+        const t=await api({action:'sdk-ticket-web',product_id:id,wallet:WALLET,...sig});
+        if(!t.error){ TICKET=t.ticket; }
+        if(pp.rental) toastMini('Rented — access until '+new Date(pp.rental.expires_at).toLocaleString());
+        mount(Object.assign(p,{play_url:pp.play_url}),dev,true);
+      }catch(e){ b.disabled=false; b.textContent='Sign in with your wallet'; toastMini('Sign-in cancelled.'); }
+    });
+    return;
   }
+  if(!p.play_url){
+    return state('No build uploaded yet', esc(dev.studio||'The developer')+' hasn’t uploaded a playable build for '+esc(p.title)+' yet.');
+  }
+  mount(p,dev,false);
+}
 
-  $('freechip').classList.remove('hide');
+function mount(p,dev,signedIn){
+  state('Loading the game…','',true);
+  if(!signedIn) $('freechip').classList.remove('hide');
   $('fs').classList.remove('hide');
 
   /* The bundle lives on a DIFFERENT origin (the storage domain), which is what
@@ -186,6 +217,7 @@ async function boot(){
   f.src=p.play_url;
   $('stage').appendChild(f);
   sdkBridge(f,p);
+  if(signedIn&&WALLET){ $('signinlabel').textContent=WALLET.slice(0,4)+'…'+WALLET.slice(-4); $('signin').disabled=true; }
 
   // if it never loads, don't leave them staring at a spinner
   setTimeout(()=>{ if(!$('ov').classList.contains('hide'))

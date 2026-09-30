@@ -507,8 +507,15 @@ async function run(productId, currency, quote) {
       soldOut ? null : 'Try again', soldOut ? null : () => run(productId, currency, quote));
   }
 
+  // --- rent-to-own: rental fees already covered it — straight to the mint
+  if (order.state === 'paid' || Number(order.pay_amount_raw) === 0) {
+    return mintStep(order, productId, quote);
+  }
+
   // --- pay
-  progress('Buy', 'pay', 'Approve the payment in your wallet.');
+  progress('Buy', 'pay', order.credit_cents > 0
+    ? `Approve the payment in your wallet. ${money(order.credit_cents)} of rental fees came off the price — you pay ${money(order.due_cents)}.`
+    : 'Approve the payment in your wallet.');
   const bp = await dapi({ action: 'native-buy-buildpay', order_id: order.order_id, payer: OWNER });
   if (bp.error) return failure(bp.error, 'Try again', () => run(productId, currency, quote));
 
@@ -844,6 +851,95 @@ export async function sell(copy) {
   });
 }
 
+/* ---- RENT: time on the play gate, no copy minted ---------------------------
+   Same payment rails as a purchase, one approval instead of two. The developer
+   sets the daily price and the term limits; the renter picks the days. */
+const RENT_STEPS = [
+  ['term', 'Pick your days'],
+  ['pay', 'Pay'],
+  ['verify', 'Confirm the payment on-chain'],
+  ['live', 'Access switched on'],
+];
+const dayWord = (n) => n + (n === 1 ? ' day' : ' days');
+const untilText = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+export async function rent(productId, meta) {
+  const pid = Number(productId);
+  const bd = shell('Rent', '<p class="drb-note">Checking the rate…</p>');
+  // signed if we can: then the quote carries a live rental + rent-to-own credit
+  let sig = null;
+  try { if (OWNER || await resumeWallet()) sig = await signMsg('native-rent-quote'); } catch {}
+  const q = await dapi({ action: 'native-rent-quote', product_id: pid, ...(sig ? { wallet: OWNER, ...sig } : {}) });
+  if (q.error || !q.enabled) {
+    bd.innerHTML = `<div class="drb-err">${esc(q.error || 'This game isn\'t offered for rent.')}</div><button class="drb-ghost" data-close>Close</button>`;
+    bd.querySelector('[data-close]').addEventListener('click', close);
+    return;
+  }
+  const title = (meta && meta.title) || q.title || 'this game';
+  let days = q.min_days, chosen = q.accepted_currencies[0] || 'USDC';
+  const total = () => days * q.per_day_cents;
+  const amt = (c) => c === 'SOL' ? (q.solUsd ? '≈ ' + solf(Math.round(total() / 100 / q.solUsd * 1e9)) + ' SOL' : 'SOL unavailable') : usdc(total() * 1e4) + ' USDC';
+  const opts = () => q.accepted_currencies.map((c) => `<button class="drb-opt" role="button" aria-pressed="${c === chosen}" data-ccy="${c}"><span class="drb-cn">${c}</span><span class="drb-ca">${amt(c)}</span></button>`).join('');
+  const rto = q.rent_to_own
+    ? `<p class="drb-note" style="text-align:left;margin:10px 0 0">Rent-to-own is on: everything you pay in rent over 30 days comes off the price if you buy${q.list_price_cents ? ' (' + money(q.list_price_cents) + ')' : ''}.${q.credit_cents > 0 ? ' You already have <b>' + money(q.credit_cents) + '</b> toward it.' : ''}</p>`
+    : '';
+  const live = q.active ? `<div class="drb-fee" style="margin-bottom:10px"><span>Current rental</span><b>until ${esc(untilText(q.active.expires_at))}</b></div><p class="drb-note" style="text-align:left;margin:-4px 0 10px">More days are added on the end.</p>` : '';
+  bd.innerHTML = `
+    <div class="drb-game"><span class="drb-title">${esc(title)}</span><span class="drb-price">${money(q.per_day_cents)}/day</span></div>
+    ${live}
+    <span class="drb-lbl">How long</span>
+    <div class="drb-days" style="display:flex;align-items:center;gap:10px;margin:6px 0 12px">
+      <button class="drb-ghost" data-d="-1" style="width:44px;margin:0;padding:10px 0">−</button>
+      <div id="drb-dsum" style="flex:1;text-align:center;font-family:var(--display,inherit);font-weight:700;font-size:18px"></div>
+      <button class="drb-ghost" data-d="1" style="width:44px;margin:0;padding:10px 0">+</button>
+    </div>
+    <span class="drb-lbl">Pay with</span>
+    <div class="drb-ccy" id="drb-rccy">${opts()}</div>
+    <button class="drb-go" data-go>Rent for <span id="drb-rtot"></span></button>
+    ${rto}
+    <p class="drb-note" style="margin-top:10px">One approval. Saves and achievements are yours to keep, rental or not. ${q.min_days}–${q.max_days} days.</p>
+    <button class="drb-ghost" data-close>Cancel</button>`;
+  const paint = () => {
+    bd.querySelector('#drb-dsum').textContent = dayWord(days) + ' · ' + money(total());
+    bd.querySelector('#drb-rtot').textContent = money(total());
+    bd.querySelector('#drb-rccy').innerHTML = opts();
+    bd.querySelector('[data-d="-1"]').disabled = days <= q.min_days;
+    bd.querySelector('[data-d="1"]').disabled = days >= q.max_days;
+  };
+  paint();
+  bd.querySelectorAll('[data-d]').forEach((b) => b.addEventListener('click', () => { days = Math.max(q.min_days, Math.min(q.max_days, days + Number(b.dataset.d))); paint(); }));
+  bd.querySelector('#drb-rccy').addEventListener('click', (e) => { const b = e.target.closest('[data-ccy]'); if (!b) return; chosen = b.dataset.ccy; paint(); });
+  bd.querySelector('[data-close]').addEventListener('click', close);
+  bd.querySelector('[data-go]').addEventListener('click', () => rentRun(pid, days, chosen, title));
+}
+
+async function rentRun(pid, days, currency, title) {
+  const rtitle = `Renting ${title}`;
+  const P = (k, m) => progress(rtitle, k, m, '', RENT_STEPS);
+  try { P('pay', 'Connecting your wallet…'); await ensureWallet(); } catch (e) { return failure(e.message, 'Try again', () => rentRun(pid, days, currency, title)); }
+  P('pay', 'Locking the price…');
+  const o = await dapi({ action: 'native-rent-open', product_id: pid, renter: OWNER, days, pay_currency: currency });
+  if (o.error) return failure(o.error, 'Try again', () => rent(pid, { title }));
+  P('pay', `Approve ${currency === 'SOL' ? solf(o.pay_amount_raw) + ' SOL' : usdc(o.pay_amount_raw) + ' USDC'} in your wallet for ${dayWord(days)}.`);
+  const bp = await dapi({ action: 'native-rent-buildpay', rental_id: o.rental_id, payer: OWNER });
+  if (bp.error) return failure(bp.error, 'Try again', () => rentRun(pid, days, currency, title));
+  try { await wallet.signAndSendTransaction(decodeTx(bp.transaction, !!bp.versioned)); }
+  catch (e) { return failure('Payment was rejected or cancelled in your wallet. Nothing has been charged.', 'Try again', () => rentRun(pid, days, currency, title)); }
+  P('verify', 'Waiting for the network to confirm…');
+  const done = await poll(
+    () => dapi({ action: 'native-rent-confirm', rental_id: o.rental_id }),
+    (r) => r.state === 'active',
+    (r) => r.error && !/payment-not-found/i.test(r.error),
+    36, 2500);
+  if (!done.ok) return failure(done.result?.error === 'payment-not-found' ? "We couldn't find your payment on-chain yet. If your wallet says it went through, wait a moment and check again — nothing is lost." : (done.result?.error || 'Could not confirm the rental.'), 'Check again', () => rentRun(pid, days, currency, title));
+  const bd = shell('You\'re in', `<div style="text-align:center;padding:10px 0"><div style="font-size:34px">⏱</div>
+    <div style="font-weight:600;font-size:16px;margin:8px 0 4px">${esc(title)} is yours until ${esc(untilText(done.result.expires_at))}</div>
+    <p class="drb-note">Play it from your library or the launcher. Your saves and achievements stay with your wallet when the clock runs out.</p></div>
+    <a class="drb-go" href="/library.html" style="display:block;text-align:center;text-decoration:none">Open library</a>
+    <button class="drb-ghost" data-close>Close</button>`);
+  bd.querySelector('[data-close]').addEventListener('click', () => { close(); document.dispatchEvent(new CustomEvent('droprate:library-changed')); });
+}
+
 /* Take a listing down; the copy comes back to the wallet. */
 export async function delist(listingId, title) {
   try { await ensureWallet(); } catch (e) { return; }
@@ -888,7 +984,7 @@ export async function buyPreowned(listingId, currency, meta) {
 
 window.DropRateBuy = {
   open, close, libraryRead,
-  sell, delist, buyPreowned,
+  sell, delist, buyPreowned, rent,
   connect: connectUI, owner: currentOwner, provider: currentProvider,
   disconnect, menu: walletMenu, pick: pickWallet, resume: resumeWallet,
   signFor, signLibrary,
