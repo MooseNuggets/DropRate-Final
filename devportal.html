@@ -539,6 +539,8 @@ function natFormHTML(prefix,g){
     '<div><label class="f">Resale floor %</label><input id="'+prefix+'-floor" value="'+(g.resale_floor_bps!=null?(g.resale_floor_bps/100):60)+'" inputmode="decimal"></div></div>'+
     '<label class="f">Resale cooldown (hours) <span style="opacity:.6">· 0 = none</span></label><input id="'+prefix+'-cool" value="'+(g.resale_cooldown_hours!=null?g.resale_cooldown_hours:0)+'" inputmode="numeric">'+
     '<div class="mini" style="margin:4px 0 2px">Royalty caps at 25% (the default). On every pre-owned sale the seller gets what is left after your royalty and the flat 5% platform fee: at 25% the split is 70 / 25 / 5. Floor caps at 100% of your list price.</div>'+
+    '<label class="chk"><input type="checkbox" id="'+prefix+'-showpre"'+(g.show_preowned!==false?' checked':'')+'> Show pre-owned listings on my game page</label>'+
+    '<div class="mini" style="margin:2px 0 6px">Off keeps your page to new copies only. Owners can still resell: their listings stay on the pre-owned marketplace and via direct link, and you still earn your royalty. If a finite run sells out, pre-owned shows on your page regardless, since it is the only way left to buy.</div>'+
     '<label class="f">Cover image</label>'+
     '<div class="imgdrop cover" id="'+prefix+'img-zone"><img class="imgprev" id="'+prefix+'img-prev" alt=""><div class="imgdrop-cta" id="'+prefix+'img-cta">Drag &amp; drop a cover, or click</div><input type="file" accept="image/*" hidden id="'+prefix+'img-file"></div>'+
     '<input id="'+prefix+'img-url" placeholder="…or paste an image URL" style="margin-top:8px">'+
@@ -583,6 +585,7 @@ function collectNat(prefix,cover,gallery){
     royalty_bps:Math.round((parseFloat($(prefix+'-roy').value)||0)*100),
     resale_floor_bps:Math.round((parseFloat($(prefix+'-floor').value)||0)*100),
     resale_cooldown_hours:Math.round(parseFloat($(prefix+'-cool').value)||0),
+    show_preowned: !!($(prefix+'-showpre')&&$(prefix+'-showpre').checked),
     image:cover.get()||null, media:gallery.get(),
     videos:$(prefix+'-vids').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),
     description:$(prefix+'-desc').value.trim() };

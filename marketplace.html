@@ -141,7 +141,8 @@
   <h1>The <span class="g">Marketplace</span></h1>
   <div class="tabbar">
     <button class="tb active" data-tab="direct">Direct</button>
-    <button class="tb" data-tab="resale">Resale</button>
+    <button class="tb" data-tab="resale">Key resale</button>
+    <button class="tb" data-tab="preowned">Pre-owned games</button>
     <a class="tblink" href="/devportal.html">Dev Portal ↗</a>
   </div>
 
@@ -157,6 +158,13 @@
     <p class="lede">Every key here is <b>sealed</b> — never revealed, so it's safe to resell. Sellers set their own price in USD; pay with <b>$DROP, USDC or SOL</b> at the live rate. The seller gets exactly what you paid.</p>
     <div class="note" id="resaleNote">Loading listings…</div>
     <div class="grid" id="resaleGrid"></div>
+  </section>
+
+  <!-- PRE-OWNED (player-to-player native game copies) -->
+  <section id="view-preowned" class="hide">
+    <p class="lede">Games other players are done with. <b>Same copy, same ownership</b> — it moves to your wallet the moment you pay, and you can sell it on again. Sellers set the price; low serials and sold-out runs can go for more than new. Pay in <b>USDC or SOL</b>.</p>
+    <div class="note" id="preNote">Loading listings…</div>
+    <div class="grid" id="preGrid"></div>
   </section>
 
 </div>
@@ -235,9 +243,39 @@ function showTab(name){
   document.querySelectorAll('.tb').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   $('view-resale').classList.toggle('hide',name!=='resale');
   $('view-direct').classList.toggle('hide',name!=='direct');
+  $('view-preowned').classList.toggle('hide',name!=='preowned');
   if(name==='resale') loadResale();
   if(name==='direct') loadDirect();
+  if(name==='preowned') loadPreowned();
+  if(history.replaceState) history.replaceState(null,'',name==='direct'?location.pathname:'#'+name);
 }
+
+// ---------- PRE-OWNED GAMES (native copies, escrowed by DropRate) ----------
+function renderPreowned(d){
+  const grid=$('preGrid'), note=$('preNote');
+  const L=(d&&d.listings)||[];
+  note.textContent=L.length?(L.length+' cop'+(L.length===1?'y':'ies')+' listed · seller 70% · developer up to 25% · DropRate 5%'):'';
+  if(!L.length){ grid.innerHTML='<div class="empty">Nothing pre-owned yet. When an owner lists a game from their library, it shows up here.</div>'; return; }
+  grid.innerHTML=L.map(it=>{
+    const cover=it.image?('<img src="'+esc(it.image)+'" alt="">'):esc(ini(it.title));
+    const serial='Copy #'+it.copy_number+(it.supply_cap?(' of '+it.supply_cap):'');
+    const vs=it.list_price_cents?(it.price_cents<it.list_price_cents?('new '+usd(it.list_price_cents)+' · save '+Math.round(100-it.price_cents*100/it.list_price_cents)+'%'):it.price_cents>it.list_price_cents?('new was '+usd(it.list_price_cents)):('same as new')):'';
+    const acc=it.accepted_currencies||['USDC','SOL'];
+    const btns=[
+      acc.includes('USDC')?'<button class="buy" data-po="'+it.id+'" data-cur="USDC" data-title="'+esc(it.title)+'" style="width:100%">'+fmtUsdc(it.usdc_raw)+' USDC</button>':'',
+      acc.includes('SOL')&&it.sol_raw?'<button class="buy ghostbuy" data-po="'+it.id+'" data-cur="SOL" data-title="'+esc(it.title)+'" style="width:100%">≈ '+fmtSol(it.sol_raw)+' SOL</button>':'',
+    ].join('');
+    return '<div class="card" style="--rc:var(--gold)"><a class="cover" href="/?game='+it.product_id+'" style="text-decoration:none">'+cover+'</a><div class="body">'+
+      '<div class="tag" style="color:var(--gold-2)">'+esc(serial)+(it.sold_out?' · run sold out':'')+'</div>'+
+      '<div class="title"><a href="/?game='+it.product_id+'" style="color:inherit;text-decoration:none">'+esc(it.title)+'</a></div>'+
+      '<div class="price"><div class="usd">'+usd(it.price_cents)+'</div><div class="drop">'+esc(vs)+'</div></div>'+
+      (it.studio?'<div class="seller">by '+esc(it.studio)+'</div>':'')+
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:auto">'+btns+'</div></div></div>';
+  }).join('');
+}
+async function loadPreowned(){ const d=await dapi({action:'native-resale-browse-all'}); if(d&&!d.error) renderPreowned(d); else $('preNote').textContent=(d&&d.error)||''; }
+$('preGrid').addEventListener('click',e=>{ const b=e.target.closest('[data-po]'); if(!b) return;
+  if(window.DropRateBuy&&window.DropRateBuy.buyPreowned) window.DropRateBuy.buyPreowned(b.dataset.po,b.dataset.cur,{title:b.dataset.title}); else toast('Checkout is still loading — one moment.'); });
 function openKeys(){ $('keysOv').classList.remove('hide'); loadLibrary(); }
 function closeKeys(){ $('keysOv').classList.add('hide'); }
 document.querySelectorAll('.tb').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
@@ -504,8 +542,8 @@ $('myKeysBtn').addEventListener('click',openKeys);
 $('keysClose').addEventListener('click',closeKeys);
 $('keysOv').addEventListener('click',e=>{ if(e.target===$('keysOv')) closeKeys(); });
 $('connectBtn').addEventListener('click',async()=>{ if(await connect() && TAB!=='resale') showTab(TAB); });
-showTab('direct');
-/* showTab('direct') above already did the first load, so this only refreshes —
+showTab(/^#(preowned|resale)$/.test(location.hash)?location.hash.slice(1):'direct');
+/* showTab above already did the first load, so this only refreshes —
    and only while the tab is visible. */
 (function(){
   var last = Date.now();
@@ -514,6 +552,7 @@ showTab('direct');
     last = Date.now();
     if (TAB === 'resale') loadResale();
     if (TAB === 'direct') loadDirect();
+    if (TAB === 'preowned') loadPreowned();
   }
   setInterval(poll, 120000);
   document.addEventListener('visibilitychange', function(){
@@ -521,5 +560,6 @@ showTab('direct');
   });
 })();
 </script>
+<script type="module" src="/buy.js"></script>
 </body>
 </html>

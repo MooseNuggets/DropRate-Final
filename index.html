@@ -321,6 +321,11 @@
   .preown{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:2px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.08)}
   .preown b{color:var(--gold-hi)} .preown svg{width:11px;height:11px;color:var(--gold)}
   .po{margin-top:14px}
+  .po-toggle{display:flex;align-items:center;gap:8px;width:100%;background:none;border:1px dashed rgba(255,255,255,.12);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;text-align:left}
+  .po-toggle:hover{border-color:rgba(255,194,75,.4);color:var(--ink)} .po-toggle b{color:var(--gold-hi)} .po-toggle svg{width:11px;height:11px;color:var(--gold);flex:0 0 auto}
+  .po-toggle .chev{margin-left:auto;font-size:16px;line-height:1;transition:transform .15s} .po:not(.collapsed) .po-toggle .chev{transform:rotate(90deg)}
+  .po.collapsed .po-body{display:none}
+  .po .note a{color:var(--gold-hi);text-decoration:none} .po .note a:hover{text-decoration:underline}
   .po .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-top:6px}
   .po .meta{display:flex;align-items:baseline;gap:10px;flex:1 1 110px;min-width:0;white-space:nowrap}
   .po .acts{display:flex;gap:6px;flex:0 0 auto;margin-left:auto}
@@ -889,9 +894,9 @@ async function openGame(id){
         '</div>'+
         (p.play_url ? '<a class="cta play" href="/play.html?id='+p.id+'">'+PLAY_IC+'Play free in your browser</a>' : '')+
         (p.sold_out
-          ? '<button class="cta soon">Sold out — new copies · see pre-owned below</button>'
+          ? '<button class="cta soon">Sold out — new copies</button>'
           : '<button class="cta" data-buy="'+p.id+'">Buy · '+usd(p.price_cents)+'</button>')+
-        '<p style="position:relative;color:var(--dim2);font-size:11.5px;margin-top:11px;line-height:1.6">Two approvals: one to pay, one to mint the copy into your wallet. Then it is yours.</p>'+
+        '<p style="position:relative;color:var(--dim2);font-size:11.5px;margin-top:11px;line-height:1.6">'+(p.sold_out?'The run is gone. Pre-owned copies below are the way in — same ownership, transferred to your wallet the moment you pay.':'Two approvals: one to pay, one to mint the copy into your wallet. Then it is yours.')+'</p>'+
       '</div>'+
       '<div class="po" id="gvpo"></div>'+
     '</div></div>';
@@ -911,8 +916,14 @@ async function openGame(id){
    headline and "used" is the deal. */
 async function loadPreowned(el,p){
   if(!el) return;
+  // The developer decides whether used copies show on their page. Sold out
+  // overrides that: then pre-owned is the only way to buy, so it leads.
+  if(p.show_preowned===false && !p.sold_out){ el.innerHTML=''; return; }
   const d=await api({action:'native-resale-browse',product_id:p.id});
-  if(!d||d.error||!d.listings||!d.listings.length){ el.innerHTML=''; return; }
+  if(!d||d.error||!d.listings||!d.listings.length){
+    el.innerHTML=p.sold_out?'<div class="note" style="margin-top:10px">No pre-owned copies right now. When an owner lists one, it shows up here and on the <a href="/marketplace.html#preowned">pre-owned marketplace</a>.</div>':'';
+    return;
+  }
   const acc=d.accepted_currencies||['USDC','SOL'];
   const rows=d.listings.map(l=>'<div class="row"><div class="meta"><span class="cp">Copy #'+l.copy_number+'</span><span class="pr gold-text">'+usd(l.price_cents)+'</span></div>'+
     '<div class="acts">'+
@@ -920,8 +931,19 @@ async function loadPreowned(el,p){
     (acc.includes('SOL')&&l.sol_raw?('<button class="bt" data-po="'+l.id+'" data-cur="SOL">≈ '+(Number(l.sol_raw)/1e9).toFixed(3).replace(/\.?0+$/,'')+' SOL</button>'):'')+
     '</div></div>').join('');
   const sellerPct=(10000-(d.royalty_bps||0)-(d.fee_bps||0))/100, devPct=(d.royalty_bps||0)/100, feePct=(d.fee_bps||0)/100;
-  el.innerHTML='<div class="sec-label" style="margin:0 0 4px"><h2 style="font-size:16px">Pre-owned</h2><span class="ln"></span><span class="note">'+d.listings.length+' for sale</span></div>'+rows+
-    '<div class="note">Same copy, same ownership, lower price. The seller gets '+sellerPct+'%, the developer '+devPct+'%, DropRate '+feePct+'%. Transferred to your wallet the moment you pay.</div>';
+  const from=Math.min.apply(null,d.listings.map(l=>l.price_cents));
+  const n=d.listings.length;
+  const body='<div class="po-body">'+rows+
+    '<div class="note">Same copy, same ownership. The seller gets '+sellerPct+'%, the developer '+devPct+'%, DropRate '+feePct+'%. Transferred to your wallet the moment you pay. <a href="/marketplace.html#preowned">Browse all pre-owned →</a></div></div>';
+  if(p.sold_out){
+    // The run is gone; used copies are the buy path now, so they get the headline.
+    el.innerHTML='<div class="sec-label" style="margin:0 0 4px"><h2 style="font-size:16px">Pre-owned copies</h2><span class="ln"></span><span class="note">'+n+' for sale</span></div>'+body;
+  } else {
+    // New is the headline; used is one quiet line the buyer can open.
+    el.innerHTML='<button class="po-toggle" type="button" aria-expanded="false">'+KEY_IC+'<span>Pre-owned · '+n+' available from <b>'+usd(from)+'</b></span><span class="chev">›</span></button>'+body;
+    el.classList.add('collapsed');
+    el.querySelector('.po-toggle').addEventListener('click',()=>{ const open=el.classList.toggle('collapsed'); el.querySelector('.po-toggle').setAttribute('aria-expanded',String(!open)); });
+  }
   el.addEventListener('click',e=>{ const b=e.target.closest('[data-po]'); if(!b) return;
     if(window.DropRateBuy&&window.DropRateBuy.buyPreowned) window.DropRateBuy.buyPreowned(b.dataset.po,b.dataset.cur,{title:p.title}); else toast&&toast('Checkout is still loading — one moment.'); });
 }
